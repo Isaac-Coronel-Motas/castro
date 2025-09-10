@@ -33,7 +33,6 @@ const sidebarItems = [
   {
     icon: ShoppingCart,
     label: "Compras",
-    href: "/compras",
     active: false,
     submenu: [
       { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: false },
@@ -49,7 +48,6 @@ const sidebarItems = [
   {
     icon: Settings,
     label: "Servicios Técnicos",
-    href: "/servicios",
     active: false,
     submenu: [
       { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: false },
@@ -65,7 +63,6 @@ const sidebarItems = [
   {
     icon: Receipt,
     label: "Ventas",
-    href: "/ventas",
     active: false,
     submenu: [
       { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: false },
@@ -81,7 +78,6 @@ const sidebarItems = [
   {
     icon: FileText,
     label: "Referencias",
-    href: "/referencias",
     active: false,
     submenu: [
       { label: "Proveedores", href: "/referencias/proveedores", active: false },
@@ -95,7 +91,6 @@ const sidebarItems = [
   {
     icon: Users,
     label: "Administración",
-    href: "/administracion",
     active: false,
     submenu: [
       { label: "Usuarios", href: "/administracion/usuarios", active: false },
@@ -221,7 +216,7 @@ export default function DashboardPage() {
                       onClick={() => {
                         if (item.submenu) {
                           toggleSubmenu(item.label)
-                        } else {
+                        } else if (item.href) {
                           navigateTo(item.href)
                         }
                       }}

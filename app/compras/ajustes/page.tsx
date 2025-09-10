@@ -23,15 +23,18 @@ import {
   LogOut,
   Plus,
   TrendingUp,
-  Clock,
-  CheckCircle,
+  Package,
   Eye,
   Edit,
   Trash2,
-  Package,
-  DollarSign,
+  RotateCcw,
   Calendar,
   Filter,
+  ArrowUp,
+  ArrowDown,
+  AlertTriangle,
+  Boxes,
+  Calculator,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -43,11 +46,11 @@ const sidebarItems = [
     label: "Compras",
     active: true,
     submenu: [
-      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: true },
+      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: false },
       { label: "Presupuestos Proveedor", href: "/compras/presupuestos", active: false },
       { label: "Órdenes de Compra", href: "/compras/ordenes", active: false },
       { label: "Registro de Compras", href: "/compras/registro", active: false },
-      { label: "Ajustes de Inventario", href: "/compras/ajustes", active: false },
+      { label: "Ajustes de Inventario", href: "/compras/ajustes", active: true },
       { label: "Notas de Crédito/Débito", href: "/compras/notas", active: false },
       { label: "Transferencias", href: "/compras/transferencias", active: false },
       { label: "Informes", href: "/compras/informes", active: false },
@@ -109,107 +112,198 @@ const sidebarItems = [
   },
 ]
 
-export default function PedidosDeCompraPage() {
+export default function AjustesInventarioPage() {
   const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
     Compras: true,
   })
   const [searchTerm, setSearchTerm] = useState("")
+  const [filterType, setFilterType] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const router = useRouter()
 
   const metrics = [
     {
-      title: "Total Pedidos",
-      value: "24",
+      title: "Ajustes del Mes",
+      value: "28",
       change: "+12%",
       trend: "up",
-      icon: Package,
+      icon: RotateCcw,
       color: "bg-primary text-primary-foreground",
     },
     {
-      title: "Pendientes",
-      value: "8",
-      change: "-5%",
-      trend: "down",
-      icon: Clock,
+      title: "Productos Afectados",
+      value: "156",
+      change: "+8%",
+      trend: "up",
+      icon: Boxes,
       color: "bg-secondary text-secondary-foreground",
     },
     {
-      title: "Aprobados",
-      value: "12",
-      change: "+8%",
+      title: "Entradas",
+      value: "18",
+      change: "+15%",
       trend: "up",
-      icon: CheckCircle,
+      icon: ArrowUp,
       color: "bg-chart-1 text-white",
     },
     {
-      title: "Valor Total",
-      value: "₡2.4M",
-      change: "+15%",
+      title: "Valor Ajustado",
+      value: "₡2.1M",
+      change: "+22%",
       trend: "up",
-      icon: DollarSign,
+      icon: Calculator,
       color: "bg-chart-2 text-white",
     },
   ]
 
-  const purchaseOrders = [
+  const inventoryAdjustments = [
     {
-      id: "PC-001",
-      supplier: "Distribuidora Tech SA",
-      date: "2024-01-15",
-      status: "pending",
-      items: 5,
-      total: "₡2,500,000",
-      priority: "high",
-      description: "Componentes electrónicos varios",
-      deliveryDate: "2024-01-25",
-    },
-    {
-      id: "PC-002",
-      supplier: "Electrónica Central",
-      date: "2024-01-14",
+      id: "AJ-001",
+      product: "Samsung Galaxy A54 - Pantalla",
+      sku: "SGX-A54-LCD",
+      adjustmentDate: "2024-01-15",
+      type: "entry",
+      reason: "Compra",
+      previousStock: 15,
+      adjustment: 25,
+      newStock: 40,
+      unitCost: "₡85,000",
+      totalValue: "₡2,125,000",
       status: "approved",
-      items: 3,
-      total: "₡1,800,000",
-      priority: "medium",
-      description: "Pantallas y displays",
-      deliveryDate: "2024-01-22",
+      user: "Juan Pérez",
+      reference: "OC-001",
+      location: "Almacén Principal",
     },
     {
-      id: "PC-003",
-      supplier: "Componentes del Este",
-      date: "2024-01-13",
-      status: "cancelled",
-      items: 2,
-      total: "₡950,000",
-      priority: "low",
-      description: "Cables y conectores",
-      deliveryDate: "2024-01-20",
+      id: "AJ-002",
+      product: "iPhone 12 - Batería Original",
+      sku: "IPH-12-BAT",
+      adjustmentDate: "2024-01-14",
+      type: "exit",
+      reason: "Venta",
+      previousStock: 8,
+      adjustment: -3,
+      newStock: 5,
+      unitCost: "₡45,000",
+      totalValue: "-₡135,000",
+      status: "approved",
+      user: "María González",
+      reference: "VT-045",
+      location: "Almacén Principal",
     },
     {
-      id: "PC-004",
-      supplier: "TechParts Solutions",
-      date: "2024-01-12",
-      status: "delivered",
-      items: 7,
-      total: "₡3,200,000",
-      priority: "high",
-      description: "Procesadores y memorias",
-      deliveryDate: "2024-01-18",
+      id: "AJ-003",
+      product: "Cable USB-C Premium",
+      sku: "CBL-USBC-PR",
+      adjustmentDate: "2024-01-13",
+      type: "correction",
+      reason: "Corrección Stock",
+      previousStock: 50,
+      adjustment: -5,
+      newStock: 45,
+      unitCost: "₡3,500",
+      totalValue: "-₡17,500",
+      status: "pending",
+      user: "Carlos Rodríguez",
+      reference: "INV-2024-001",
+      location: "Almacén Principal",
+    },
+    {
+      id: "AJ-004",
+      product: "Procesador Intel i7-12700K",
+      sku: "INT-I7-12700K",
+      adjustmentDate: "2024-01-12",
+      type: "loss",
+      reason: "Merma",
+      previousStock: 12,
+      adjustment: -2,
+      newStock: 10,
+      unitCost: "₡180,000",
+      totalValue: "-₡360,000",
+      status: "approved",
+      user: "Ana Martínez",
+      reference: "MER-001",
+      location: "Almacén Principal",
+    },
+    {
+      id: "AJ-005",
+      product: "Memoria RAM DDR4 16GB",
+      sku: "RAM-DDR4-16GB",
+      adjustmentDate: "2024-01-11",
+      type: "return",
+      reason: "Devolución Cliente",
+      previousStock: 22,
+      adjustment: 1,
+      newStock: 23,
+      unitCost: "₡65,000",
+      totalValue: "₡65,000",
+      status: "approved",
+      user: "Luis Fernández",
+      reference: "DEV-012",
+      location: "Almacén Principal",
     },
   ]
 
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "entry":
+        return "bg-green-500 text-white"
+      case "exit":
+        return "bg-blue-500 text-white"
+      case "correction":
+        return "bg-secondary text-secondary-foreground"
+      case "loss":
+        return "bg-destructive text-destructive-foreground"
+      case "return":
+        return "bg-chart-2 text-white"
+      default:
+        return "bg-muted text-muted-foreground"
+    }
+  }
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "entry":
+        return "Entrada"
+      case "exit":
+        return "Salida"
+      case "correction":
+        return "Corrección"
+      case "loss":
+        return "Merma"
+      case "return":
+        return "Devolución"
+      default:
+        return type
+    }
+  }
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "entry":
+        return ArrowUp
+      case "exit":
+        return ArrowDown
+      case "correction":
+        return RotateCcw
+      case "loss":
+        return AlertTriangle
+      case "return":
+        return Package
+      default:
+        return RotateCcw
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "approved":
+        return "bg-green-500 text-white"
       case "pending":
         return "bg-secondary text-secondary-foreground"
-      case "approved":
-        return "bg-chart-1 text-white"
-      case "delivered":
-        return "bg-green-500 text-white"
-      case "cancelled":
+      case "rejected":
         return "bg-destructive text-destructive-foreground"
       default:
         return "bg-muted text-muted-foreground"
@@ -218,39 +312,32 @@ export default function PedidosDeCompraPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "pending":
-        return "Pendiente"
       case "approved":
         return "Aprobado"
-      case "delivered":
-        return "Entregado"
-      case "cancelled":
-        return "Cancelado"
+      case "pending":
+        return "Pendiente"
+      case "rejected":
+        return "Rechazado"
       default:
         return status
     }
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-100 text-red-800 border-red-200"
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "low":
-        return "bg-green-100 text-green-800 border-green-200"
-      default:
-        return "bg-muted text-muted-foreground"
-    }
+  const getAdjustmentColor = (adjustment: number) => {
+    if (adjustment > 0) return "text-green-600"
+    if (adjustment < 0) return "text-red-600"
+    return "text-muted-foreground"
   }
 
-  const filteredOrders = purchaseOrders.filter((order) => {
+  const filteredAdjustments = inventoryAdjustments.filter((adjustment) => {
     const matchesSearch =
-      order.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === "all" || order.status === filterStatus
-    return matchesSearch && matchesFilter
+      adjustment.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      adjustment.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      adjustment.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      adjustment.reference.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesType = filterType === "all" || adjustment.type === filterType
+    const matchesStatus = filterStatus === "all" || adjustment.status === filterStatus
+    return matchesSearch && matchesType && matchesStatus
   })
 
   const toggleSubmenu = (label: string) => {
@@ -269,7 +356,6 @@ export default function PedidosDeCompraPage() {
       <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <div className={cn("bg-slate-800 text-white transition-all duration-300", sidebarOpen ? "w-64" : "w-16")}>
-          {/* Logo */}
           <div className="p-4 border-b border-slate-700">
             <div className="flex items-center gap-3">
               <div className="bg-white p-2 rounded-lg">
@@ -284,7 +370,6 @@ export default function PedidosDeCompraPage() {
             </div>
           </div>
 
-          {/* Navigation */}
           <nav className="p-4">
             <ul className="space-y-2">
               {sidebarItems.map((item, index) => (
@@ -371,7 +456,7 @@ export default function PedidosDeCompraPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar pedidos, proveedores..."
+                    placeholder="Buscar productos, SKU, referencias..."
                     className="pl-10 w-80 bg-input border-border"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -379,7 +464,6 @@ export default function PedidosDeCompraPage() {
                 </div>
               </div>
 
-              {/* User Profile */}
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="sm" className="relative">
                   <Bell className="h-4 w-4" />
@@ -415,12 +499,12 @@ export default function PedidosDeCompraPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Pedidos de Compra</h1>
-                <p className="text-muted-foreground">Dashboard de gestión de solicitudes a proveedores</p>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Ajustes de Inventario</h1>
+                <p className="text-muted-foreground">Control y seguimiento de movimientos de stock</p>
               </div>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
                 <Plus className="h-4 w-4 mr-2" />
-                Nuevo Pedido
+                Nuevo Ajuste
               </Button>
             </div>
 
@@ -456,103 +540,142 @@ export default function PedidosDeCompraPage() {
               ))}
             </div>
 
-            {/* Filters and Search */}
+            {/* Filters */}
             <Card className="mb-6 border-border">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-4">
-                    <h3 className="font-semibold text-foreground">Pedidos Activos</h3>
+                    <h3 className="font-semibold text-foreground">Movimientos de Inventario</h3>
                     <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-muted-foreground" />
                       <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
                         className="bg-input border border-border rounded-md px-3 py-1 text-sm"
                       >
+                        <option value="all">Todos los tipos</option>
+                        <option value="entry">Entradas</option>
+                        <option value="exit">Salidas</option>
+                        <option value="correction">Correcciones</option>
+                        <option value="loss">Mermas</option>
+                        <option value="return">Devoluciones</option>
+                      </select>
+                      <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="bg-input border border-border rounded-md px-3 py-1 text-sm ml-2"
+                      >
                         <option value="all">Todos los estados</option>
-                        <option value="pending">Pendientes</option>
                         <option value="approved">Aprobados</option>
-                        <option value="delivered">Entregados</option>
-                        <option value="cancelled">Cancelados</option>
+                        <option value="pending">Pendientes</option>
+                        <option value="rejected">Rechazados</option>
                       </select>
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {filteredOrders.length} de {purchaseOrders.length} pedidos
+                    {filteredAdjustments.length} de {inventoryAdjustments.length} ajustes
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Purchase Orders Grid */}
+            {/* Adjustments Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredOrders.map((order) => (
-                <Card key={order.id} className="hover:shadow-lg transition-all duration-300 border-border group">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-semibold text-foreground">{order.id}</CardTitle>
-                      <Badge className={cn("text-xs", getPriorityColor(order.priority))}>
-                        {order.priority === "high" ? "Alta" : order.priority === "medium" ? "Media" : "Baja"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{order.supplier}</p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Descripción</p>
-                      <p className="text-sm font-medium text-foreground">{order.description}</p>
-                    </div>
+              {filteredAdjustments.map((adjustment) => {
+                const TypeIcon = getTypeIcon(adjustment.type)
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Fecha</p>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                          <p className="text-sm font-medium">{order.date}</p>
+                return (
+                  <Card key={adjustment.id} className="hover:shadow-lg transition-all duration-300 border-border group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg font-semibold text-foreground">{adjustment.id}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getTypeColor(adjustment.type)}>
+                            <TypeIcon className="h-3 w-3 mr-1" />
+                            {getTypeLabel(adjustment.type)}
+                          </Badge>
                         </div>
                       </div>
+                      <p className="text-sm text-muted-foreground">{adjustment.product}</p>
+                      <p className="text-xs text-muted-foreground">SKU: {adjustment.sku}</p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       <div>
-                        <p className="text-xs text-muted-foreground">Entrega</p>
-                        <p className="text-sm font-medium">{order.deliveryDate}</p>
+                        <p className="text-sm text-muted-foreground mb-1">Motivo</p>
+                        <p className="text-sm font-medium text-foreground">{adjustment.reason}</p>
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Items: {order.items}</p>
-                        <p className="text-lg font-bold text-foreground">{order.total}</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Fecha</p>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <p className="text-sm font-medium">{adjustment.adjustmentDate}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Usuario</p>
+                          <p className="text-sm font-medium">{adjustment.user}</p>
+                        </div>
                       </div>
-                      <Badge className={getStatusColor(order.status)}>{getStatusLabel(order.status)}</Badge>
-                    </div>
 
-                    <div className="flex items-center gap-2 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                        <Eye className="h-3 w-3 mr-1" />
-                        Ver
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive hover:text-destructive bg-transparent"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Stock Anterior:</span>
+                          <span className="font-medium">{adjustment.previousStock}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Ajuste:</span>
+                          <span className={cn("font-bold", getAdjustmentColor(adjustment.adjustment))}>
+                            {adjustment.adjustment > 0 ? "+" : ""}
+                            {adjustment.adjustment}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-base font-bold border-t border-border pt-2">
+                          <span>Stock Nuevo:</span>
+                          <span className="text-foreground">{adjustment.newStock}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Ref: {adjustment.reference} • {adjustment.location}
+                          </p>
+                          <p className="text-sm font-bold text-foreground">{adjustment.totalValue}</p>
+                        </div>
+                        <Badge className={getStatusColor(adjustment.status)}>{getStatusLabel(adjustment.status)}</Badge>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
+                          <Eye className="h-3 w-3 mr-1" />
+                          Ver
+                        </Button>
+                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
+                          <Edit className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:text-destructive bg-transparent"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
 
-            {filteredOrders.length === 0 && (
+            {filteredAdjustments.length === 0 && (
               <Card className="border-border">
                 <CardContent className="p-12 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No se encontraron pedidos</h3>
-                  <p className="text-muted-foreground">Intenta ajustar los filtros o crear un nuevo pedido</p>
+                  <RotateCcw className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No se encontraron ajustes</h3>
+                  <p className="text-muted-foreground">Intenta ajustar los filtros o crear un nuevo ajuste</p>
                 </CardContent>
               </Card>
             )}

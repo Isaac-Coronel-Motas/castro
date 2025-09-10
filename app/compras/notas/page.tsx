@@ -23,15 +23,18 @@ import {
   LogOut,
   Plus,
   TrendingUp,
-  Clock,
-  CheckCircle,
+  TrendingDown,
   Eye,
   Edit,
   Trash2,
-  Package,
-  DollarSign,
+  FileCheck,
   Calendar,
   Filter,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  DollarSign,
+  Minus,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -43,12 +46,12 @@ const sidebarItems = [
     label: "Compras",
     active: true,
     submenu: [
-      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: true },
+      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: false },
       { label: "Presupuestos Proveedor", href: "/compras/presupuestos", active: false },
       { label: "Órdenes de Compra", href: "/compras/ordenes", active: false },
       { label: "Registro de Compras", href: "/compras/registro", active: false },
       { label: "Ajustes de Inventario", href: "/compras/ajustes", active: false },
-      { label: "Notas de Crédito/Débito", href: "/compras/notas", active: false },
+      { label: "Notas de Crédito/Débito", href: "/compras/notas", active: true },
       { label: "Transferencias", href: "/compras/transferencias", active: false },
       { label: "Informes", href: "/compras/informes", active: false },
     ],
@@ -109,107 +112,175 @@ const sidebarItems = [
   },
 ]
 
-export default function PedidosDeCompraPage() {
+export default function NotasCreditoDebitoPage() {
   const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
     Compras: true,
   })
   const [searchTerm, setSearchTerm] = useState("")
+  const [filterType, setFilterType] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const router = useRouter()
 
   const metrics = [
     {
-      title: "Total Pedidos",
+      title: "Total Notas",
       value: "24",
-      change: "+12%",
+      change: "+8%",
       trend: "up",
-      icon: Package,
+      icon: FileCheck,
       color: "bg-primary text-primary-foreground",
     },
     {
-      title: "Pendientes",
+      title: "Notas de Crédito",
+      value: "16",
+      change: "+12%",
+      trend: "up",
+      icon: TrendingDown,
+      color: "bg-green-500 text-white",
+    },
+    {
+      title: "Notas de Débito",
       value: "8",
       change: "-5%",
       trend: "down",
-      icon: Clock,
-      color: "bg-secondary text-secondary-foreground",
+      icon: TrendingUp,
+      color: "bg-red-500 text-white",
     },
     {
-      title: "Aprobados",
-      value: "12",
-      change: "+8%",
-      trend: "up",
-      icon: CheckCircle,
-      color: "bg-chart-1 text-white",
-    },
-    {
-      title: "Valor Total",
-      value: "₡2.4M",
-      change: "+15%",
+      title: "Valor Neto",
+      value: "₡1.2M",
+      change: "+18%",
       trend: "up",
       icon: DollarSign,
       color: "bg-chart-2 text-white",
     },
   ]
 
-  const purchaseOrders = [
+  const creditDebitNotes = [
     {
-      id: "PC-001",
+      id: "NC-001",
+      type: "credit",
       supplier: "Distribuidora Tech SA",
-      date: "2024-01-15",
-      status: "pending",
-      items: 5,
-      total: "₡2,500,000",
-      priority: "high",
-      description: "Componentes electrónicos varios",
-      deliveryDate: "2024-01-25",
-    },
-    {
-      id: "PC-002",
-      supplier: "Electrónica Central",
-      date: "2024-01-14",
+      issueDate: "2024-01-15",
+      originalInvoice: "FAC-2024-001",
+      reason: "Devolución productos defectuosos",
       status: "approved",
+      subtotal: "₡450,000",
+      tax: "₡58,500",
+      total: "₡508,500",
+      description: "Pantallas Samsung con defectos de fábrica",
+      approvedBy: "Juan Pérez",
       items: 3,
-      total: "₡1,800,000",
-      priority: "medium",
-      description: "Pantallas y displays",
-      deliveryDate: "2024-01-22",
+      reference: "DEV-001",
     },
     {
-      id: "PC-003",
+      id: "ND-001",
+      type: "debit",
+      supplier: "Electrónica Central",
+      issueDate: "2024-01-14",
+      originalInvoice: "FAC-2024-002",
+      reason: "Gastos de envío adicionales",
+      status: "pending",
+      subtotal: "₡75,000",
+      tax: "₡9,750",
+      total: "₡84,750",
+      description: "Costo de envío express no incluido",
+      approvedBy: null,
+      items: 1,
+      reference: "ENV-002",
+    },
+    {
+      id: "NC-002",
+      type: "credit",
       supplier: "Componentes del Este",
-      date: "2024-01-13",
-      status: "cancelled",
-      items: 2,
-      total: "₡950,000",
-      priority: "low",
-      description: "Cables y conectores",
-      deliveryDate: "2024-01-20",
+      issueDate: "2024-01-13",
+      originalInvoice: "FAC-2024-003",
+      reason: "Descuento por volumen aplicado",
+      status: "approved",
+      subtotal: "₡120,000",
+      tax: "₡15,600",
+      total: "₡135,600",
+      description: "Descuento 8% por compra mayor a ₡1.5M",
+      approvedBy: "María González",
+      items: 1,
+      reference: "DESC-001",
     },
     {
-      id: "PC-004",
+      id: "ND-002",
+      type: "debit",
       supplier: "TechParts Solutions",
-      date: "2024-01-12",
-      status: "delivered",
-      items: 7,
-      total: "₡3,200,000",
-      priority: "high",
-      description: "Procesadores y memorias",
-      deliveryDate: "2024-01-18",
+      issueDate: "2024-01-12",
+      originalInvoice: "FAC-2024-004",
+      reason: "Intereses por pago tardío",
+      status: "rejected",
+      subtotal: "₡95,000",
+      tax: "₡12,350",
+      total: "₡107,350",
+      description: "Interés 2% mensual por pago fuera de término",
+      approvedBy: null,
+      items: 1,
+      reference: "INT-001",
+    },
+    {
+      id: "NC-003",
+      type: "credit",
+      supplier: "Suministros Electrónicos",
+      issueDate: "2024-01-11",
+      originalInvoice: "FAC-2024-005",
+      reason: "Error en facturación - precio incorrecto",
+      status: "approved",
+      subtotal: "₡200,000",
+      tax: "₡26,000",
+      total: "₡226,000",
+      description: "Corrección precio unitario procesadores",
+      approvedBy: "Carlos Rodríguez",
+      items: 2,
+      reference: "COR-001",
     },
   ]
 
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "credit":
+        return "bg-green-500 text-white"
+      case "debit":
+        return "bg-red-500 text-white"
+      default:
+        return "bg-muted text-muted-foreground"
+    }
+  }
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "credit":
+        return "Crédito"
+      case "debit":
+        return "Débito"
+      default:
+        return type
+    }
+  }
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "credit":
+        return TrendingDown
+      case "debit":
+        return TrendingUp
+      default:
+        return FileCheck
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "approved":
+        return "bg-green-500 text-white"
       case "pending":
         return "bg-secondary text-secondary-foreground"
-      case "approved":
-        return "bg-chart-1 text-white"
-      case "delivered":
-        return "bg-green-500 text-white"
-      case "cancelled":
+      case "rejected":
         return "bg-destructive text-destructive-foreground"
       default:
         return "bg-muted text-muted-foreground"
@@ -218,39 +289,40 @@ export default function PedidosDeCompraPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case "approved":
+        return "Aprobada"
       case "pending":
         return "Pendiente"
-      case "approved":
-        return "Aprobado"
-      case "delivered":
-        return "Entregado"
-      case "cancelled":
-        return "Cancelado"
+      case "rejected":
+        return "Rechazada"
       default:
         return status
     }
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-100 text-red-800 border-red-200"
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "low":
-        return "bg-green-100 text-green-800 border-green-200"
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "approved":
+        return CheckCircle
+      case "pending":
+        return Clock
+      case "rejected":
+        return AlertCircle
       default:
-        return "bg-muted text-muted-foreground"
+        return Clock
     }
   }
 
-  const filteredOrders = purchaseOrders.filter((order) => {
+  const filteredNotes = creditDebitNotes.filter((note) => {
     const matchesSearch =
-      order.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === "all" || order.status === filterStatus
-    return matchesSearch && matchesFilter
+      note.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      note.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      note.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      note.originalInvoice.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      note.reference.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesType = filterType === "all" || note.type === filterType
+    const matchesStatus = filterStatus === "all" || note.status === filterStatus
+    return matchesSearch && matchesType && matchesStatus
   })
 
   const toggleSubmenu = (label: string) => {
@@ -269,7 +341,6 @@ export default function PedidosDeCompraPage() {
       <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <div className={cn("bg-slate-800 text-white transition-all duration-300", sidebarOpen ? "w-64" : "w-16")}>
-          {/* Logo */}
           <div className="p-4 border-b border-slate-700">
             <div className="flex items-center gap-3">
               <div className="bg-white p-2 rounded-lg">
@@ -284,7 +355,6 @@ export default function PedidosDeCompraPage() {
             </div>
           </div>
 
-          {/* Navigation */}
           <nav className="p-4">
             <ul className="space-y-2">
               {sidebarItems.map((item, index) => (
@@ -371,7 +441,7 @@ export default function PedidosDeCompraPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar pedidos, proveedores..."
+                    placeholder="Buscar notas, proveedores, facturas..."
                     className="pl-10 w-80 bg-input border-border"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -379,7 +449,6 @@ export default function PedidosDeCompraPage() {
                 </div>
               </div>
 
-              {/* User Profile */}
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="sm" className="relative">
                   <Bell className="h-4 w-4" />
@@ -415,13 +484,19 @@ export default function PedidosDeCompraPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Pedidos de Compra</h1>
-                <p className="text-muted-foreground">Dashboard de gestión de solicitudes a proveedores</p>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Notas de Crédito/Débito</h1>
+                <p className="text-muted-foreground">Gestión de ajustes contables con proveedores</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Pedido
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button variant="outline" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
+                  <Minus className="h-4 w-4 mr-2" />
+                  Nota Crédito
+                </Button>
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nota Débito
+                </Button>
+              </div>
             </div>
 
             {/* Metrics Dashboard */}
@@ -456,103 +531,149 @@ export default function PedidosDeCompraPage() {
               ))}
             </div>
 
-            {/* Filters and Search */}
+            {/* Filters */}
             <Card className="mb-6 border-border">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-4">
-                    <h3 className="font-semibold text-foreground">Pedidos Activos</h3>
+                    <h3 className="font-semibold text-foreground">Notas Contables</h3>
                     <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-muted-foreground" />
                       <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
                         className="bg-input border border-border rounded-md px-3 py-1 text-sm"
                       >
+                        <option value="all">Todos los tipos</option>
+                        <option value="credit">Notas de Crédito</option>
+                        <option value="debit">Notas de Débito</option>
+                      </select>
+                      <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="bg-input border border-border rounded-md px-3 py-1 text-sm ml-2"
+                      >
                         <option value="all">Todos los estados</option>
+                        <option value="approved">Aprobadas</option>
                         <option value="pending">Pendientes</option>
-                        <option value="approved">Aprobados</option>
-                        <option value="delivered">Entregados</option>
-                        <option value="cancelled">Cancelados</option>
+                        <option value="rejected">Rechazadas</option>
                       </select>
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {filteredOrders.length} de {purchaseOrders.length} pedidos
+                    {filteredNotes.length} de {creditDebitNotes.length} notas
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Purchase Orders Grid */}
+            {/* Notes Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredOrders.map((order) => (
-                <Card key={order.id} className="hover:shadow-lg transition-all duration-300 border-border group">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-semibold text-foreground">{order.id}</CardTitle>
-                      <Badge className={cn("text-xs", getPriorityColor(order.priority))}>
-                        {order.priority === "high" ? "Alta" : order.priority === "medium" ? "Media" : "Baja"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{order.supplier}</p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Descripción</p>
-                      <p className="text-sm font-medium text-foreground">{order.description}</p>
-                    </div>
+              {filteredNotes.map((note) => {
+                const TypeIcon = getTypeIcon(note.type)
+                const StatusIcon = getStatusIcon(note.status)
 
-                    <div className="grid grid-cols-2 gap-4">
+                return (
+                  <Card key={note.id} className="hover:shadow-lg transition-all duration-300 border-border group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg font-semibold text-foreground">{note.id}</CardTitle>
+                        <Badge className={getTypeColor(note.type)}>
+                          <TypeIcon className="h-3 w-3 mr-1" />
+                          {getTypeLabel(note.type)}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{note.supplier}</p>
+                      <p className="text-xs text-muted-foreground">Factura: {note.originalInvoice}</p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       <div>
-                        <p className="text-xs text-muted-foreground">Fecha</p>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                          <p className="text-sm font-medium">{order.date}</p>
+                        <p className="text-sm text-muted-foreground mb-1">Motivo</p>
+                        <p className="text-sm font-medium text-foreground">{note.reason}</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Fecha Emisión</p>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <p className="text-sm font-medium">{note.issueDate}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Items</p>
+                          <p className="text-sm font-medium">{note.items}</p>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Entrega</p>
-                        <p className="text-sm font-medium">{order.deliveryDate}</p>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-muted-foreground">Items: {order.items}</p>
-                        <p className="text-lg font-bold text-foreground">{order.total}</p>
+                        <p className="text-sm text-muted-foreground mb-1">Descripción</p>
+                        <p className="text-sm text-foreground">{note.description}</p>
                       </div>
-                      <Badge className={getStatusColor(order.status)}>{getStatusLabel(order.status)}</Badge>
-                    </div>
 
-                    <div className="flex items-center gap-2 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                        <Eye className="h-3 w-3 mr-1" />
-                        Ver
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive hover:text-destructive bg-transparent"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Subtotal:</span>
+                          <span className="font-medium">{note.subtotal}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Impuestos:</span>
+                          <span className="font-medium">{note.tax}</span>
+                        </div>
+                        <div className="flex justify-between text-base font-bold border-t border-border pt-2">
+                          <span>Total:</span>
+                          <span
+                            className={cn(
+                              "text-foreground",
+                              note.type === "credit" ? "text-green-600" : "text-red-600",
+                            )}
+                          >
+                            {note.type === "credit" ? "-" : "+"}
+                            {note.total}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Ref: {note.reference}</p>
+                          {note.approvedBy && <p className="text-xs text-green-600">Aprobado por: {note.approvedBy}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StatusIcon className="h-4 w-4 text-muted-foreground" />
+                          <Badge className={getStatusColor(note.status)}>{getStatusLabel(note.status)}</Badge>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
+                          <Eye className="h-3 w-3 mr-1" />
+                          Ver
+                        </Button>
+                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
+                          <Edit className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:text-destructive bg-transparent"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
 
-            {filteredOrders.length === 0 && (
+            {filteredNotes.length === 0 && (
               <Card className="border-border">
                 <CardContent className="p-12 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No se encontraron pedidos</h3>
-                  <p className="text-muted-foreground">Intenta ajustar los filtros o crear un nuevo pedido</p>
+                  <FileCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No se encontraron notas</h3>
+                  <p className="text-muted-foreground">Intenta ajustar los filtros o crear una nueva nota</p>
                 </CardContent>
               </Card>
             )}

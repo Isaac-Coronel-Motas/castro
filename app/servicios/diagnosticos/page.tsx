@@ -24,14 +24,17 @@ import {
   Eye,
   Edit,
   Trash2,
-  Phone,
-  Mail,
   LogOut,
+  Stethoscope,
   Clock,
-  CheckCircle,
   AlertCircle,
-  TrendingUp,
+  CheckCircle,
   Filter,
+  User,
+  Calendar,
+  Zap,
+  AlertTriangle,
+  PenTool as Tool,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -58,9 +61,9 @@ const sidebarItems = [
     label: "Servicios Técnicos",
     active: true,
     submenu: [
-      { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: true },
+      { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: false },
       { label: "Recepción de Equipos", href: "/servicios/recepcion-equipos", active: false },
-      { label: "Diagnósticos", href: "/servicios/diagnosticos", active: false },
+      { label: "Diagnósticos", href: "/servicios/diagnosticos", active: true },
       { label: "Presupuestos", href: "/servicios/presupuestos", active: false },
       { label: "Órdenes de Servicio", href: "/servicios/ordenes-servicio", active: false },
       { label: "Retiro de Equipos", href: "/servicios/retiro-equipos", active: false },
@@ -109,7 +112,7 @@ const sidebarItems = [
   },
 ]
 
-export default function SolicitudesClientePage() {
+export default function DiagnosticosPage() {
   const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
@@ -134,19 +137,19 @@ export default function SolicitudesClientePage() {
     router.push(href)
   }
 
-  const totalSolicitudes = solicitudes.length
-  const pendientes = solicitudes.filter((s) => s.estado === "Pendiente").length
-  const enProceso = solicitudes.filter((s) => s.estado === "En Proceso").length
-  const completadas = solicitudes.filter((s) => s.estado === "Completado").length
-  const altaPrioridad = solicitudes.filter((s) => s.prioridad === "Alta").length
+  const totalDiagnosticos = diagnosticos.length
+  const pendientes = diagnosticos.filter((d) => d.estado === "Pendiente").length
+  const enProceso = diagnosticos.filter((d) => d.estado === "En Proceso").length
+  const completados = diagnosticos.filter((d) => d.estado === "Completado").length
 
-  const filteredSolicitudes = solicitudes.filter((solicitud) => {
+  const filteredDiagnosticos = diagnosticos.filter((diagnostico) => {
     const matchesSearch =
-      solicitud.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      solicitud.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      solicitud.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+      diagnostico.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      diagnostico.equipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      diagnostico.tecnico.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      diagnostico.cliente.toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesFilter = filterEstado === "Todos" || solicitud.estado === filterEstado
+    const matchesFilter = filterEstado === "Todos" || diagnostico.estado === filterEstado
 
     return matchesSearch && matchesFilter
   })
@@ -154,11 +157,13 @@ export default function SolicitudesClientePage() {
   const getEstadoBadge = (estado: string) => {
     switch (estado) {
       case "Pendiente":
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
       case "En Proceso":
         return "bg-blue-100 text-blue-800 hover:bg-blue-100"
       case "Completado":
         return "bg-green-100 text-green-800 hover:bg-green-100"
+      case "Requiere Repuestos":
+        return "bg-orange-100 text-orange-800 hover:bg-orange-100"
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-100"
     }
@@ -166,14 +171,31 @@ export default function SolicitudesClientePage() {
 
   const getPrioridadBadge = (prioridad: string) => {
     switch (prioridad) {
-      case "Alta":
+      case "Urgente":
         return "bg-red-100 text-red-800 hover:bg-red-100"
+      case "Alta":
+        return "bg-orange-100 text-orange-800 hover:bg-orange-100"
       case "Media":
         return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
       case "Baja":
         return "bg-green-100 text-green-800 hover:bg-green-100"
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-100"
+    }
+  }
+
+  const getDiagnosticoIcon = (estado: string) => {
+    switch (estado) {
+      case "Pendiente":
+        return <Clock className="h-5 w-5 text-yellow-600" />
+      case "En Proceso":
+        return <Tool className="h-5 w-5 text-blue-600" />
+      case "Completado":
+        return <CheckCircle className="h-5 w-5 text-green-600" />
+      case "Requiere Repuestos":
+        return <AlertTriangle className="h-5 w-5 text-orange-600" />
+      default:
+        return <Stethoscope className="h-5 w-5 text-gray-600" />
     }
   }
 
@@ -284,7 +306,7 @@ export default function SolicitudesClientePage() {
                 </Button>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Buscar pedidos, clientes, productos..." className="pl-10 w-80" />
+                  <Input placeholder="Buscar diagnósticos, equipos, técnicos..." className="pl-10 w-80" />
                 </div>
               </div>
 
@@ -318,26 +340,27 @@ export default function SolicitudesClientePage() {
           <main className="flex-1 overflow-auto p-6 bg-background">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Solicitudes de Servicio</h1>
-                <p className="text-muted-foreground">Gestión de solicitudes de clientes para servicios técnicos</p>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Diagnósticos Técnicos</h1>
+                <p className="text-muted-foreground">Gestión y seguimiento de diagnósticos de equipos</p>
               </div>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Plus className="h-4 w-4 mr-2" />
-                Nueva Solicitud
+                Nuevo Diagnóstico
               </Button>
             </div>
 
+            {/* Metrics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card className="bg-card border-border hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Solicitudes</p>
-                      <p className="text-3xl font-bold text-card-foreground">{totalSolicitudes}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Total Diagnósticos</p>
+                      <p className="text-3xl font-bold text-card-foreground">{totalDiagnosticos}</p>
                       <p className="text-xs text-muted-foreground mt-1">Este mes</p>
                     </div>
                     <div className="bg-primary/10 p-3 rounded-full">
-                      <FileText className="h-6 w-6 text-primary" />
+                      <Stethoscope className="h-6 w-6 text-primary" />
                     </div>
                   </div>
                 </CardContent>
@@ -349,10 +372,10 @@ export default function SolicitudesClientePage() {
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Pendientes</p>
                       <p className="text-3xl font-bold text-card-foreground">{pendientes}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Requieren atención</p>
+                      <p className="text-xs text-muted-foreground mt-1">Por iniciar</p>
                     </div>
-                    <div className="bg-secondary/10 p-3 rounded-full">
-                      <Clock className="h-6 w-6 text-secondary" />
+                    <div className="bg-yellow-100 p-3 rounded-full">
+                      <Clock className="h-6 w-6 text-yellow-600" />
                     </div>
                   </div>
                 </CardContent>
@@ -367,7 +390,7 @@ export default function SolicitudesClientePage() {
                       <p className="text-xs text-muted-foreground mt-1">En desarrollo</p>
                     </div>
                     <div className="bg-blue-100 p-3 rounded-full">
-                      <TrendingUp className="h-6 w-6 text-blue-600" />
+                      <Zap className="h-6 w-6 text-blue-600" />
                     </div>
                   </div>
                 </CardContent>
@@ -377,8 +400,8 @@ export default function SolicitudesClientePage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Completadas</p>
-                      <p className="text-3xl font-bold text-card-foreground">{completadas}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Completados</p>
+                      <p className="text-3xl font-bold text-card-foreground">{completados}</p>
                       <p className="text-xs text-muted-foreground mt-1">Este mes</p>
                     </div>
                     <div className="bg-green-100 p-3 rounded-full">
@@ -389,10 +412,11 @@ export default function SolicitudesClientePage() {
               </Card>
             </div>
 
+            {/* Diagnostics List */}
             <Card className="bg-card border-border shadow-sm">
               <CardHeader className="bg-muted/50 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-card-foreground">Lista de Solicitudes</CardTitle>
+                  <CardTitle className="text-card-foreground">Lista de Diagnósticos</CardTitle>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-muted-foreground" />
@@ -405,6 +429,7 @@ export default function SolicitudesClientePage() {
                         <option value="Pendiente">Pendiente</option>
                         <option value="En Proceso">En Proceso</option>
                         <option value="Completado">Completado</option>
+                        <option value="Requiere Repuestos">Requiere Repuestos</option>
                       </select>
                     </div>
                   </div>
@@ -415,7 +440,7 @@ export default function SolicitudesClientePage() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por número, cliente o descripción..."
+                      placeholder="Buscar por número, equipo, técnico o cliente..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 bg-background border-border"
@@ -431,16 +456,13 @@ export default function SolicitudesClientePage() {
                           Número
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Cliente
+                          Equipo/Cliente
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Contacto
+                          Técnico Asignado
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Fecha
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Descripción
+                          Fecha Inicio
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
                           Estado
@@ -449,52 +471,63 @@ export default function SolicitudesClientePage() {
                           Prioridad
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
+                          Problema Encontrado
+                        </th>
+                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
                           Acciones
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredSolicitudes.map((solicitud, index) => (
+                      {filteredDiagnosticos.map((diagnostico, index) => (
                         <tr key={index} className="border-b border-border hover:bg-muted/20 transition-colors">
                           <td className="py-4 px-6">
-                            <span className="font-semibold text-primary">{solicitud.numero}</span>
+                            <div className="flex items-center gap-3">
+                              <div className="bg-muted p-2 rounded-lg">{getDiagnosticoIcon(diagnostico.estado)}</div>
+                              <span className="font-semibold text-primary">{diagnostico.numero}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-6">
+                            <div>
+                              <span className="font-medium text-foreground block">{diagnostico.equipo}</span>
+                              <span className="text-sm text-muted-foreground">{diagnostico.cliente}</span>
+                            </div>
                           </td>
                           <td className="py-4 px-6">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-8 w-8">
-                                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                  {solicitud.cliente
+                                <AvatarFallback className="bg-secondary/10 text-secondary text-xs">
+                                  {diagnostico.tecnico
                                     .split(" ")
                                     .map((n) => n[0])
                                     .join("")}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="font-medium text-foreground">{solicitud.cliente}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Phone className="h-3 w-3" />
-                                {solicitud.telefono}
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Mail className="h-3 w-3" />
-                                {solicitud.email}
+                              <div>
+                                <span className="font-medium text-foreground block">{diagnostico.tecnico}</span>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <User className="h-3 w-3" />
+                                  Técnico
+                                </div>
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 px-6 text-muted-foreground">{solicitud.fecha}</td>
                           <td className="py-4 px-6">
-                            <span className="text-foreground max-w-xs truncate block" title={solicitud.descripcion}>
-                              {solicitud.descripcion}
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Calendar className="h-4 w-4" />
+                              {diagnostico.fechaInicio}
+                            </div>
+                          </td>
+                          <td className="py-4 px-6">
+                            <Badge className={getEstadoBadge(diagnostico.estado)}>{diagnostico.estado}</Badge>
+                          </td>
+                          <td className="py-4 px-6">
+                            <Badge className={getPrioridadBadge(diagnostico.prioridad)}>{diagnostico.prioridad}</Badge>
+                          </td>
+                          <td className="py-4 px-6">
+                            <span className="text-foreground max-w-xs truncate block" title={diagnostico.problema}>
+                              {diagnostico.problema}
                             </span>
-                          </td>
-                          <td className="py-4 px-6">
-                            <Badge className={getEstadoBadge(solicitud.estado)}>{solicitud.estado}</Badge>
-                          </td>
-                          <td className="py-4 px-6">
-                            <Badge className={getPrioridadBadge(solicitud.prioridad)}>{solicitud.prioridad}</Badge>
                           </td>
                           <td className="py-4 px-6">
                             <div className="flex items-center gap-1">
@@ -515,11 +548,11 @@ export default function SolicitudesClientePage() {
                   </table>
                 </div>
 
-                {filteredSolicitudes.length === 0 && (
+                {filteredDiagnosticos.length === 0 && (
                   <div className="text-center py-12">
                     <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                      No se encontraron solicitudes que coincidan con los filtros.
+                      No se encontraron diagnósticos que coincidan con los filtros.
                     </p>
                   </div>
                 )}
@@ -532,35 +565,45 @@ export default function SolicitudesClientePage() {
   )
 }
 
-const solicitudes = [
+const diagnosticos = [
   {
-    numero: "SS-001",
+    numero: "DG-001",
+    equipo: "Samsung Galaxy A54",
     cliente: "María González",
-    telefono: "0981234567",
-    email: "maria@email.com",
-    fecha: "2024-01-15",
-    descripcion: "Pantalla rota en Samsung Galaxy A54",
-    estado: "Pendiente",
-    prioridad: "Media",
-  },
-  {
-    numero: "SS-002",
-    cliente: "Carlos Rodríguez",
-    telefono: "0987654321",
-    email: "carlos@email.com",
-    fecha: "2024-01-14",
-    descripcion: "Laptop no enciende, posible problema de fuente",
+    tecnico: "Juan Pérez",
+    fechaInicio: "2024-01-15",
     estado: "En Proceso",
-    prioridad: "Alta",
+    prioridad: "Media",
+    problema: "Pantalla rota, digitalizador dañado, requiere reemplazo completo",
   },
   {
-    numero: "SS-003",
-    cliente: "Ana Martínez",
-    telefono: "0976543210",
-    email: "ana@email.com",
-    fecha: "2024-01-13",
-    descripcion: "iPhone con batería que se descarga rápido",
+    numero: "DG-002",
+    equipo: "HP Pavilion 15",
+    cliente: "Carlos Rodríguez",
+    tecnico: "Ana Martínez",
+    fechaInicio: "2024-01-14",
     estado: "Completado",
+    prioridad: "Alta",
+    problema: "Fuente de poder defectuosa, capacitores hinchados",
+  },
+  {
+    numero: "DG-003",
+    equipo: "iPhone 12",
+    cliente: "Ana Martínez",
+    tecnico: "Luis Castro",
+    fechaInicio: "2024-01-13",
+    estado: "Requiere Repuestos",
     prioridad: "Baja",
+    problema: "Batería degradada al 65%, requiere reemplazo",
+  },
+  {
+    numero: "DG-004",
+    equipo: "LG Monitor 24MK430H",
+    cliente: "Luis Pérez",
+    tecnico: "Juan Pérez",
+    fechaInicio: "2024-01-12",
+    estado: "Pendiente",
+    prioridad: "Urgente",
+    problema: "Líneas verticales, posible falla en panel LCD",
   },
 ]

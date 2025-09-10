@@ -24,14 +24,17 @@ import {
   Eye,
   Edit,
   Trash2,
-  Phone,
-  Mail,
   LogOut,
-  Clock,
-  CheckCircle,
+  ClipboardList,
   AlertCircle,
-  TrendingUp,
+  CheckCircle,
   Filter,
+  User,
+  Calendar,
+  Play,
+  Pause,
+  RotateCcw,
+  Cross as Progress,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -58,11 +61,11 @@ const sidebarItems = [
     label: "Servicios Técnicos",
     active: true,
     submenu: [
-      { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: true },
+      { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: false },
       { label: "Recepción de Equipos", href: "/servicios/recepcion-equipos", active: false },
       { label: "Diagnósticos", href: "/servicios/diagnosticos", active: false },
       { label: "Presupuestos", href: "/servicios/presupuestos", active: false },
-      { label: "Órdenes de Servicio", href: "/servicios/ordenes-servicio", active: false },
+      { label: "Órdenes de Servicio", href: "/servicios/ordenes-servicio", active: true },
       { label: "Retiro de Equipos", href: "/servicios/retiro-equipos", active: false },
       { label: "Reclamos", href: "/servicios/reclamos", active: false },
       { label: "Informes", href: "/servicios/informes", active: false },
@@ -109,7 +112,7 @@ const sidebarItems = [
   },
 ]
 
-export default function SolicitudesClientePage() {
+export default function OrdenesServicioPage() {
   const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
@@ -134,40 +137,63 @@ export default function SolicitudesClientePage() {
     router.push(href)
   }
 
-  const totalSolicitudes = solicitudes.length
-  const pendientes = solicitudes.filter((s) => s.estado === "Pendiente").length
-  const enProceso = solicitudes.filter((s) => s.estado === "En Proceso").length
-  const completadas = solicitudes.filter((s) => s.estado === "Completado").length
-  const altaPrioridad = solicitudes.filter((s) => s.prioridad === "Alta").length
+  const totalOrdenes = ordenes.length
+  const activas = ordenes.filter((o) => o.estado === "En Proceso" || o.estado === "Iniciada").length
+  const completadas = ordenes.filter((o) => o.estado === "Completada").length
+  const pausadas = ordenes.filter((o) => o.estado === "Pausada").length
 
-  const filteredSolicitudes = solicitudes.filter((solicitud) => {
+  const filteredOrdenes = ordenes.filter((orden) => {
     const matchesSearch =
-      solicitud.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      solicitud.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      solicitud.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+      orden.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      orden.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      orden.equipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      orden.tecnico.toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesFilter = filterEstado === "Todos" || solicitud.estado === filterEstado
+    const matchesFilter = filterEstado === "Todos" || orden.estado === filterEstado
 
     return matchesSearch && matchesFilter
   })
 
   const getEstadoBadge = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
-      case "En Proceso":
+      case "Iniciada":
         return "bg-blue-100 text-blue-800 hover:bg-blue-100"
-      case "Completado":
+      case "En Proceso":
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+      case "Pausada":
+        return "bg-orange-100 text-orange-800 hover:bg-orange-100"
+      case "Completada":
         return "bg-green-100 text-green-800 hover:bg-green-100"
+      case "Cancelada":
+        return "bg-red-100 text-red-800 hover:bg-red-100"
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-100"
     }
   }
 
+  const getEstadoIcon = (estado: string) => {
+    switch (estado) {
+      case "Iniciada":
+        return <Play className="h-4 w-4 text-blue-600" />
+      case "En Proceso":
+        return <Progress className="h-4 w-4 text-yellow-600" />
+      case "Pausada":
+        return <Pause className="h-4 w-4 text-orange-600" />
+      case "Completada":
+        return <CheckCircle className="h-4 w-4 text-green-600" />
+      case "Cancelada":
+        return <RotateCcw className="h-4 w-4 text-red-600" />
+      default:
+        return <ClipboardList className="h-4 w-4 text-gray-600" />
+    }
+  }
+
   const getPrioridadBadge = (prioridad: string) => {
     switch (prioridad) {
-      case "Alta":
+      case "Urgente":
         return "bg-red-100 text-red-800 hover:bg-red-100"
+      case "Alta":
+        return "bg-orange-100 text-orange-800 hover:bg-orange-100"
       case "Media":
         return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
       case "Baja":
@@ -175,6 +201,13 @@ export default function SolicitudesClientePage() {
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-100"
     }
+  }
+
+  const getProgressColor = (progreso: number) => {
+    if (progreso >= 80) return "bg-green-500"
+    if (progreso >= 50) return "bg-yellow-500"
+    if (progreso >= 25) return "bg-orange-500"
+    return "bg-red-500"
   }
 
   return (
@@ -284,7 +317,7 @@ export default function SolicitudesClientePage() {
                 </Button>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Buscar pedidos, clientes, productos..." className="pl-10 w-80" />
+                  <Input placeholder="Buscar órdenes, clientes, técnicos..." className="pl-10 w-80" />
                 </div>
               </div>
 
@@ -318,26 +351,27 @@ export default function SolicitudesClientePage() {
           <main className="flex-1 overflow-auto p-6 bg-background">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Solicitudes de Servicio</h1>
-                <p className="text-muted-foreground">Gestión de solicitudes de clientes para servicios técnicos</p>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Órdenes de Servicio</h1>
+                <p className="text-muted-foreground">Gestión y seguimiento de órdenes de trabajo</p>
               </div>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Plus className="h-4 w-4 mr-2" />
-                Nueva Solicitud
+                Nueva Orden
               </Button>
             </div>
 
+            {/* Metrics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card className="bg-card border-border hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Solicitudes</p>
-                      <p className="text-3xl font-bold text-card-foreground">{totalSolicitudes}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Total Órdenes</p>
+                      <p className="text-3xl font-bold text-card-foreground">{totalOrdenes}</p>
                       <p className="text-xs text-muted-foreground mt-1">Este mes</p>
                     </div>
                     <div className="bg-primary/10 p-3 rounded-full">
-                      <FileText className="h-6 w-6 text-primary" />
+                      <ClipboardList className="h-6 w-6 text-primary" />
                     </div>
                   </div>
                 </CardContent>
@@ -347,27 +381,12 @@ export default function SolicitudesClientePage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Pendientes</p>
-                      <p className="text-3xl font-bold text-card-foreground">{pendientes}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Requieren atención</p>
-                    </div>
-                    <div className="bg-secondary/10 p-3 rounded-full">
-                      <Clock className="h-6 w-6 text-secondary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">En Proceso</p>
-                      <p className="text-3xl font-bold text-card-foreground">{enProceso}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Activas</p>
+                      <p className="text-3xl font-bold text-card-foreground">{activas}</p>
                       <p className="text-xs text-muted-foreground mt-1">En desarrollo</p>
                     </div>
-                    <div className="bg-blue-100 p-3 rounded-full">
-                      <TrendingUp className="h-6 w-6 text-blue-600" />
+                    <div className="bg-yellow-100 p-3 rounded-full">
+                      <Progress className="h-6 w-6 text-yellow-600" />
                     </div>
                   </div>
                 </CardContent>
@@ -387,12 +406,28 @@ export default function SolicitudesClientePage() {
                   </div>
                 </CardContent>
               </Card>
+
+              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Pausadas</p>
+                      <p className="text-3xl font-bold text-card-foreground">{pausadas}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Requieren atención</p>
+                    </div>
+                    <div className="bg-orange-100 p-3 rounded-full">
+                      <Pause className="h-6 w-6 text-orange-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
+            {/* Service Orders List */}
             <Card className="bg-card border-border shadow-sm">
               <CardHeader className="bg-muted/50 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-card-foreground">Lista de Solicitudes</CardTitle>
+                  <CardTitle className="text-card-foreground">Lista de Órdenes de Servicio</CardTitle>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-muted-foreground" />
@@ -402,9 +437,11 @@ export default function SolicitudesClientePage() {
                         className="text-sm border border-border rounded-md px-3 py-1 bg-background"
                       >
                         <option value="Todos">Todos los estados</option>
-                        <option value="Pendiente">Pendiente</option>
+                        <option value="Iniciada">Iniciada</option>
                         <option value="En Proceso">En Proceso</option>
-                        <option value="Completado">Completado</option>
+                        <option value="Pausada">Pausada</option>
+                        <option value="Completada">Completada</option>
+                        <option value="Cancelada">Cancelada</option>
                       </select>
                     </div>
                   </div>
@@ -415,7 +452,7 @@ export default function SolicitudesClientePage() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por número, cliente o descripción..."
+                      placeholder="Buscar por número, cliente, equipo o técnico..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 bg-background border-border"
@@ -431,16 +468,16 @@ export default function SolicitudesClientePage() {
                           Número
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Cliente
+                          Cliente/Equipo
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Contacto
+                          Técnico Asignado
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Fecha
+                          Progreso
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Descripción
+                          Fecha Estimada
                         </th>
                         <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
                           Estado
@@ -454,47 +491,73 @@ export default function SolicitudesClientePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredSolicitudes.map((solicitud, index) => (
+                      {filteredOrdenes.map((orden, index) => (
                         <tr key={index} className="border-b border-border hover:bg-muted/20 transition-colors">
                           <td className="py-4 px-6">
-                            <span className="font-semibold text-primary">{solicitud.numero}</span>
+                            <div className="flex items-center gap-3">
+                              <div className="bg-muted p-2 rounded-lg">{getEstadoIcon(orden.estado)}</div>
+                              <span className="font-semibold text-primary">{orden.numero}</span>
+                            </div>
                           </td>
                           <td className="py-4 px-6">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-8 w-8">
                                 <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                  {solicitud.cliente
+                                  {orden.cliente
                                     .split(" ")
                                     .map((n) => n[0])
                                     .join("")}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="font-medium text-foreground">{solicitud.cliente}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Phone className="h-3 w-3" />
-                                {solicitud.telefono}
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Mail className="h-3 w-3" />
-                                {solicitud.email}
+                              <div>
+                                <span className="font-medium text-foreground block">{orden.cliente}</span>
+                                <span className="text-sm text-muted-foreground">{orden.equipo}</span>
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 px-6 text-muted-foreground">{solicitud.fecha}</td>
                           <td className="py-4 px-6">
-                            <span className="text-foreground max-w-xs truncate block" title={solicitud.descripcion}>
-                              {solicitud.descripcion}
-                            </span>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="bg-secondary/10 text-secondary text-xs">
+                                  {orden.tecnico
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <span className="font-medium text-foreground block">{orden.tecnico}</span>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <User className="h-3 w-3" />
+                                  Técnico
+                                </div>
+                              </div>
+                            </div>
                           </td>
                           <td className="py-4 px-6">
-                            <Badge className={getEstadoBadge(solicitud.estado)}>{solicitud.estado}</Badge>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-foreground">{orden.progreso}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={cn("h-2 rounded-full transition-all", getProgressColor(orden.progreso))}
+                                  style={{ width: `${orden.progreso}%` }}
+                                ></div>
+                              </div>
+                            </div>
                           </td>
                           <td className="py-4 px-6">
-                            <Badge className={getPrioridadBadge(solicitud.prioridad)}>{solicitud.prioridad}</Badge>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Calendar className="h-4 w-4" />
+                              {orden.fechaEstimada}
+                            </div>
+                          </td>
+                          <td className="py-4 px-6">
+                            <Badge className={getEstadoBadge(orden.estado)}>{orden.estado}</Badge>
+                          </td>
+                          <td className="py-4 px-6">
+                            <Badge className={getPrioridadBadge(orden.prioridad)}>{orden.prioridad}</Badge>
                           </td>
                           <td className="py-4 px-6">
                             <div className="flex items-center gap-1">
@@ -515,11 +578,11 @@ export default function SolicitudesClientePage() {
                   </table>
                 </div>
 
-                {filteredSolicitudes.length === 0 && (
+                {filteredOrdenes.length === 0 && (
                   <div className="text-center py-12">
                     <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                      No se encontraron solicitudes que coincidan con los filtros.
+                      No se encontraron órdenes de servicio que coincidan con los filtros.
                     </p>
                   </div>
                 )}
@@ -532,35 +595,55 @@ export default function SolicitudesClientePage() {
   )
 }
 
-const solicitudes = [
+const ordenes = [
   {
-    numero: "SS-001",
+    numero: "OS-001",
     cliente: "María González",
-    telefono: "0981234567",
-    email: "maria@email.com",
-    fecha: "2024-01-15",
-    descripcion: "Pantalla rota en Samsung Galaxy A54",
-    estado: "Pendiente",
+    equipo: "Samsung Galaxy A54",
+    tecnico: "Juan Pérez",
+    progreso: 75,
+    fechaEstimada: "2024-01-18",
+    estado: "En Proceso",
     prioridad: "Media",
   },
   {
-    numero: "SS-002",
+    numero: "OS-002",
     cliente: "Carlos Rodríguez",
-    telefono: "0987654321",
-    email: "carlos@email.com",
-    fecha: "2024-01-14",
-    descripcion: "Laptop no enciende, posible problema de fuente",
-    estado: "En Proceso",
+    equipo: "HP Pavilion 15",
+    tecnico: "Ana Martínez",
+    progreso: 100,
+    fechaEstimada: "2024-01-17",
+    estado: "Completada",
     prioridad: "Alta",
   },
   {
-    numero: "SS-003",
+    numero: "OS-003",
     cliente: "Ana Martínez",
-    telefono: "0976543210",
-    email: "ana@email.com",
-    fecha: "2024-01-13",
-    descripcion: "iPhone con batería que se descarga rápido",
-    estado: "Completado",
+    equipo: "iPhone 12",
+    tecnico: "Luis Castro",
+    progreso: 25,
+    fechaEstimada: "2024-01-20",
+    estado: "Pausada",
     prioridad: "Baja",
+  },
+  {
+    numero: "OS-004",
+    cliente: "Luis Pérez",
+    equipo: "LG Monitor 24MK430H",
+    tecnico: "Juan Pérez",
+    progreso: 10,
+    fechaEstimada: "2024-01-22",
+    estado: "Iniciada",
+    prioridad: "Urgente",
+  },
+  {
+    numero: "OS-005",
+    cliente: "Carmen Silva",
+    equipo: "MacBook Air M1",
+    tecnico: "Ana Martínez",
+    progreso: 50,
+    fechaEstimada: "2024-01-19",
+    estado: "En Proceso",
+    prioridad: "Media",
   },
 ]

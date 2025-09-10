@@ -20,11 +20,13 @@ import {
   Bell,
   ChevronRight,
   ChevronDown,
-  DollarSign,
-  TrendingUp,
+  Plus,
+  Eye,
+  Edit,
+  Trash2,
   Clock,
-  Calculator,
-  X,
+  DollarSign,
+  PenTool as Tool,
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -65,9 +67,9 @@ const sidebarItems = [
   {
     icon: Receipt,
     label: "Ventas",
-    active: true,
+    active: false,
     submenu: [
-      { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: true },
+      { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: false },
       { label: "Pedidos de Clientes", href: "/ventas/pedidos-clientes", active: false },
       { label: "Registro de Ventas", href: "/ventas/registro-ventas", active: false },
       { label: "Cobros", href: "/ventas/cobros", active: false },
@@ -80,14 +82,14 @@ const sidebarItems = [
   {
     icon: FileText,
     label: "Referencias",
-    active: false,
+    active: true,
     submenu: [
       { label: "Proveedores", href: "/referencias/proveedores", active: false },
       { label: "Productos", href: "/referencias/productos", active: false },
       { label: "Categorías", href: "/referencias/categorias", active: false },
       { label: "Clientes", href: "/referencias/clientes", active: false },
       { label: "Marcas", href: "/referencias/marcas", active: false },
-      { label: "Tipos de Servicio", href: "/referencias/tipos-servicio", active: false },
+      { label: "Tipos de Servicio", href: "/referencias/tipos-servicio", active: true },
     ],
   },
   {
@@ -103,85 +105,14 @@ const sidebarItems = [
   },
 ]
 
-const cajaMetrics = [
-  {
-    title: "Estado de Caja",
-    value: "Abierta",
-    subtitle: "Desde 2024-01-15 08:00:00",
-    icon: DollarSign,
-    color: "text-green-600",
-    bgColor: "bg-green-50",
-    status: "Abierta",
-  },
-  {
-    title: "Monto Inicial",
-    value: "₡ 100,000",
-    subtitle: "Apertura del día",
-    icon: DollarSign,
-    color: "text-orange-600",
-    bgColor: "bg-orange-50",
-  },
-  {
-    title: "Ventas del Día",
-    value: "₡ 1,250,000",
-    subtitle: "Total en efectivo",
-    icon: TrendingUp,
-    color: "text-blue-600",
-    bgColor: "bg-blue-50",
-  },
-  {
-    title: "Monto Teórico",
-    value: "₡ 2,200,000",
-    subtitle: "Esperado en caja",
-    icon: Calculator,
-    color: "text-purple-600",
-    bgColor: "bg-purple-50",
-  },
-]
-
-const movimientosCaja = [
-  {
-    tipo: "Apertura",
-    monto: "₡ 100,000",
-    fechaHora: "2024-01-15 08:00:00",
-    usuario: "Juan Pérez",
-    observaciones: "Apertura de caja diaria",
-    tipoColor: "bg-blue-500",
-  },
-  {
-    tipo: "Venta",
-    monto: "₡ 350,000",
-    fechaHora: "2024-01-15 09:30:00",
-    usuario: "Juan Pérez",
-    observaciones: "Venta #V-001",
-    tipoColor: "bg-green-500",
-  },
-  {
-    tipo: "Cobro",
-    monto: "₡ 200,000",
-    fechaHora: "2024-01-15 10:15:00",
-    usuario: "Juan Pérez",
-    observaciones: "Cobro factura #F-123",
-    tipoColor: "bg-gray-500",
-  },
-  {
-    tipo: "Venta",
-    monto: "₡ 150,000",
-    fechaHora: "2024-01-15 11:00:00",
-    usuario: "Juan Pérez",
-    observaciones: "Venta #V-002",
-    tipoColor: "bg-green-500",
-  },
-]
-
-export default function AperturaCierreCajaPage() {
+export default function TiposServicioPage() {
   const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
     Compras: false,
     "Servicios Técnicos": false,
-    Ventas: true,
-    Referencias: false,
+    Ventas: false,
+    Referencias: true,
     Administración: false,
   })
   const [searchTerm, setSearchTerm] = useState("")
@@ -198,9 +129,34 @@ export default function AperturaCierreCajaPage() {
     router.push(href)
   }
 
-  const filteredMovimientos = movimientosCaja.filter((movimiento) =>
-    Object.values(movimiento).some((value) => value.toString().toLowerCase().includes(searchTerm.toLowerCase())),
+  const filteredTiposServicio = tiposServicio.filter(
+    (tipo) =>
+      tipo.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tipo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tipo.descripcion.toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  const getEstadoBadge = (estado: string) => {
+    switch (estado) {
+      case "Activo":
+        return "bg-green-100 text-green-800 hover:bg-green-100"
+      case "Inactivo":
+        return "bg-red-100 text-red-800 hover:bg-red-100"
+      case "Suspendido":
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+      case "Nuevo":
+        return "bg-blue-100 text-blue-800 hover:bg-blue-100"
+      default:
+        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
+    }
+  }
+
+  const getDuracionBadge = (duracion: string) => {
+    const horas = Number.parseInt(duracion.split(" ")[0])
+    if (horas <= 1) return "bg-green-100 text-green-800 hover:bg-green-100"
+    if (horas <= 4) return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+    return "bg-red-100 text-red-800 hover:bg-red-100"
+  }
 
   return (
     <ProtectedRoute>
@@ -341,95 +297,100 @@ export default function AperturaCierreCajaPage() {
 
           {/* Page Content */}
           <main className="flex-1 overflow-auto p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
+            {/* Page Header */}
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestión de Caja</h1>
-                <p className="text-gray-600">Control de apertura, cierre y arqueo de caja</p>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Tipos de Servicio</h1>
+                <p className="text-gray-600">Gestión de servicios técnicos y tarifas del taller</p>
               </div>
-              <div className="flex gap-3">
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Calculator className="h-4 w-4 mr-2" />
-                  Arqueo de Caja
-                </Button>
-                <Button variant="destructive">
-                  <X className="h-4 w-4 mr-2" />
-                  Cerrar Caja
-                </Button>
-              </div>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Tipo de Servicio
+              </Button>
             </div>
 
-            {/* Metrics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {cajaMetrics.map((metric, index) => (
-                <Card key={index} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 mb-1">{metric.title}</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-2xl font-bold text-gray-900">{metric.value}</p>
-                          {metric.status && (
-                            <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{metric.status}</Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">{metric.subtitle}</p>
-                      </div>
-                      <div className={cn("p-3 rounded-full", metric.bgColor)}>
-                        <metric.icon className={cn("h-6 w-6", metric.color)} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Movimientos de Caja */}
-            <Card>
+            {/* Filters and Search */}
+            <Card className="mb-6">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Movimientos de Caja
-                  </CardTitle>
-                  <div className="relative">
+                <CardTitle>Lista de Tipos de Servicio</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
-                      placeholder="Buscar movimientos..."
+                      placeholder="Buscar tipos de servicio..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 w-80"
+                      className="pl-10"
                     />
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
+
+                {/* Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Tipo</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Monto</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Fecha/Hora</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Usuario</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Observaciones</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Código</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Descripción</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Duración</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Precio Base</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredMovimientos.map((movimiento, index) => (
+                      {filteredTiposServicio.map((tipo, index) => (
                         <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-4 px-4">
-                            <Badge className={cn("text-white", movimiento.tipoColor)}>{movimiento.tipo}</Badge>
+                          <td className="py-3 px-4 font-medium text-gray-900">{tipo.codigo}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <Tool className="h-4 w-4 text-blue-600" />
+                              <span className="text-gray-900 font-medium">{tipo.nombre}</span>
+                            </div>
                           </td>
-                          <td className="py-4 px-4 font-medium">{movimiento.monto}</td>
-                          <td className="py-4 px-4 text-gray-600">{movimiento.fechaHora}</td>
-                          <td className="py-4 px-4 text-gray-600">{movimiento.usuario}</td>
-                          <td className="py-4 px-4 text-gray-600">{movimiento.observaciones}</td>
+                          <td className="py-3 px-4 text-gray-600 max-w-xs truncate">{tipo.descripcion}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3 text-gray-400" />
+                              <Badge className={getDuracionBadge(tipo.duracion)}>{tipo.duracion}</Badge>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1 text-gray-900 font-medium">
+                              <DollarSign className="h-3 w-3" />
+                              {tipo.precioBase.toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge className={getEstadoBadge(tipo.estado)}>{tipo.estado}</Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+
+                {filteredTiposServicio.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No se encontraron tipos de servicio que coincidan con la búsqueda.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </main>
@@ -438,3 +399,70 @@ export default function AperturaCierreCajaPage() {
     </ProtectedRoute>
   )
 }
+
+const tiposServicio = [
+  {
+    codigo: "SRV-001",
+    nombre: "Reparación de Pantalla",
+    descripcion: "Cambio de pantalla LCD/OLED en dispositivos móviles",
+    duracion: "2 horas",
+    precioBase: 8000,
+    estado: "Activo",
+  },
+  {
+    codigo: "SRV-002",
+    nombre: "Diagnóstico General",
+    descripcion: "Evaluación completa del estado del dispositivo",
+    duracion: "1 hora",
+    precioBase: 1500,
+    estado: "Activo",
+  },
+  {
+    codigo: "SRV-003",
+    nombre: "Cambio de Batería",
+    descripcion: "Reemplazo de batería en smartphones y tablets",
+    duracion: "1 hora",
+    precioBase: 3500,
+    estado: "Activo",
+  },
+  {
+    codigo: "SRV-004",
+    nombre: "Limpieza Profunda",
+    descripcion: "Limpieza interna y externa de equipos electrónicos",
+    duracion: "30 minutos",
+    precioBase: 1000,
+    estado: "Activo",
+  },
+  {
+    codigo: "SRV-005",
+    nombre: "Reparación de Placa Madre",
+    descripcion: "Soldadura y reparación de componentes en PCB",
+    duracion: "6 horas",
+    precioBase: 15000,
+    estado: "Activo",
+  },
+  {
+    codigo: "SRV-006",
+    nombre: "Instalación de Software",
+    descripcion: "Instalación y configuración de sistemas operativos",
+    duracion: "3 horas",
+    precioBase: 2500,
+    estado: "Activo",
+  },
+  {
+    codigo: "SRV-007",
+    nombre: "Recuperación de Datos",
+    descripcion: "Recuperación de información de dispositivos dañados",
+    duracion: "8 horas",
+    precioBase: 12000,
+    estado: "Nuevo",
+  },
+  {
+    codigo: "SRV-008",
+    nombre: "Desbloqueio de Equipos",
+    descripcion: "Liberación de códigos de seguridad (descontinuado)",
+    duracion: "2 horas",
+    precioBase: 5000,
+    estado: "Suspendido",
+  },
+]

@@ -27,11 +27,14 @@ import {
   CheckCircle,
   Eye,
   Edit,
-  Trash2,
-  Package,
+  BookOpen,
   DollarSign,
   Calendar,
   Filter,
+  CreditCard,
+  AlertCircle,
+  Download,
+  Calculator,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -43,10 +46,10 @@ const sidebarItems = [
     label: "Compras",
     active: true,
     submenu: [
-      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: true },
+      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: false },
       { label: "Presupuestos Proveedor", href: "/compras/presupuestos", active: false },
       { label: "Órdenes de Compra", href: "/compras/ordenes", active: false },
-      { label: "Registro de Compras", href: "/compras/registro", active: false },
+      { label: "Registro de Compras", href: "/compras/registro", active: true },
       { label: "Ajustes de Inventario", href: "/compras/ajustes", active: false },
       { label: "Notas de Crédito/Débito", href: "/compras/notas", active: false },
       { label: "Transferencias", href: "/compras/transferencias", active: false },
@@ -109,7 +112,7 @@ const sidebarItems = [
   },
 ]
 
-export default function PedidosDeCompraPage() {
+export default function RegistroDeComprasPage() {
   const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
@@ -117,100 +120,137 @@ export default function PedidosDeCompraPage() {
   })
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
+  const [filterMonth, setFilterMonth] = useState("all")
   const router = useRouter()
 
   const metrics = [
     {
-      title: "Total Pedidos",
-      value: "24",
-      change: "+12%",
+      title: "Compras del Mes",
+      value: "45",
+      change: "+18%",
       trend: "up",
-      icon: Package,
+      icon: BookOpen,
       color: "bg-primary text-primary-foreground",
     },
     {
-      title: "Pendientes",
-      value: "8",
-      change: "-5%",
-      trend: "down",
-      icon: Clock,
+      title: "Gastos Acumulados",
+      value: "₡12.8M",
+      change: "+25%",
+      trend: "up",
+      icon: DollarSign,
       color: "bg-secondary text-secondary-foreground",
     },
     {
-      title: "Aprobados",
-      value: "12",
-      change: "+8%",
+      title: "Facturas Pagadas",
+      value: "38",
+      change: "+15%",
       trend: "up",
       icon: CheckCircle,
       color: "bg-chart-1 text-white",
     },
     {
-      title: "Valor Total",
-      value: "₡2.4M",
-      change: "+15%",
-      trend: "up",
-      icon: DollarSign,
+      title: "Pendientes Pago",
+      value: "7",
+      change: "-12%",
+      trend: "down",
+      icon: Clock,
       color: "bg-chart-2 text-white",
     },
   ]
 
-  const purchaseOrders = [
+  const purchaseRecords = [
     {
-      id: "PC-001",
+      id: "RC-001",
+      invoiceNumber: "FAC-2024-001",
       supplier: "Distribuidora Tech SA",
-      date: "2024-01-15",
-      status: "pending",
-      items: 5,
-      total: "₡2,500,000",
-      priority: "high",
-      description: "Componentes electrónicos varios",
-      deliveryDate: "2024-01-25",
+      purchaseDate: "2024-01-15",
+      dueDate: "2024-02-14",
+      paymentDate: "2024-01-20",
+      status: "paid",
+      subtotal: "₡2,700,000",
+      tax: "₡351,000",
+      total: "₡3,051,000",
+      paymentMethod: "Transferencia",
+      description: "Componentes electrónicos Q1",
+      category: "Inventario",
+      reference: "OC-001",
     },
     {
-      id: "PC-002",
+      id: "RC-002",
+      invoiceNumber: "FAC-2024-002",
       supplier: "Electrónica Central",
-      date: "2024-01-14",
-      status: "approved",
-      items: 3,
-      total: "₡1,800,000",
-      priority: "medium",
-      description: "Pantallas y displays",
-      deliveryDate: "2024-01-22",
+      purchaseDate: "2024-01-12",
+      dueDate: "2024-02-11",
+      paymentDate: null,
+      status: "pending",
+      subtotal: "₡1,800,000",
+      tax: "₡234,000",
+      total: "₡2,034,000",
+      paymentMethod: null,
+      description: "Pantallas premium y displays",
+      category: "Inventario",
+      reference: "OC-002",
     },
     {
-      id: "PC-003",
+      id: "RC-003",
+      invoiceNumber: "FAC-2024-003",
       supplier: "Componentes del Este",
-      date: "2024-01-13",
-      status: "cancelled",
-      items: 2,
-      total: "₡950,000",
-      priority: "low",
-      description: "Cables y conectores",
-      deliveryDate: "2024-01-20",
+      purchaseDate: "2024-01-10",
+      dueDate: "2024-01-25",
+      paymentDate: "2024-01-15",
+      status: "paid",
+      subtotal: "₡1,300,000",
+      tax: "₡169,000",
+      total: "₡1,469,000",
+      paymentMethod: "Efectivo",
+      description: "Cables especializados",
+      category: "Inventario",
+      reference: "OC-003",
     },
     {
-      id: "PC-004",
-      supplier: "TechParts Solutions",
-      date: "2024-01-12",
-      status: "delivered",
-      items: 7,
-      total: "₡3,200,000",
-      priority: "high",
-      description: "Procesadores y memorias",
-      deliveryDate: "2024-01-18",
+      id: "RC-004",
+      invoiceNumber: "FAC-2024-004",
+      supplier: "Servicios Profesionales CR",
+      purchaseDate: "2024-01-08",
+      dueDate: "2024-02-07",
+      paymentDate: null,
+      status: "overdue",
+      subtotal: "₡800,000",
+      tax: "₡104,000",
+      total: "₡904,000",
+      paymentMethod: null,
+      description: "Consultoría técnica especializada",
+      category: "Servicios",
+      reference: "SERV-001",
+    },
+    {
+      id: "RC-005",
+      invoiceNumber: "FAC-2024-005",
+      supplier: "Suministros Electrónicos",
+      purchaseDate: "2024-01-05",
+      dueDate: "2024-02-04",
+      paymentDate: "2024-01-12",
+      status: "paid",
+      subtotal: "₡2,400,000",
+      tax: "₡312,000",
+      total: "₡2,712,000",
+      paymentMethod: "Cheque",
+      description: "Herramientas de diagnóstico",
+      category: "Equipos",
+      reference: "OC-005",
     },
   ]
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "paid":
+        return "bg-green-500 text-white"
       case "pending":
         return "bg-secondary text-secondary-foreground"
-      case "approved":
-        return "bg-chart-1 text-white"
-      case "delivered":
-        return "bg-green-500 text-white"
-      case "cancelled":
+      case "overdue":
         return "bg-destructive text-destructive-foreground"
+      case "partial":
+        return "bg-chart-2 text-white"
       default:
         return "bg-muted text-muted-foreground"
     }
@@ -218,39 +258,62 @@ export default function PedidosDeCompraPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case "paid":
+        return "Pagada"
       case "pending":
         return "Pendiente"
-      case "approved":
-        return "Aprobado"
-      case "delivered":
-        return "Entregado"
-      case "cancelled":
-        return "Cancelado"
+      case "overdue":
+        return "Vencida"
+      case "partial":
+        return "Parcial"
       default:
         return status
     }
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-100 text-red-800 border-red-200"
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "low":
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "paid":
+        return CheckCircle
+      case "pending":
+        return Clock
+      case "overdue":
+        return AlertCircle
+      case "partial":
+        return CreditCard
+      default:
+        return Clock
+    }
+  }
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case "Inventario":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "Servicios":
+        return "bg-purple-100 text-purple-800 border-purple-200"
+      case "Equipos":
         return "bg-green-100 text-green-800 border-green-200"
       default:
         return "bg-muted text-muted-foreground"
     }
   }
 
-  const filteredOrders = purchaseOrders.filter((order) => {
+  const isOverdue = (dueDate: string, status: string) => {
+    const today = new Date()
+    const due = new Date(dueDate)
+    return due < today && status !== "paid"
+  }
+
+  const filteredRecords = purchaseRecords.filter((record) => {
     const matchesSearch =
-      order.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === "all" || order.status === filterStatus
-    return matchesSearch && matchesFilter
+      record.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.reference.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesFilter = filterStatus === "all" || record.status === filterStatus
+    const matchesMonth = filterMonth === "all" || record.purchaseDate.includes(`2024-${filterMonth}`)
+    return matchesSearch && matchesFilter && matchesMonth
   })
 
   const toggleSubmenu = (label: string) => {
@@ -269,7 +332,6 @@ export default function PedidosDeCompraPage() {
       <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <div className={cn("bg-slate-800 text-white transition-all duration-300", sidebarOpen ? "w-64" : "w-16")}>
-          {/* Logo */}
           <div className="p-4 border-b border-slate-700">
             <div className="flex items-center gap-3">
               <div className="bg-white p-2 rounded-lg">
@@ -284,7 +346,6 @@ export default function PedidosDeCompraPage() {
             </div>
           </div>
 
-          {/* Navigation */}
           <nav className="p-4">
             <ul className="space-y-2">
               {sidebarItems.map((item, index) => (
@@ -371,7 +432,7 @@ export default function PedidosDeCompraPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar pedidos, proveedores..."
+                    placeholder="Buscar facturas, proveedores, referencias..."
                     className="pl-10 w-80 bg-input border-border"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -379,7 +440,6 @@ export default function PedidosDeCompraPage() {
                 </div>
               </div>
 
-              {/* User Profile */}
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="sm" className="relative">
                   <Bell className="h-4 w-4" />
@@ -415,13 +475,19 @@ export default function PedidosDeCompraPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Pedidos de Compra</h1>
-                <p className="text-muted-foreground">Dashboard de gestión de solicitudes a proveedores</p>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Registro de Compras</h1>
+                <p className="text-muted-foreground">Historial contable y control de facturas de proveedores</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Pedido
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button variant="outline" className="bg-transparent">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Registrar Compra
+                </Button>
+              </div>
             </div>
 
             {/* Metrics Dashboard */}
@@ -456,12 +522,12 @@ export default function PedidosDeCompraPage() {
               ))}
             </div>
 
-            {/* Filters and Search */}
+            {/* Filters */}
             <Card className="mb-6 border-border">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-4">
-                    <h3 className="font-semibold text-foreground">Pedidos Activos</h3>
+                    <h3 className="font-semibold text-foreground">Registro Contable</h3>
                     <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-muted-foreground" />
                       <select
@@ -470,89 +536,125 @@ export default function PedidosDeCompraPage() {
                         className="bg-input border border-border rounded-md px-3 py-1 text-sm"
                       >
                         <option value="all">Todos los estados</option>
+                        <option value="paid">Pagadas</option>
                         <option value="pending">Pendientes</option>
-                        <option value="approved">Aprobados</option>
-                        <option value="delivered">Entregados</option>
-                        <option value="cancelled">Cancelados</option>
+                        <option value="overdue">Vencidas</option>
+                        <option value="partial">Parciales</option>
+                      </select>
+                      <select
+                        value={filterMonth}
+                        onChange={(e) => setFilterMonth(e.target.value)}
+                        className="bg-input border border-border rounded-md px-3 py-1 text-sm ml-2"
+                      >
+                        <option value="all">Todos los meses</option>
+                        <option value="01">Enero</option>
+                        <option value="02">Febrero</option>
+                        <option value="03">Marzo</option>
+                        <option value="04">Abril</option>
+                        <option value="05">Mayo</option>
+                        <option value="06">Junio</option>
                       </select>
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {filteredOrders.length} de {purchaseOrders.length} pedidos
+                    {filteredRecords.length} de {purchaseRecords.length} registros
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Purchase Orders Grid */}
+            {/* Records Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredOrders.map((order) => (
-                <Card key={order.id} className="hover:shadow-lg transition-all duration-300 border-border group">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-semibold text-foreground">{order.id}</CardTitle>
-                      <Badge className={cn("text-xs", getPriorityColor(order.priority))}>
-                        {order.priority === "high" ? "Alta" : order.priority === "medium" ? "Media" : "Baja"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{order.supplier}</p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Descripción</p>
-                      <p className="text-sm font-medium text-foreground">{order.description}</p>
-                    </div>
+              {filteredRecords.map((record) => {
+                const StatusIcon = getStatusIcon(record.status)
+                const overdue = isOverdue(record.dueDate, record.status)
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Fecha</p>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                          <p className="text-sm font-medium">{order.date}</p>
+                return (
+                  <Card key={record.id} className="hover:shadow-lg transition-all duration-300 border-border group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg font-semibold text-foreground">{record.invoiceNumber}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          {overdue && <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Vencida</Badge>}
+                          <Badge className={cn("text-xs", getCategoryColor(record.category))}>{record.category}</Badge>
                         </div>
                       </div>
+                      <p className="text-sm text-muted-foreground">{record.supplier}</p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       <div>
-                        <p className="text-xs text-muted-foreground">Entrega</p>
-                        <p className="text-sm font-medium">{order.deliveryDate}</p>
+                        <p className="text-sm text-muted-foreground mb-1">Descripción</p>
+                        <p className="text-sm font-medium text-foreground">{record.description}</p>
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Items: {order.items}</p>
-                        <p className="text-lg font-bold text-foreground">{order.total}</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Compra</p>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <p className="text-sm font-medium">{record.purchaseDate}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Vencimiento</p>
+                          <p className={cn("text-sm font-medium", overdue ? "text-red-600" : "")}>{record.dueDate}</p>
+                        </div>
                       </div>
-                      <Badge className={getStatusColor(order.status)}>{getStatusLabel(order.status)}</Badge>
-                    </div>
 
-                    <div className="flex items-center gap-2 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                        <Eye className="h-3 w-3 mr-1" />
-                        Ver
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive hover:text-destructive bg-transparent"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Subtotal:</span>
+                          <span className="font-medium">{record.subtotal}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Impuestos:</span>
+                          <span className="font-medium">{record.tax}</span>
+                        </div>
+                        <div className="flex justify-between text-base font-bold border-t border-border pt-2">
+                          <span>Total:</span>
+                          <span className="text-foreground">{record.total}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Ref: {record.reference}
+                            {record.paymentMethod && ` • ${record.paymentMethod}`}
+                          </p>
+                          {record.paymentDate && <p className="text-xs text-green-600">Pagado: {record.paymentDate}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StatusIcon className="h-4 w-4 text-muted-foreground" />
+                          <Badge className={getStatusColor(record.status)}>{getStatusLabel(record.status)}</Badge>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
+                          <Eye className="h-3 w-3 mr-1" />
+                          Ver
+                        </Button>
+                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
+                          <Edit className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
+                        <Button size="sm" variant="outline" className="bg-transparent">
+                          <Calculator className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
 
-            {filteredOrders.length === 0 && (
+            {filteredRecords.length === 0 && (
               <Card className="border-border">
                 <CardContent className="p-12 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No se encontraron pedidos</h3>
-                  <p className="text-muted-foreground">Intenta ajustar los filtros o crear un nuevo pedido</p>
+                  <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No se encontraron registros</h3>
+                  <p className="text-muted-foreground">Intenta ajustar los filtros o registrar una nueva compra</p>
                 </CardContent>
               </Card>
             )}

@@ -20,11 +20,14 @@ import {
   Bell,
   ChevronRight,
   ChevronDown,
-  DollarSign,
-  TrendingUp,
+  Plus,
+  Eye,
   Clock,
-  Calculator,
-  X,
+  Activity,
+  Globe,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -65,9 +68,9 @@ const sidebarItems = [
   {
     icon: Receipt,
     label: "Ventas",
-    active: true,
+    active: false,
     submenu: [
-      { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: true },
+      { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: false },
       { label: "Pedidos de Clientes", href: "/ventas/pedidos-clientes", active: false },
       { label: "Registro de Ventas", href: "/ventas/registro-ventas", active: false },
       { label: "Cobros", href: "/ventas/cobros", active: false },
@@ -93,96 +96,25 @@ const sidebarItems = [
   {
     icon: Users,
     label: "Administración",
-    active: false,
+    active: true,
     submenu: [
       { label: "Usuarios", href: "/administracion/usuarios", active: false },
       { label: "Roles y Permisos", href: "/administracion/roles-permisos", active: false },
-      { label: "Auditoría", href: "/administracion/auditoria", active: false },
+      { label: "Auditoría", href: "/administracion/auditoria", active: true },
       { label: "Configuración", href: "/administracion/configuracion", active: false },
     ],
   },
 ]
 
-const cajaMetrics = [
-  {
-    title: "Estado de Caja",
-    value: "Abierta",
-    subtitle: "Desde 2024-01-15 08:00:00",
-    icon: DollarSign,
-    color: "text-green-600",
-    bgColor: "bg-green-50",
-    status: "Abierta",
-  },
-  {
-    title: "Monto Inicial",
-    value: "₡ 100,000",
-    subtitle: "Apertura del día",
-    icon: DollarSign,
-    color: "text-orange-600",
-    bgColor: "bg-orange-50",
-  },
-  {
-    title: "Ventas del Día",
-    value: "₡ 1,250,000",
-    subtitle: "Total en efectivo",
-    icon: TrendingUp,
-    color: "text-blue-600",
-    bgColor: "bg-blue-50",
-  },
-  {
-    title: "Monto Teórico",
-    value: "₡ 2,200,000",
-    subtitle: "Esperado en caja",
-    icon: Calculator,
-    color: "text-purple-600",
-    bgColor: "bg-purple-50",
-  },
-]
-
-const movimientosCaja = [
-  {
-    tipo: "Apertura",
-    monto: "₡ 100,000",
-    fechaHora: "2024-01-15 08:00:00",
-    usuario: "Juan Pérez",
-    observaciones: "Apertura de caja diaria",
-    tipoColor: "bg-blue-500",
-  },
-  {
-    tipo: "Venta",
-    monto: "₡ 350,000",
-    fechaHora: "2024-01-15 09:30:00",
-    usuario: "Juan Pérez",
-    observaciones: "Venta #V-001",
-    tipoColor: "bg-green-500",
-  },
-  {
-    tipo: "Cobro",
-    monto: "₡ 200,000",
-    fechaHora: "2024-01-15 10:15:00",
-    usuario: "Juan Pérez",
-    observaciones: "Cobro factura #F-123",
-    tipoColor: "bg-gray-500",
-  },
-  {
-    tipo: "Venta",
-    monto: "₡ 150,000",
-    fechaHora: "2024-01-15 11:00:00",
-    usuario: "Juan Pérez",
-    observaciones: "Venta #V-002",
-    tipoColor: "bg-green-500",
-  },
-]
-
-export default function AperturaCierreCajaPage() {
+export default function AuditoriaPage() {
   const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
     Compras: false,
     "Servicios Técnicos": false,
-    Ventas: true,
+    Ventas: false,
     Referencias: false,
-    Administración: false,
+    Administración: true,
   })
   const [searchTerm, setSearchTerm] = useState("")
   const router = useRouter()
@@ -198,9 +130,56 @@ export default function AperturaCierreCajaPage() {
     router.push(href)
   }
 
-  const filteredMovimientos = movimientosCaja.filter((movimiento) =>
-    Object.values(movimiento).some((value) => value.toString().toLowerCase().includes(searchTerm.toLowerCase())),
+  const filteredLogs = logsAuditoria.filter(
+    (log) =>
+      log.usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.accion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.modulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.detalles.toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  const getResultadoBadge = (resultado: string) => {
+    switch (resultado) {
+      case "Exitoso":
+        return "bg-green-100 text-green-800 hover:bg-green-100"
+      case "Fallido":
+        return "bg-red-100 text-red-800 hover:bg-red-100"
+      case "Advertencia":
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+      default:
+        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
+    }
+  }
+
+  const getResultadoIcon = (resultado: string) => {
+    switch (resultado) {
+      case "Exitoso":
+        return <CheckCircle className="h-3 w-3" />
+      case "Fallido":
+        return <XCircle className="h-3 w-3" />
+      case "Advertencia":
+        return <AlertTriangle className="h-3 w-3" />
+      default:
+        return <Activity className="h-3 w-3" />
+    }
+  }
+
+  const getModuloBadge = (modulo: string) => {
+    switch (modulo) {
+      case "Usuarios":
+        return "bg-purple-100 text-purple-800 hover:bg-purple-100"
+      case "Ventas":
+        return "bg-green-100 text-green-800 hover:bg-green-100"
+      case "Servicios":
+        return "bg-blue-100 text-blue-800 hover:bg-blue-100"
+      case "Compras":
+        return "bg-orange-100 text-orange-800 hover:bg-orange-100"
+      case "Sistema":
+        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
+      default:
+        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
+    }
+  }
 
   return (
     <ProtectedRoute>
@@ -341,95 +320,114 @@ export default function AperturaCierreCajaPage() {
 
           {/* Page Content */}
           <main className="flex-1 overflow-auto p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
+            {/* Page Header */}
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestión de Caja</h1>
-                <p className="text-gray-600">Control de apertura, cierre y arqueo de caja</p>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Auditoría</h1>
+                <p className="text-gray-600">Registro de actividades y seguimiento de acciones del sistema</p>
               </div>
-              <div className="flex gap-3">
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Calculator className="h-4 w-4 mr-2" />
-                  Arqueo de Caja
-                </Button>
-                <Button variant="destructive">
-                  <X className="h-4 w-4 mr-2" />
-                  Cerrar Caja
-                </Button>
-              </div>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Exportar Logs
+              </Button>
             </div>
 
-            {/* Metrics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {cajaMetrics.map((metric, index) => (
-                <Card key={index} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 mb-1">{metric.title}</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-2xl font-bold text-gray-900">{metric.value}</p>
-                          {metric.status && (
-                            <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{metric.status}</Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">{metric.subtitle}</p>
-                      </div>
-                      <div className={cn("p-3 rounded-full", metric.bgColor)}>
-                        <metric.icon className={cn("h-6 w-6", metric.color)} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Movimientos de Caja */}
-            <Card>
+            {/* Filters and Search */}
+            <Card className="mb-6">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Movimientos de Caja
-                  </CardTitle>
-                  <div className="relative">
+                <CardTitle>Registro de Auditoría</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
-                      placeholder="Buscar movimientos..."
+                      placeholder="Buscar en logs de auditoría..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 w-80"
+                      className="pl-10"
                     />
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
+
+                {/* Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Tipo</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Monto</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Fecha/Hora</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Usuario</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Observaciones</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Fecha/Hora</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Usuario</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Acción</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Módulo</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Detalles</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">IP</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Resultado</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredMovimientos.map((movimiento, index) => (
+                      {filteredLogs.map((log, index) => (
                         <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-4 px-4">
-                            <Badge className={cn("text-white", movimiento.tipoColor)}>{movimiento.tipo}</Badge>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <Clock className="h-3 w-3" />
+                              {log.fechaHora}
+                            </div>
                           </td>
-                          <td className="py-4 px-4 font-medium">{movimiento.monto}</td>
-                          <td className="py-4 px-4 text-gray-600">{movimiento.fechaHora}</td>
-                          <td className="py-4 px-4 text-gray-600">{movimiento.usuario}</td>
-                          <td className="py-4 px-4 text-gray-600">{movimiento.observaciones}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6">
+                                <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
+                                  {log.usuario.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="font-medium text-gray-900">{log.usuario}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1">
+                              <Activity className="h-3 w-3 text-gray-500" />
+                              <span className="text-gray-900">{log.accion}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge className={getModuloBadge(log.modulo)}>{log.modulo}</Badge>
+                          </td>
+                          <td className="py-3 px-4 max-w-xs">
+                            <span className="text-sm text-gray-600 truncate block">{log.detalles}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <Globe className="h-3 w-3" />
+                              {log.ip}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge className={getResultadoBadge(log.resultado)}>
+                              <div className="flex items-center gap-1">
+                                {getResultadoIcon(log.resultado)}
+                                {log.resultado}
+                              </div>
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+
+                {filteredLogs.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No se encontraron registros de auditoría que coincidan con la búsqueda.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </main>
@@ -438,3 +436,78 @@ export default function AperturaCierreCajaPage() {
     </ProtectedRoute>
   )
 }
+
+const logsAuditoria = [
+  {
+    fechaHora: "2024-01-15 14:32:15",
+    usuario: "jcastro",
+    accion: "Inicio de Sesión",
+    modulo: "Sistema",
+    detalles: "Usuario administrador inició sesión correctamente",
+    ip: "192.168.1.100",
+    resultado: "Exitoso",
+  },
+  {
+    fechaHora: "2024-01-15 14:30:45",
+    usuario: "mrodriguez",
+    accion: "Crear Usuario",
+    modulo: "Usuarios",
+    detalles: "Creó nuevo usuario: cperez con rol Vendedor",
+    ip: "192.168.1.105",
+    resultado: "Exitoso",
+  },
+  {
+    fechaHora: "2024-01-15 14:28:20",
+    usuario: "cperez",
+    accion: "Generar Venta",
+    modulo: "Ventas",
+    detalles: "Procesó venta #V-001 por ₡350,000",
+    ip: "192.168.1.110",
+    resultado: "Exitoso",
+  },
+  {
+    fechaHora: "2024-01-15 14:25:10",
+    usuario: "agarcia",
+    accion: "Acceso Denegado",
+    modulo: "Sistema",
+    detalles: "Intento de acceso a módulo sin permisos: Administración",
+    ip: "192.168.1.115",
+    resultado: "Fallido",
+  },
+  {
+    fechaHora: "2024-01-15 14:22:30",
+    usuario: "lmartinez",
+    accion: "Actualizar Servicio",
+    modulo: "Servicios",
+    detalles: "Cambió estado de servicio SS-002 a En Proceso",
+    ip: "192.168.1.120",
+    resultado: "Exitoso",
+  },
+  {
+    fechaHora: "2024-01-15 14:20:15",
+    usuario: "jcastro",
+    accion: "Modificar Permisos",
+    modulo: "Usuarios",
+    detalles: "Actualizó permisos del rol Técnico Senior",
+    ip: "192.168.1.100",
+    resultado: "Advertencia",
+  },
+  {
+    fechaHora: "2024-01-15 14:18:45",
+    usuario: "mrodriguez",
+    accion: "Crear Pedido",
+    modulo: "Compras",
+    detalles: "Generó pedido de compra PC-004 a Distribuidora Tech SA",
+    ip: "192.168.1.105",
+    resultado: "Exitoso",
+  },
+  {
+    fechaHora: "2024-01-15 14:15:30",
+    usuario: "sistema",
+    accion: "Backup Automático",
+    modulo: "Sistema",
+    detalles: "Respaldo automático de base de datos completado",
+    ip: "127.0.0.1",
+    resultado: "Exitoso",
+  },
+]
