@@ -1,0 +1,432 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { pool } from '@/lib/db';
+import { 
+  requirePermission, 
+  createAuthzErrorResponse 
+} from '@/lib/middleware/auth';
+import { 
+  validateNotaCreditoData, 
+  buildAdvancedSearchWhereClause,
+  buildAdvancedOrderByClause,
+  buildPaginationParams,
+  generateNotaNumber,
+  sanitizeForLog 
+} from '@/lib/utils/compras-adicionales';
+import { 
+  CreateNotaCreditoRequest, 
+  ComprasAdicionalesApiResponse, 
+  FiltrosNotasCredito 
+} from '@/lib/types/compras-adicionales';
+
+// GET /api/compras/notas-credito - Listar notas de crédito/débito
+export async function GET(request: NextRequest) {
+  try {
+    // Verificar permisos
+    const { authorized, error } = requirePermission('leer_notas_credito')(request);
+    
+    if (!authorized) {
+      return createAuthzErrorResponse(error || 'No autorizado');
+    }
+
+    // Obtener parámetros de consulta
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const sort_by = searchParams.get('sort_by') || 'fecha_registro';
+    const sort_order = searchParams.get('sort_order') || 'desc';
+    const tipo_operacion = searchParams.get('tipo_operacion');
+    const estado = searchParams.get('estado');
+    const fecha_desde = searchParams.get('fecha_desde');
+    const fecha_hasta = searchParams.get('fecha_hasta');
+    const proveedor_id = searchParams.get('proveedor_id');
+    const cliente_id = searchParams.get('cliente_id');
+    const sucursal_id = searchParams.get('sucursal_id');
+    const almacen_id = searchParams.get('almacen_id');
+
+    const offset = (page - 1) * limit;
+    const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
+
+    // Construir consulta de búsqueda
+    const searchFields = ['nc.nro_nota', 'nc.motivo', 'p.nombre_proveedor', 'c.nombre_cliente'];
+    const additionalConditions: string[] = [];
+    const queryParams: any[] = [];
+    let paramCount = 0;
+
+    if (tipo_operacion) {
+      paramCount++;
+      additionalConditions.push(`nc.tipo_operacion = $${paramCount}`);
+      queryParams.push(tipo_operacion);
+    }
+
+    if (estado) {
+      paramCount++;
+      additionalConditions.push(`nc.estado = $${paramCount}`);
+      queryParams.push(estado);
+    }
+
+    if (fecha_desde) {
+      paramCount++;
+      additionalConditions.push(`nc.fecha_registro >= $${paramCount}`);
+      queryParams.push(fecha_desde);
+    }
+
+    if (fecha_hasta) {
+      paramCount++;
+      additionalConditions.push(`nc.fecha_registro <= $${paramCount}`);
+      queryParams.push(fecha_hasta);
+    }
+
+    if (proveedor_id) {
+      paramCount++;
+      additionalConditions.push(`nc.proveedor_id = $${paramCount}`);
+      queryParams.push(parseInt(proveedor_id));
+    }
+
+    if (cliente_id) {
+      paramCount++;
+      additionalConditions.push(`nc.cliente_id = $${paramCount}`);
+      queryParams.push(parseInt(cliente_id));
+    }
+
+    if (sucursal_id) {
+      paramCount++;
+      additionalConditions.push(`nc.sucursal_id = $${paramCount}`);
+      queryParams.push(parseInt(sucursal_id));
+    }
+
+    if (almacen_id) {
+      paramCount++;
+      additionalConditions.push(`nc.almacen_id = $${paramCount}`);
+      queryParams.push(parseInt(almacen_id));
+    }
+
+    const { whereClause, params } = buildAdvancedSearchWhereClause(searchFields, search, additionalConditions);
+    const orderByClause = buildAdvancedOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_registro');
+
+    // Consulta principal
+    const query = `
+      SELECT 
+        nc.nota_credito_id,
+        nc.tipo_operacion,
+        nc.proveedor_id,
+        nc.cliente_id,
+        nc.sucursal_id,
+        nc.almacen_id,
+        nc.usuario_id,
+        nc.fecha_registro,
+        nc.nro_nota,
+        nc.motivo,
+        nc.estado,
+        nc.referencia_id,
+        nc.monto_nc,
+        nc.monto_gravada_5,
+        nc.monto_gravada_10,
+        nc.monto_exenta,
+        nc.monto_iva,
+        p.nombre_proveedor as proveedor_nombre,
+        c.nombre_cliente as cliente_nombre,
+        u.nombre as usuario_nombre,
+        s.nombre as sucursal_nombre,
+        a.nombre as almacen_nombre,
+        COUNT(ncd.nota_credito_detalle_id) as total_items,
+        COALESCE(SUM(ncd.cantidad * ncd.precio_unitario), 0) as monto_total_items,
+        CASE 
+          WHEN nc.tipo_operacion = 'credito' THEN 'Crédito'
+          WHEN nc.tipo_operacion = 'debito' THEN 'Débito'
+        END as tipo_operacion_display,
+        CASE 
+          WHEN nc.estado = 'activo' THEN 'Aprobada'
+          WHEN nc.estado = 'inactivo' THEN 'Inactiva'
+          WHEN nc.estado = 'anulado' THEN 'Anulada'
+        END as estado_display,
+        COUNT(*) OVER() as total_count
+      FROM nota_credito_cabecera nc
+      LEFT JOIN proveedores p ON nc.proveedor_id = p.proveedor_id
+      LEFT JOIN clientes c ON nc.cliente_id = c.cliente_id
+      LEFT JOIN usuarios u ON nc.usuario_id = u.usuario_id
+      LEFT JOIN sucursales s ON nc.sucursal_id = s.sucursal_id
+      LEFT JOIN almacenes a ON nc.almacen_id = a.almacen_id
+      LEFT JOIN nota_credito_detalle ncd ON nc.nota_credito_id = ncd.nota_credito_id
+      ${whereClause}
+      GROUP BY nc.nota_credito_id, nc.tipo_operacion, nc.proveedor_id, nc.cliente_id, 
+               nc.sucursal_id, nc.almacen_id, nc.usuario_id, nc.fecha_registro, 
+               nc.nro_nota, nc.motivo, nc.estado, nc.referencia_id, nc.monto_nc, 
+               nc.monto_gravada_5, nc.monto_gravada_10, nc.monto_exenta, nc.monto_iva, 
+               p.nombre_proveedor, c.nombre_cliente, u.nombre, s.nombre, a.nombre
+      ${orderByClause}
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `;
+
+    const allParams = [...queryParams, ...params, limitParam, offsetParam];
+    const result = await pool.query(query, allParams);
+    const notas = result.rows;
+    const total = notas.length > 0 ? parseInt(notas[0].total_count) : 0;
+
+    const response: ComprasAdicionalesApiResponse = {
+      success: true,
+      message: 'Notas de crédito/débito obtenidas exitosamente',
+      data: notas.map(n => {
+        const { total_count, ...nota } = n;
+        return nota;
+      }),
+      pagination: {
+        page,
+        limit: limitParam,
+        total,
+        total_pages: Math.ceil(total / limitParam)
+      }
+    };
+
+    return NextResponse.json(response);
+
+  } catch (error) {
+    console.error('Error al obtener notas de crédito/débito:', error);
+    
+    const response: ComprasAdicionalesApiResponse = {
+      success: false,
+      message: 'Error interno del servidor',
+      error: 'Error interno'
+    };
+    
+    return NextResponse.json(response, { status: 500 });
+  }
+}
+
+// POST /api/compras/notas-credito - Crear nota de crédito/débito
+export async function POST(request: NextRequest) {
+  try {
+    // Verificar permisos
+    const { authorized, error } = requirePermission('crear_notas_credito')(request);
+    
+    if (!authorized) {
+      return createAuthzErrorResponse(error || 'No autorizado');
+    }
+
+    const body: CreateNotaCreditoRequest = await request.json();
+
+    // Validar datos
+    const validation = validateNotaCreditoData(body);
+    if (!validation.valid) {
+      const response: ComprasAdicionalesApiResponse = {
+        success: false,
+        message: 'Datos de entrada inválidos',
+        error: 'Validación fallida',
+        data: validation.errors
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    // Verificar que el proveedor existe si se proporciona
+    if (body.proveedor_id) {
+      const proveedorQuery = 'SELECT proveedor_id FROM proveedores WHERE proveedor_id = $1';
+      const proveedorResult = await pool.query(proveedorQuery, [body.proveedor_id]);
+      
+      if (proveedorResult.rows.length === 0) {
+        const response: ComprasAdicionalesApiResponse = {
+          success: false,
+          message: 'El proveedor especificado no existe',
+          error: 'Proveedor inválido'
+        };
+        return NextResponse.json(response, { status: 400 });
+      }
+    }
+
+    // Verificar que el cliente existe si se proporciona
+    if (body.cliente_id) {
+      const clienteQuery = 'SELECT cliente_id FROM clientes WHERE cliente_id = $1';
+      const clienteResult = await pool.query(clienteQuery, [body.cliente_id]);
+      
+      if (clienteResult.rows.length === 0) {
+        const response: ComprasAdicionalesApiResponse = {
+          success: false,
+          message: 'El cliente especificado no existe',
+          error: 'Cliente inválido'
+        };
+        return NextResponse.json(response, { status: 400 });
+      }
+    }
+
+    // Verificar que la sucursal existe
+    const sucursalQuery = 'SELECT sucursal_id FROM sucursales WHERE sucursal_id = $1';
+    const sucursalResult = await pool.query(sucursalQuery, [body.sucursal_id]);
+    
+    if (sucursalResult.rows.length === 0) {
+      const response: ComprasAdicionalesApiResponse = {
+        success: false,
+        message: 'La sucursal especificada no existe',
+        error: 'Sucursal inválida'
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    // Verificar que el almacén existe
+    const almacenQuery = 'SELECT almacen_id FROM almacenes WHERE almacen_id = $1';
+    const almacenResult = await pool.query(almacenQuery, [body.almacen_id]);
+    
+    if (almacenResult.rows.length === 0) {
+      const response: ComprasAdicionalesApiResponse = {
+        success: false,
+        message: 'El almacén especificado no existe',
+        error: 'Almacén inválido'
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    // Verificar que el usuario existe
+    const usuarioQuery = 'SELECT usuario_id FROM usuarios WHERE usuario_id = $1';
+    const usuarioResult = await pool.query(usuarioQuery, [body.usuario_id]);
+    
+    if (usuarioResult.rows.length === 0) {
+      const response: ComprasAdicionalesApiResponse = {
+        success: false,
+        message: 'El usuario especificado no existe',
+        error: 'Usuario inválido'
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    // Verificar que los productos existen
+    if (body.items && body.items.length > 0) {
+      for (const item of body.items) {
+        const productoQuery = 'SELECT producto_id FROM productos WHERE producto_id = $1 AND estado = true';
+        const productoResult = await pool.query(productoQuery, [item.producto_id]);
+        
+        if (productoResult.rows.length === 0) {
+          const response: ComprasAdicionalesApiResponse = {
+            success: false,
+            message: `El producto con ID ${item.producto_id} no existe o está inactivo`,
+            error: 'Producto inválido'
+          };
+          return NextResponse.json(response, { status: 400 });
+        }
+      }
+    }
+
+    // Crear nota de crédito/débito
+    const createNotaQuery = `
+      INSERT INTO nota_credito_cabecera (
+        tipo_operacion, proveedor_id, cliente_id, sucursal_id, almacen_id, 
+        usuario_id, fecha_registro, nro_nota, motivo, estado, referencia_id, 
+        monto_nc, monto_gravada_5, monto_gravada_10, monto_exenta, monto_iva
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      RETURNING nota_credito_id
+    `;
+
+    const notaResult = await pool.query(createNotaQuery, [
+      body.tipo_operacion,
+      body.proveedor_id || null,
+      body.cliente_id || null,
+      body.sucursal_id,
+      body.almacen_id,
+      body.usuario_id,
+      body.fecha_registro || new Date().toISOString().split('T')[0],
+      body.referencia_factura || generateNotaNumber(body.tipo_operacion, 1), // Se actualizará después
+      body.motivo || null,
+      body.estado || 'activo',
+      body.referencia_id,
+      body.monto_nc || null,
+      body.monto_gravada_5 || 0,
+      body.monto_gravada_10 || 0,
+      body.monto_exenta || 0,
+      body.monto_iva || 0
+    ]);
+
+    const newNotaId = notaResult.rows[0].nota_credito_id;
+
+    // Actualizar número de nota
+    const nroNota = generateNotaNumber(body.tipo_operacion, newNotaId);
+    await pool.query(
+      'UPDATE nota_credito_cabecera SET nro_nota = $1 WHERE nota_credito_id = $2',
+      [nroNota, newNotaId]
+    );
+
+    // Crear detalles de la nota
+    if (body.items && body.items.length > 0) {
+      for (const item of body.items) {
+        await pool.query(
+          'INSERT INTO nota_credito_detalle (nota_credito_id, producto_id, cantidad, precio_unitario) VALUES ($1, $2, $3, $4)',
+          [newNotaId, item.producto_id, item.cantidad, item.precio_unitario || 0]
+        );
+      }
+    }
+
+    // Calcular monto total si no se proporcionó
+    if (!body.monto_nc && body.items && body.items.length > 0) {
+      const montoTotal = body.items.reduce((sum, item) => 
+        sum + (item.cantidad * (item.precio_unitario || 0)), 0
+      );
+      await pool.query(
+        'UPDATE nota_credito_cabecera SET monto_nc = $1 WHERE nota_credito_id = $2',
+        [montoTotal, newNotaId]
+      );
+    }
+
+    // Obtener la nota creada con información completa
+    const getNotaQuery = `
+      SELECT 
+        nc.nota_credito_id,
+        nc.tipo_operacion,
+        nc.proveedor_id,
+        nc.cliente_id,
+        nc.sucursal_id,
+        nc.almacen_id,
+        nc.usuario_id,
+        nc.fecha_registro,
+        nc.nro_nota,
+        nc.motivo,
+        nc.estado,
+        nc.referencia_id,
+        nc.monto_nc,
+        nc.monto_gravada_5,
+        nc.monto_gravada_10,
+        nc.monto_exenta,
+        nc.monto_iva,
+        p.nombre_proveedor as proveedor_nombre,
+        c.nombre_cliente as cliente_nombre,
+        u.nombre as usuario_nombre,
+        s.nombre as sucursal_nombre,
+        a.nombre as almacen_nombre
+      FROM nota_credito_cabecera nc
+      LEFT JOIN proveedores p ON nc.proveedor_id = p.proveedor_id
+      LEFT JOIN clientes c ON nc.cliente_id = c.cliente_id
+      LEFT JOIN usuarios u ON nc.usuario_id = u.usuario_id
+      LEFT JOIN sucursales s ON nc.sucursal_id = s.sucursal_id
+      LEFT JOIN almacenes a ON nc.almacen_id = a.almacen_id
+      WHERE nc.nota_credito_id = $1
+    `;
+
+    const notaData = await pool.query(getNotaQuery, [newNotaId]);
+
+    const response: ComprasAdicionalesApiResponse = {
+      success: true,
+      message: 'Nota de crédito/débito creada exitosamente',
+      data: notaData.rows[0]
+    };
+
+    // Log de auditoría
+    console.log('Nota de crédito/débito creada:', sanitizeForLog({
+      nota_credito_id: newNotaId,
+      nro_nota: nroNota,
+      tipo_operacion: body.tipo_operacion,
+      proveedor_id: body.proveedor_id,
+      cliente_id: body.cliente_id,
+      total_items: body.items?.length || 0,
+      monto_nc: body.monto_nc,
+      timestamp: new Date().toISOString()
+    }));
+
+    return NextResponse.json(response, { status: 201 });
+
+  } catch (error) {
+    console.error('Error al crear nota de crédito/débito:', error);
+    
+    const response: ComprasAdicionalesApiResponse = {
+      success: false,
+      message: 'Error interno del servidor',
+      error: 'Error interno'
+    };
+    
+    return NextResponse.json(response, { status: 500 });
+  }
+}
