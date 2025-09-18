@@ -1,313 +1,577 @@
 "use client"
 
-import { useState } from "react"
-import { BarChart3, TrendingUp, Download, Calendar, Filter, FileText, PieChart, Users, Package } from "lucide-react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AppLayout } from "@/components/app-layout"
+import { InformeCompras, FiltrosInforme } from "@/lib/types/compras-adicionales"
+import { 
+  BarChart3, 
+  Calendar, 
+  TrendingUp, 
+  TrendingDown, 
+  Minus, 
+  DollarSign, 
+  Package, 
+  ShoppingCart, 
+  FileText, 
+  Users, 
+  Building,
+  Download,
+  RefreshCw
+} from "lucide-react"
 
 export default function InformesComprasPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState("mes")
+  const [informe, setInforme] = useState<InformeCompras | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [filtros, setFiltros] = useState<FiltrosInforme>({
+    fecha_desde: '',
+    fecha_hasta: '',
+    sucursal_id: '',
+    proveedor_id: '',
+    categoria_id: '',
+    estado: '',
+    tipo_periodo: 'mes'
+  })
+  const [sucursales, setSucursales] = useState<any[]>([])
+  const [proveedores, setProveedores] = useState<any[]>([])
+  const [categorias, setCategorias] = useState<any[]>([])
 
-  // Datos de ejemplo para informes
-  const gastosData = [
-    { mes: "Ene", gasto: 2500000, presupuesto: 3000000 },
-    { mes: "Feb", gasto: 2800000, presupuesto: 3000000 },
-    { mes: "Mar", gasto: 3200000, presupuesto: 3000000 },
-    { mes: "Abr", gasto: 2900000, presupuesto: 3000000 },
-    { mes: "May", gasto: 2600000, presupuesto: 3000000 },
-    { mes: "Jun", gasto: 3100000, presupuesto: 3000000 },
-  ]
+  // Cargar datos iniciales
+  useEffect(() => {
+    loadInitialData()
+    loadInforme()
+  }, [])
 
-  const topProveedores = [
-    { nombre: "Distribuidora Tech SA", gasto: 1250000, pedidos: 15, categoria: "Componentes" },
-    { nombre: "Electrónica Central", gasto: 980000, pedidos: 12, categoria: "Accesorios" },
-    { nombre: "Componentes del Este", gasto: 750000, pedidos: 8, categoria: "Repuestos" },
-    { nombre: "TechParts Import", gasto: 650000, pedidos: 10, categoria: "Herramientas" },
-  ]
+  const loadInitialData = async () => {
+    try {
+      // Cargar sucursales
+      const sucursalesRes = await fetch('/api/sucursales')
+      const sucursalesData = await sucursalesRes.json()
+      if (sucursalesData.success) {
+        setSucursales(sucursalesData.data)
+      }
 
-  const categorias = [
-    { nombre: "Componentes", gasto: 1800000, porcentaje: 35, color: "bg-cyan-500" },
-    { nombre: "Accesorios", gasto: 1200000, porcentaje: 23, color: "bg-blue-500" },
-    { nombre: "Repuestos", gasto: 1000000, porcentaje: 19, color: "bg-green-500" },
-    { nombre: "Herramientas", gasto: 800000, porcentaje: 15, color: "bg-amber-500" },
-    { nombre: "Otros", gasto: 400000, porcentaje: 8, color: "bg-slate-500" },
-  ]
+      // Cargar proveedores
+      const proveedoresRes = await fetch('/api/referencias/proveedores')
+      const proveedoresData = await proveedoresRes.json()
+      if (proveedoresData.success) {
+        setProveedores(proveedoresData.data)
+      }
 
-  const reportesDisponibles = [
-    {
-      titulo: "Reporte de Gastos Mensual",
-      descripcion: "Análisis detallado de gastos por mes y categoría",
-      icono: <BarChart3 className="w-5 h-5" />,
-      tipo: "PDF",
-    },
-    {
-      titulo: "Análisis de Proveedores",
-      descripcion: "Rendimiento y evaluación de proveedores",
-      icono: <Users className="w-5 h-5" />,
-      tipo: "Excel",
-    },
-    {
-      titulo: "Inventario vs Compras",
-      descripcion: "Relación entre compras y movimientos de inventario",
-      icono: <Package className="w-5 h-5" />,
-      tipo: "PDF",
-    },
-    {
-      titulo: "Tendencias de Compra",
-      descripcion: "Análisis de tendencias y proyecciones",
-      icono: <TrendingUp className="w-5 h-5" />,
-      tipo: "Excel",
-    },
-  ]
+      // Cargar categorías
+      const categoriasRes = await fetch('/api/referencias/categorias')
+      const categoriasData = await categoriasRes.json()
+      if (categoriasData.success) {
+        setCategorias(categoriasData.data)
+      }
+    } catch (error) {
+      console.error('Error cargando datos iniciales:', error)
+    }
+  }
 
-  const totalGastos = gastosData.reduce((sum, item) => sum + item.gasto, 0)
-  const presupuestoTotal = gastosData.reduce((sum, item) => sum + item.presupuesto, 0)
-  const utilizacionPresupuesto = ((totalGastos / presupuestoTotal) * 100).toFixed(1)
+  const loadInforme = async () => {
+    setLoading(true)
+    setError(null)
+    
+    try {
+      const params = new URLSearchParams()
+      
+      if (filtros.fecha_desde) params.append('fecha_desde', filtros.fecha_desde)
+      if (filtros.fecha_hasta) params.append('fecha_hasta', filtros.fecha_hasta)
+      if (filtros.sucursal_id) params.append('sucursal_id', filtros.sucursal_id)
+      if (filtros.proveedor_id) params.append('proveedor_id', filtros.proveedor_id)
+      if (filtros.categoria_id) params.append('categoria_id', filtros.categoria_id)
+      if (filtros.estado) params.append('estado', filtros.estado)
+      if (filtros.tipo_periodo) params.append('tipo_periodo', filtros.tipo_periodo)
+
+      const response = await fetch(`/api/compras/informes?${params.toString()}`)
+      const data = await response.json()
+
+      if (data.success) {
+        setInforme(data.data)
+      } else {
+        setError(data.message || 'Error al cargar el informe')
+      }
+    } catch (error) {
+      console.error('Error cargando informe:', error)
+      setError('Error al cargar el informe')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFiltroChange = (field: keyof FiltrosInforme, value: string) => {
+    setFiltros(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handleGenerarInforme = () => {
+    loadInforme()
+  }
+
+  const handleExportarInforme = () => {
+    // Implementar exportación de informe
+    console.log('Exportar informe:', informe)
+  }
+
+  const getTendenciaIcon = (tendencia: 'up' | 'down' | 'stable') => {
+    switch (tendencia) {
+      case 'up':
+        return <TrendingUp className="h-4 w-4 text-green-500" />
+      case 'down':
+        return <TrendingDown className="h-4 w-4 text-red-500" />
+      default:
+        return <Minus className="h-4 w-4 text-gray-500" />
+    }
+  }
+
+  const getTendenciaColor = (tendencia: 'up' | 'down' | 'stable') => {
+    switch (tendencia) {
+      case 'up':
+        return 'text-green-500'
+      case 'down':
+        return 'text-red-500'
+      default:
+        return 'text-gray-500'
+    }
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-CR', {
+      style: 'currency',
+      currency: 'CRC'
+    }).format(amount)
+  }
+
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('es-CR').format(num)
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Informes de Compras</h1>
-            <p className="text-slate-600 mt-1">Análisis y reportes del módulo de compras</p>
+            <h1 className="text-3xl font-bold text-foreground">Informes de Compras</h1>
+            <p className="text-muted-foreground">Análisis y reportes del módulo de compras</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="bg-white">
-              <Filter className="w-4 h-4 mr-2" />
-              Filtros
+            <Button onClick={handleGenerarInforme} disabled={loading} className="bg-primary hover:bg-primary/90">
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Generar Informe
             </Button>
-            <Button className="bg-cyan-600 hover:bg-cyan-700 text-white shadow-lg">
-              <Download className="w-4 h-4 mr-2" />
-              Exportar Todo
+            <Button onClick={handleExportarInforme} variant="outline" disabled={!informe}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar
             </Button>
           </div>
         </div>
 
-        {/* Selector de Período */}
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-          <div className="flex items-center gap-4">
-            <Calendar className="w-5 h-5 text-slate-600" />
-            <span className="font-medium text-slate-900">Período de análisis:</span>
-            <div className="flex gap-2">
-              {["semana", "mes", "trimestre", "año"].map((period) => (
-                <Button
-                  key={period}
-                  variant={selectedPeriod === period ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedPeriod(period)}
-                  className={selectedPeriod === period ? "bg-cyan-600 hover:bg-cyan-700" : ""}
-                >
-                  {period.charAt(0).toUpperCase() + period.slice(1)}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Métricas Principales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Gastado</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <p className="text-2xl font-bold text-slate-900">₡{totalGastos.toLocaleString()}</p>
-                <div className="p-2 bg-cyan-100 rounded-lg">
-                  <BarChart3 className="w-5 h-5 text-cyan-600" />
-                </div>
-              </div>
-              <p className="text-xs text-green-600 mt-2">+12% vs mes anterior</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Utilización Presupuesto</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <p className="text-2xl font-bold text-slate-900">{utilizacionPresupuesto}%</p>
-                <div className="p-2 bg-amber-100 rounded-lg">
-                  <PieChart className="w-5 h-5 text-amber-600" />
-                </div>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2 mt-2">
-                <div
-                  className="bg-amber-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${utilizacionPresupuesto}%` }}
-                ></div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Proveedores Activos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <p className="text-2xl font-bold text-slate-900">{topProveedores.length}</p>
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="w-5 h-5 text-blue-600" />
-                </div>
-              </div>
-              <p className="text-xs text-slate-600 mt-2">En este período</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Órdenes Procesadas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <p className="text-2xl font-bold text-slate-900">45</p>
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Package className="w-5 h-5 text-green-600" />
-                </div>
-              </div>
-              <p className="text-xs text-green-600 mt-2">+8% vs mes anterior</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Gráficos y Análisis */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Gastos vs Presupuesto */}
-          <Card className="border-slate-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-cyan-600" />
-                Gastos vs Presupuesto
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {gastosData.map((item, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{item.mes}</span>
-                      <span className="text-slate-600">
-                        ₡{item.gasto.toLocaleString()} / ₡{item.presupuesto.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          item.gasto > item.presupuesto ? "bg-red-500" : "bg-cyan-500"
-                        }`}
-                        style={{ width: `${Math.min((item.gasto / item.presupuesto) * 100, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Proveedores */}
-          <Card className="border-slate-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-600" />
-                Top Proveedores
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {topProveedores.map((proveedor, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-900">{proveedor.nombre}</p>
-                      <p className="text-sm text-slate-600">{proveedor.pedidos} pedidos</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-slate-900">₡{proveedor.gasto.toLocaleString()}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {proveedor.categoria}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Distribución por Categorías */}
-        <Card className="border-slate-200 shadow-sm">
+        {/* Filtros */}
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <PieChart className="w-5 h-5 text-green-600" />
-              Distribución por Categorías
+              <BarChart3 className="h-5 w-5" />
+              Filtros del Informe
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {categorias.map((categoria, index) => (
-                <div key={index} className="text-center space-y-2">
-                  <div className="relative w-20 h-20 mx-auto">
-                    <div className="w-full h-full bg-slate-200 rounded-full"></div>
-                    <div
-                      className={`absolute inset-0 ${categoria.color} rounded-full transition-all duration-300`}
-                      style={{
-                        background: `conic-gradient(${categoria.color.replace("bg-", "")} ${
-                          categoria.porcentaje * 3.6
-                        }deg, #e2e8f0 0deg)`,
-                      }}
-                    ></div>
-                    <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center">
-                      <span className="text-sm font-bold text-slate-900">{categoria.porcentaje}%</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-900">{categoria.nombre}</p>
-                    <p className="text-sm text-slate-600">₡{categoria.gasto.toLocaleString()}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="fecha_desde">Fecha Desde</Label>
+                <Input
+                  id="fecha_desde"
+                  type="date"
+                  value={filtros.fecha_desde}
+                  onChange={(e) => handleFiltroChange('fecha_desde', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fecha_hasta">Fecha Hasta</Label>
+                <Input
+                  id="fecha_hasta"
+                  type="date"
+                  value={filtros.fecha_hasta}
+                  onChange={(e) => handleFiltroChange('fecha_hasta', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sucursal_id">Sucursal</Label>
+                <Select
+                  value={filtros.sucursal_id}
+                  onValueChange={(value) => handleFiltroChange('sucursal_id', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas las sucursales" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todas las sucursales</SelectItem>
+                    {sucursales.map((sucursal) => (
+                      <SelectItem key={sucursal.sucursal_id} value={sucursal.sucursal_id.toString()}>
+                        {sucursal.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="proveedor_id">Proveedor</Label>
+                <Select
+                  value={filtros.proveedor_id}
+                  onValueChange={(value) => handleFiltroChange('proveedor_id', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los proveedores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos los proveedores</SelectItem>
+                    {proveedores.map((proveedor) => (
+                      <SelectItem key={proveedor.proveedor_id} value={proveedor.proveedor_id.toString()}>
+                        {proveedor.nombre_proveedor}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="categoria_id">Categoría</Label>
+                <Select
+                  value={filtros.categoria_id}
+                  onValueChange={(value) => handleFiltroChange('categoria_id', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas las categorías" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todas las categorías</SelectItem>
+                    {categorias.map((categoria) => (
+                      <SelectItem key={categoria.categoria_id} value={categoria.categoria_id.toString()}>
+                        {categoria.nombre_categoria}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="estado">Estado</Label>
+                <Select
+                  value={filtros.estado}
+                  onValueChange={(value) => handleFiltroChange('estado', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los estados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos los estados</SelectItem>
+                    <SelectItem value="pendiente">Pendiente</SelectItem>
+                    <SelectItem value="aprobado">Aprobado</SelectItem>
+                    <SelectItem value="rechazado">Rechazado</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tipo_periodo">Tipo de Período</Label>
+                <Select
+                  value={filtros.tipo_periodo}
+                  onValueChange={(value) => handleFiltroChange('tipo_periodo', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dia">Día</SelectItem>
+                    <SelectItem value="semana">Semana</SelectItem>
+                    <SelectItem value="mes">Mes</SelectItem>
+                    <SelectItem value="trimestre">Trimestre</SelectItem>
+                    <SelectItem value="año">Año</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Reportes Disponibles */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-slate-600" />
-              Reportes Disponibles
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {reportesDisponibles.map((reporte, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:border-cyan-200 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-slate-100 rounded-lg">{reporte.icono}</div>
+        {/* Contenido del Informe */}
+        {loading && (
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-center">
+                <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2">Generando informe...</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {error && (
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center text-red-500">
+                <p>{error}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {informe && !loading && (
+          <div className="space-y-6">
+            {/* Resumen General */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="hover:shadow-lg transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-slate-900">{reporte.titulo}</p>
-                      <p className="text-sm text-slate-600">{reporte.descripcion}</p>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Pedidos</p>
+                      <p className="text-2xl font-bold text-foreground">{formatNumber(informe.resumen.total_pedidos)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-primary text-primary-foreground">
+                      <ShoppingCart className="h-6 w-6" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">{reporte.tipo}</Badge>
-                    <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700">
-                      <Download className="w-4 h-4" />
-                    </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Presupuestos</p>
+                      <p className="text-2xl font-bold text-foreground">{formatNumber(informe.resumen.total_presupuestos)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-secondary text-secondary-foreground">
+                      <FileText className="h-6 w-6" />
+                    </div>
                   </div>
-                </div>
-              ))}
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Órdenes</p>
+                      <p className="text-2xl font-bold text-foreground">{formatNumber(informe.resumen.total_ordenes)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-chart-1 text-white">
+                      <Package className="h-6 w-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Compras</p>
+                      <p className="text-2xl font-bold text-foreground">{formatNumber(informe.resumen.total_compras)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-chart-2 text-white">
+                      <DollarSign className="h-6 w-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Valores Monetarios */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Valor Total de Compras
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-primary">
+                    {formatCurrency(informe.resumen.valor_total_compras)}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Período: {new Date(informe.periodo.fecha_desde).toLocaleDateString('es-CR')} - {new Date(informe.periodo.fecha_hasta).toLocaleDateString('es-CR')}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Valor Total de Órdenes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-chart-1">
+                    {formatCurrency(informe.resumen.valor_total_ordenes)}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Promedio por orden: {formatCurrency(informe.resumen.valor_total_ordenes / Math.max(informe.resumen.total_ordenes, 1))}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Distribución por Estado */}
+            {informe.por_estado && informe.por_estado.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Distribución por Estado
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {informe.por_estado.map((estado, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline">{estado.estado}</Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {formatNumber(estado.cantidad)} ({estado.porcentaje.toFixed(1)}%)
+                          </span>
+                        </div>
+                        <div className="w-32 bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-primary h-2 rounded-full" 
+                            style={{ width: `${estado.porcentaje}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Top Proveedores */}
+            {informe.por_proveedor && informe.por_proveedor.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Top Proveedores
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {informe.por_proveedor.slice(0, 10).map((proveedor, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-muted-foreground">#{index + 1}</span>
+                          <div>
+                            <p className="font-medium">{proveedor.proveedor_nombre}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatNumber(proveedor.total_compras)} compras ({proveedor.porcentaje.toFixed(1)}%)
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{formatCurrency(proveedor.monto_total)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Distribución por Sucursal */}
+            {informe.por_sucursal && informe.por_sucursal.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building className="h-5 w-5" />
+                    Distribución por Sucursal
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {informe.por_sucursal.map((sucursal, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <p className="font-medium">{sucursal.sucursal_nombre}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatNumber(sucursal.total_compras)} compras ({sucursal.porcentaje.toFixed(1)}%)
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{formatCurrency(sucursal.monto_total)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tendencias */}
+            {informe.tendencias && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Tendencias
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {informe.tendencias.compras_mensuales && (
+                      <div>
+                        <h4 className="font-medium mb-4">Compras Mensuales</h4>
+                        <div className="space-y-3">
+                          {informe.tendencias.compras_mensuales.slice(0, 6).map((mes, index) => (
+                            <div key={index} className="flex items-center justify-between">
+                              <span className="text-sm">{mes.mes}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{formatNumber(mes.cantidad)}</span>
+                                {getTendenciaIcon(mes.tendencia)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {informe.tendencias.monto_mensual && (
+                      <div>
+                        <h4 className="font-medium mb-4">Monto Mensual</h4>
+                        <div className="space-y-3">
+                          {informe.tendencias.monto_mensual.slice(0, 6).map((mes, index) => (
+                            <div key={index} className="flex items-center justify-between">
+                              <span className="text-sm">{mes.mes}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{formatCurrency(mes.monto)}</span>
+                                {getTendenciaIcon(mes.tendencia)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </AppLayout>
   )
 }

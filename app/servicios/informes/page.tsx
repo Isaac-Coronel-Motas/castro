@@ -1,315 +1,218 @@
 "use client"
 
-import { useState } from "react"
-import {
-  Search,
-  Download,
-  BarChart3,
-  TrendingUp,
-  Users,
-  AlertCircle,
-  Clock,
-  CheckCircle,
-  Star,
-  FileText,
-  Target,
-} from "lucide-react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AppLayout } from "@/components/app-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { InformeServiciosTecnicos, FiltrosInformeServicios } from "@/lib/types/servicios-tecnicos"
+import { Download, BarChart3, TrendingUp, Users, AlertCircle, Clock, CheckCircle, Star, FileText, Target } from "lucide-react"
 
 export default function InformesServiciosPage() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(["Servicios Técnicos"])
   const [selectedPeriod, setSelectedPeriod] = useState("mes")
+  const [loading, setLoading] = useState(false)
+  const [informe, setInforme] = useState<InformeServiciosTecnicos | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const sidebarItems = [
-    { label: "Dashboard", icon: BarChart3, href: "/dashboard" },
-    {
-      label: "Compras",
-      icon: Users,
-      submenu: [
-        { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra" },
-        { label: "Presupuestos Proveedor", href: "/compras/presupuestos" },
-        { label: "Órdenes de Compra", href: "/compras/ordenes" },
-        { label: "Registro de Compras", href: "/compras/registro" },
-        { label: "Ajustes de Inventario", href: "/compras/ajustes" },
-        { label: "Notas de Crédito/Débito", href: "/compras/notas" },
-        { label: "Transferencias", href: "/compras/transferencias" },
-        { label: "Informes", href: "/compras/informes" },
-      ],
-    },
-    {
-      label: "Servicios Técnicos",
-      icon: AlertCircle,
-      submenu: [
-        { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente" },
-        { label: "Recepción de Equipos", href: "/servicios/recepcion-equipos" },
-        { label: "Diagnósticos", href: "/servicios/diagnosticos" },
-        { label: "Presupuestos", href: "/servicios/presupuestos" },
-        { label: "Órdenes de Servicio", href: "/servicios/ordenes-servicio" },
-        { label: "Retiro de Equipos", href: "/servicios/retiro-equipos" },
-        { label: "Reclamos", href: "/servicios/reclamos" },
-        { label: "Informes", href: "/servicios/informes" },
-      ],
-    },
-    {
-      label: "Ventas",
-      icon: TrendingUp,
-      submenu: [
-        { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja" },
-        { label: "Pedidos de Clientes", href: "/ventas/pedidos-clientes" },
-        { label: "Registro de Ventas", href: "/ventas/registro" },
-        { label: "Cobros", href: "/ventas/cobros" },
-        { label: "Presupuestos", href: "/ventas/presupuestos" },
-        { label: "Notas de Remisión", href: "/ventas/notas-remision" },
-        { label: "Notas de Crédito/Débito", href: "/ventas/notas-credito-debito" },
-        { label: "Informes", href: "/ventas/informes" },
-      ],
-    },
-    {
-      label: "Referencias",
-      icon: Users,
-      submenu: [
-        { label: "Proveedores", href: "/referencias/proveedores" },
-        { label: "Productos", href: "/referencias/productos" },
-        { label: "Categorías", href: "/referencias/categorias" },
-        { label: "Clientes", href: "/referencias/clientes" },
-        { label: "Marcas", href: "/referencias/marcas" },
-        { label: "Tipos de Servicio", href: "/referencias/tipos-servicio" },
-      ],
-    },
-    {
-      label: "Administración",
-      icon: Users,
-      submenu: [
-        { label: "Usuarios", href: "/administracion/usuarios" },
-        { label: "Roles y Permisos", href: "/administracion/roles-permisos" },
-        { label: "Auditoría", href: "/administracion/auditoria" },
-        { label: "Configuración", href: "/administracion/configuracion" },
-      ],
-    },
-  ]
+  const loadInforme = async () => {
+    setLoading(true)
+    setError(null)
+    
+    try {
+      const filtros: FiltrosInformeServicios = {
+        fecha_inicio: getDateRange(selectedPeriod).inicio,
+        fecha_fin: getDateRange(selectedPeriod).fin,
+        sucursal_id: 0, // Todas las sucursales
+        tecnico_id: 0, // Todos los técnicos
+        tipo_servicio_id: 0, // Todos los tipos
+        estado: 'todos'
+      }
 
-  const toggleSubmenu = (label: string) => {
-    setExpandedMenus((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
+      const response = await fetch('/api/servicios/informes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(filtros)
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al cargar el informe')
+      }
+
+      const data = await response.json()
+      if (data.success) {
+        setInforme(data.data)
+      } else {
+        throw new Error(data.message || 'Error al cargar el informe')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const navigateTo = (href: string) => {
-    window.location.href = href
+  const getDateRange = (period: string) => {
+    const hoy = new Date()
+    let inicio: Date
+    let fin: Date = new Date(hoy)
+
+    switch (period) {
+      case 'dia':
+        inicio = new Date(hoy)
+        inicio.setHours(0, 0, 0, 0)
+        break
+      case 'semana':
+        inicio = new Date(hoy)
+        inicio.setDate(hoy.getDate() - 7)
+        break
+      case 'mes':
+        inicio = new Date(hoy)
+        inicio.setMonth(hoy.getMonth() - 1)
+        break
+      case 'trimestre':
+        inicio = new Date(hoy)
+        inicio.setMonth(hoy.getMonth() - 3)
+        break
+      case 'año':
+        inicio = new Date(hoy)
+        inicio.setFullYear(hoy.getFullYear() - 1)
+        break
+      default:
+        inicio = new Date(hoy)
+        inicio.setMonth(hoy.getMonth() - 1)
+    }
+
+    return {
+      inicio: inicio.toISOString().split('T')[0],
+      fin: fin.toISOString().split('T')[0]
+    }
   }
 
-  // Datos de ejemplo para informes
-  const reportes = [
-    {
-      id: "RPT-001",
-      nombre: "Rendimiento de Técnicos",
-      descripcion: "Análisis de productividad y eficiencia por técnico",
-      categoria: "Productividad",
-      tipo: "Gráfico de Barras",
-      ultimaGeneracion: "2024-01-15",
-      frecuencia: "Semanal",
-    },
-    {
-      id: "RPT-002",
-      nombre: "Tipos de Reparaciones",
-      descripcion: "Distribución de servicios más solicitados",
-      categoria: "Servicios",
-      tipo: "Gráfico Circular",
-      ultimaGeneracion: "2024-01-14",
-      frecuencia: "Mensual",
-    },
-    {
-      id: "RPT-003",
-      nombre: "Tiempos de Servicio",
-      descripcion: "Análisis de tiempos promedio por tipo de reparación",
-      categoria: "Eficiencia",
-      tipo: "Línea de Tiempo",
-      ultimaGeneracion: "2024-01-13",
-      frecuencia: "Diario",
-    },
-    {
-      id: "RPT-004",
-      nombre: "Satisfacción del Cliente",
-      descripcion: "Métricas de calidad y satisfacción",
-      categoria: "Calidad",
-      tipo: "Dashboard",
-      ultimaGeneracion: "2024-01-12",
-      frecuencia: "Semanal",
-    },
-  ]
+  const handleExport = async () => {
+    if (!informe) return
 
-  const metricas = {
-    serviciosCompletados: 156,
-    tiempoPromedioReparacion: "4.2 días",
-    satisfaccionPromedio: 4.6,
-    tecnicosActivos: 8,
-    ingresosTotales: "₡2,450,000",
-    reclamosResueltos: 12,
+    try {
+      const response = await fetch('/api/servicios/informes/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filtros: {
+            fecha_inicio: getDateRange(selectedPeriod).inicio,
+            fecha_fin: getDateRange(selectedPeriod).fin,
+            sucursal_id: 0,
+            tecnico_id: 0,
+            tipo_servicio_id: 0,
+            estado: 'todos'
+          },
+          formato: 'excel'
+        })
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `informe-servicios-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }
+    } catch (error) {
+      console.error('Error exportando informe:', error)
+    }
   }
 
-  const topTecnicos = [
-    { nombre: "Carlos Rodríguez", servicios: 45, satisfaccion: 4.8, avatar: "/placeholder.svg?height=32&width=32" },
-    { nombre: "Ana Martínez", servicios: 38, satisfaccion: 4.7, avatar: "/placeholder.svg?height=32&width=32" },
-    { nombre: "Pedro Sánchez", servicios: 32, satisfaccion: 4.5, avatar: "/placeholder.svg?height=32&width=32" },
-    { nombre: "María Fernández", servicios: 28, satisfaccion: 4.9, avatar: "/placeholder.svg?height=32&width=32" },
-  ]
+  useEffect(() => {
+    loadInforme()
+  }, [selectedPeriod])
 
-  const tiposServicio = [
-    { tipo: "Reparación Pantalla", cantidad: 45, porcentaje: 28.8 },
-    { tipo: "Diagnóstico", cantidad: 38, porcentaje: 24.4 },
-    { tipo: "Limpieza", cantidad: 32, porcentaje: 20.5 },
-    { tipo: "Actualización Software", cantidad: 25, porcentaje: 16.0 },
-    { tipo: "Cambio Batería", cantidad: 16, porcentaje: 10.3 },
-  ]
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`h-3 w-3 ${star <= Math.floor(rating) ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
+          />
+        ))}
+      </div>
+    )
+  }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div
-        className={`bg-slate-800 text-white transition-all duration-300 ${sidebarCollapsed ? "w-16" : "w-64"} flex-shrink-0`}
-      >
-        <div className="p-4">
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Informes de Servicios</h1>
+            <p className="text-muted-foreground">Análisis y reportes del área de servicios técnicos</p>
+          </div>
           <div className="flex items-center gap-3">
-            <div className="bg-white rounded-lg p-2">
-              <AlertCircle className="h-6 w-6 text-slate-800" />
-            </div>
-            {!sidebarCollapsed && (
-              <div>
-                <h1 className="font-bold text-lg">Taller Castro</h1>
-                <p className="text-slate-300 text-sm">Sistema de Gestión</p>
-              </div>
-            )}
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dia">Hoy</SelectItem>
+                <SelectItem value="semana">Esta Semana</SelectItem>
+                <SelectItem value="mes">Este Mes</SelectItem>
+                <SelectItem value="trimestre">Trimestre</SelectItem>
+                <SelectItem value="año">Este Año</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={handleExport} className="bg-primary hover:bg-primary/90" disabled={!informe}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar Datos
+            </Button>
           </div>
         </div>
 
-        <nav className="mt-8">
-          {sidebarItems.map((item) => (
-            <div key={item.label}>
-              <button
-                onClick={() => {
-                  if (item.submenu) {
-                    toggleSubmenu(item.label)
-                  } else if (item.href) {
-                    navigateTo(item.href)
-                  }
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-700 transition-colors ${
-                  item.label === "Servicios Técnicos" ? "bg-slate-700 border-r-2 border-red-500" : ""
-                }`}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                {!sidebarCollapsed && (
-                  <>
-                    <span className="flex-1">{item.label}</span>
-                    {item.submenu && (
-                      <div className={`transition-transform ${expandedMenus.includes(item.label) ? "rotate-90" : ""}`}>
-                        ▶
-                      </div>
-                    )}
-                  </>
-                )}
-              </button>
-
-              {item.submenu && expandedMenus.includes(item.label) && !sidebarCollapsed && (
-                <div className="bg-slate-900">
-                  {item.submenu.map((subItem) => (
-                    <button
-                      key={subItem.label}
-                      onClick={() => navigateTo(subItem.href)}
-                      className={`w-full text-left px-8 py-2 text-sm hover:bg-slate-700 transition-colors ${
-                        subItem.label === "Informes" ? "bg-slate-700 text-red-400" : "text-slate-300"
-                      }`}
-                    >
-                      {subItem.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </nav>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-                ☰
-              </Button>
-              <div className="flex items-center gap-2">
-                <Search className="h-5 w-5 text-gray-400" />
-                <Input placeholder="Buscar informes, métricas, análisis..." className="w-96" />
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  3
-                </div>
-                <Button variant="ghost" size="sm">
-                  🔔
-                </Button>
-              </div>
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                  <AvatarFallback>JC</AvatarFallback>
-                </Avatar>
-                <div className="text-sm">
-                  <div className="font-medium">Jaime Castro</div>
-                  <div className="text-gray-500">Administrador</div>
-                </div>
-              </div>
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Cargando informe...</p>
             </div>
           </div>
-        </header>
+        )}
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto">
-            {/* Page Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Informes de Servicios</h1>
-                <p className="text-gray-600">Análisis y reportes del área de servicios técnicos</p>
+        {error && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 text-red-600">
+                <AlertCircle className="h-5 w-5" />
+                <p className="font-medium">Error al cargar el informe</p>
               </div>
-              <div className="flex items-center gap-3">
-                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dia">Hoy</SelectItem>
-                    <SelectItem value="semana">Esta Semana</SelectItem>
-                    <SelectItem value="mes">Este Mes</SelectItem>
-                    <SelectItem value="trimestre">Trimestre</SelectItem>
-                    <SelectItem value="año">Este Año</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button className="bg-red-600 hover:bg-red-700">
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar Datos
-                </Button>
-              </div>
-            </div>
+              <p className="text-red-600 mt-2">{error}</p>
+              <Button onClick={loadInforme} variant="outline" className="mt-4">
+                Reintentar
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
+        {informe && !loading && (
+          <>
             {/* Métricas Principales */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Servicios Completados</CardTitle>
                   <CheckCircle className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">{metricas.serviciosCompletados}</div>
-                  <p className="text-xs text-gray-600">+12% vs mes anterior</p>
+                  <div className="text-2xl font-bold text-green-600">{informe.metricas_generales.servicios_completados}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {informe.metricas_generales.servicios_completados > 0 ? '+12%' : '0%'} vs período anterior
+                  </p>
                 </CardContent>
               </Card>
 
@@ -319,8 +222,10 @@ export default function InformesServiciosPage() {
                   <Clock className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{metricas.tiempoPromedioReparacion}</div>
-                  <p className="text-xs text-gray-600">-8% vs mes anterior</p>
+                  <div className="text-2xl font-bold text-blue-600">{informe.metricas_generales.tiempo_promedio_reparacion}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {informe.metricas_generales.tiempo_promedio_reparacion > 0 ? '-8%' : '0%'} vs período anterior
+                  </p>
                 </CardContent>
               </Card>
 
@@ -330,15 +235,8 @@ export default function InformesServiciosPage() {
                   <Star className="h-4 w-4 text-amber-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-amber-600">{metricas.satisfaccionPromedio}</div>
-                  <div className="flex items-center gap-1 mt-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        className={`h-3 w-3 ${star <= Math.floor(metricas.satisfaccionPromedio) ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
-                      />
-                    ))}
-                  </div>
+                  <div className="text-2xl font-bold text-amber-600">{informe.metricas_generales.satisfaccion_promedio}</div>
+                  {renderStars(informe.metricas_generales.satisfaccion_promedio)}
                 </CardContent>
               </Card>
 
@@ -348,8 +246,8 @@ export default function InformesServiciosPage() {
                   <Users className="h-4 w-4 text-purple-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-purple-600">{metricas.tecnicosActivos}</div>
-                  <p className="text-xs text-gray-600">Disponibles hoy</p>
+                  <div className="text-2xl font-bold text-purple-600">{informe.metricas_generales.tecnicos_activos}</div>
+                  <p className="text-xs text-muted-foreground">Disponibles hoy</p>
                 </CardContent>
               </Card>
 
@@ -359,8 +257,10 @@ export default function InformesServiciosPage() {
                   <TrendingUp className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">{metricas.ingresosTotales}</div>
-                  <p className="text-xs text-gray-600">+15% vs mes anterior</p>
+                  <div className="text-2xl font-bold text-green-600">₡{informe.metricas_generales.ingresos_totales.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {informe.metricas_generales.ingresos_totales > 0 ? '+15%' : '0%'} vs período anterior
+                  </p>
                 </CardContent>
               </Card>
 
@@ -370,13 +270,13 @@ export default function InformesServiciosPage() {
                   <Target className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-red-600">{metricas.reclamosResueltos}</div>
-                  <p className="text-xs text-gray-600">95% de satisfacción</p>
+                  <div className="text-2xl font-bold text-red-600">{informe.metricas_generales.reclamos_resueltos}</div>
+                  <p className="text-xs text-muted-foreground">95% de satisfacción</p>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Top Técnicos */}
               <Card>
                 <CardHeader>
@@ -385,14 +285,13 @@ export default function InformesServiciosPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {topTecnicos.map((tecnico, index) => (
-                      <div key={tecnico.nombre} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    {informe.top_tecnicos.map((tecnico, index) => (
+                      <div key={tecnico.tecnico_id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-6 h-6 bg-red-100 text-red-600 rounded-full text-sm font-bold">
+                          <div className="flex items-center justify-center w-6 h-6 bg-primary/10 text-primary rounded-full text-sm font-bold">
                             {index + 1}
                           </div>
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={tecnico.avatar || "/placeholder.svg"} />
                             <AvatarFallback>
                               {tecnico.nombre
                                 .split(" ")
@@ -401,13 +300,13 @@ export default function InformesServiciosPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium text-gray-900">{tecnico.nombre}</div>
-                            <div className="text-sm text-gray-500">{tecnico.servicios} servicios</div>
+                            <div className="font-medium text-foreground">{tecnico.nombre}</div>
+                            <div className="text-sm text-muted-foreground">{tecnico.servicios_completados} servicios</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                          <span className="text-sm font-medium">{tecnico.satisfaccion}</span>
+                          <span className="text-sm font-medium">{tecnico.satisfaccion_promedio}</span>
                         </div>
                       </div>
                     ))}
@@ -423,17 +322,17 @@ export default function InformesServiciosPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {tiposServicio.map((servicio) => (
-                      <div key={servicio.tipo} className="space-y-2">
+                    {informe.tipos_servicio.map((servicio) => (
+                      <div key={servicio.tipo_servicio_id} className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-900">{servicio.tipo}</span>
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm font-medium text-foreground">{servicio.nombre}</span>
+                          <span className="text-sm text-muted-foreground">
                             {servicio.cantidad} ({servicio.porcentaje}%)
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-muted rounded-full h-2">
                           <div
-                            className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                            className="bg-primary h-2 rounded-full transition-all duration-300"
                             style={{ width: `${servicio.porcentaje}%` }}
                           ></div>
                         </div>
@@ -452,54 +351,135 @@ export default function InformesServiciosPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {reportes.map((reporte) => (
-                    <div
-                      key={reporte.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-red-100 p-2 rounded-lg">
-                            <FileText className="h-5 w-5 text-red-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-gray-900">{reporte.nombre}</h3>
-                            <p className="text-sm text-gray-600">{reporte.descripcion}</p>
-                          </div>
+                  <div className="border border-border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-lg">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-foreground">Rendimiento de Técnicos</h3>
+                          <p className="text-sm text-muted-foreground">Análisis de productividad y eficiencia por técnico</p>
                         </div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Badge variant="outline" className="text-xs">Productividad</Badge>
+                      <Badge variant="outline" className="text-xs">Gráfico de Barras</Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                      <span>Última generación: {new Date().toLocaleDateString('es-CR')}</span>
+                      <span>Frecuencia: Semanal</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" className="bg-primary hover:bg-primary/90 flex-1">
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Generar
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
 
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge variant="outline" className="text-xs">
-                          {reporte.categoria}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {reporte.tipo}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
-                        <span>Última generación: {reporte.ultimaGeneracion}</span>
-                        <span>Frecuencia: {reporte.frecuencia}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" className="bg-red-600 hover:bg-red-700 flex-1">
-                          <BarChart3 className="h-4 w-4 mr-2" />
-                          Generar
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Download className="h-4 w-4" />
-                        </Button>
+                  <div className="border border-border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-lg">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-foreground">Tipos de Reparaciones</h3>
+                          <p className="text-sm text-muted-foreground">Distribución de servicios más solicitados</p>
+                        </div>
                       </div>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2 mb-3">
+                      <Badge variant="outline" className="text-xs">Servicios</Badge>
+                      <Badge variant="outline" className="text-xs">Gráfico Circular</Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                      <span>Última generación: {new Date().toLocaleDateString('es-CR')}</span>
+                      <span>Frecuencia: Mensual</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" className="bg-primary hover:bg-primary/90 flex-1">
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Generar
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border border-border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-lg">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-foreground">Tiempos de Servicio</h3>
+                          <p className="text-sm text-muted-foreground">Análisis de tiempos promedio por tipo de reparación</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Badge variant="outline" className="text-xs">Eficiencia</Badge>
+                      <Badge variant="outline" className="text-xs">Línea de Tiempo</Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                      <span>Última generación: {new Date().toLocaleDateString('es-CR')}</span>
+                      <span>Frecuencia: Diario</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" className="bg-primary hover:bg-primary/90 flex-1">
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Generar
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border border-border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-lg">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-foreground">Satisfacción del Cliente</h3>
+                          <p className="text-sm text-muted-foreground">Métricas de calidad y satisfacción</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Badge variant="outline" className="text-xs">Calidad</Badge>
+                      <Badge variant="outline" className="text-xs">Dashboard</Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                      <span>Última generación: {new Date().toLocaleDateString('es-CR')}</span>
+                      <span>Frecuencia: Semanal</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" className="bg-primary hover:bg-primary/90 flex-1">
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Generar
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
-        </main>
+          </>
+        )}
       </div>
-    </div>
+    </AppLayout>
   )
 }

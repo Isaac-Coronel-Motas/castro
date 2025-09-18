@@ -1,477 +1,273 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ProtectedRoute } from "@/components/protected-route"
-import { useAuth } from "@/contexts/auth-context"
+import { AppLayout } from "@/components/app-layout"
+import { DataTable } from "@/components/data-table"
+import { ClienteModal } from "@/components/modals/cliente-modal"
+import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
+import { useApi } from "@/hooks/use-api"
+import { Cliente } from "@/lib/types/referencias"
 import {
-  Wrench,
-  LayoutDashboard,
-  ShoppingCart,
-  Settings,
-  Receipt,
-  FileText,
-  Users,
-  Search,
-  Bell,
-  ChevronRight,
-  ChevronDown,
-  Plus,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
   Eye,
   Edit,
   Trash2,
-  Phone,
-  Mail,
-  MapPin,
-  User,
-  Building,
-  LogOut,
+  Plus,
+  CheckCircle,
+  XCircle,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
-
-const sidebarItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", active: false },
-  {
-    icon: ShoppingCart,
-    label: "Compras",
-    active: false,
-    submenu: [
-      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: false },
-      { label: "Presupuestos Proveedor", href: "/compras/presupuestos", active: false },
-      { label: "Órdenes de Compra", href: "/compras/ordenes", active: false },
-      { label: "Registro de Compras", href: "/compras/registro", active: false },
-      { label: "Ajustes de Inventario", href: "/compras/ajustes", active: false },
-      { label: "Notas de Crédito/Débito", href: "/compras/notas", active: false },
-      { label: "Transferencias", href: "/compras/transferencias", active: false },
-      { label: "Informes", href: "/compras/informes", active: false },
-    ],
-  },
-  {
-    icon: Settings,
-    label: "Servicios Técnicos",
-    active: false,
-    submenu: [
-      { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: false },
-      { label: "Recepción de Equipos", href: "/servicios/recepcion-equipos", active: false },
-      { label: "Diagnósticos", href: "/servicios/diagnosticos", active: false },
-      { label: "Presupuestos", href: "/servicios/presupuestos", active: false },
-      { label: "Órdenes de Servicio", href: "/servicios/ordenes-servicio", active: false },
-      { label: "Retiro de Equipos", href: "/servicios/retiro-equipos", active: false },
-      { label: "Reclamos", href: "/servicios/reclamos", active: false },
-      { label: "Informes", href: "/servicios/informes", active: false },
-    ],
-  },
-  {
-    icon: Receipt,
-    label: "Ventas",
-    active: false,
-    submenu: [
-      { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: false },
-      { label: "Pedidos de Clientes", href: "/ventas/pedidos-clientes", active: false },
-      { label: "Registro de Ventas", href: "/ventas/registro-ventas", active: false },
-      { label: "Cobros", href: "/ventas/cobros", active: false },
-      { label: "Presupuestos", href: "/ventas/presupuestos", active: false },
-      { label: "Notas de Remisión", href: "/ventas/notas-remision", active: false },
-      { label: "Notas de Crédito/Débito", href: "/ventas/notas-credito-debito", active: false },
-      { label: "Informes", href: "/ventas/informes", active: false },
-    ],
-  },
-  {
-    icon: FileText,
-    label: "Referencias",
-    active: true,
-    submenu: [
-      { label: "Proveedores", href: "/referencias/proveedores", active: false },
-      { label: "Productos", href: "/referencias/productos", active: false },
-      { label: "Categorías", href: "/referencias/categorias", active: false },
-      { label: "Clientes", href: "/referencias/clientes", active: true },
-      { label: "Marcas", href: "/referencias/marcas", active: false },
-      { label: "Tipos de Servicio", href: "/referencias/tipos-servicio", active: false },
-    ],
-  },
-  {
-    icon: Users,
-    label: "Administración",
-    active: false,
-    submenu: [
-      { label: "Usuarios", href: "/administracion/usuarios", active: false },
-      { label: "Roles y Permisos", href: "/administracion/roles-permisos", active: false },
-      { label: "Auditoría", href: "/administracion/auditoria", active: false },
-      { label: "Configuración", href: "/administracion/configuracion", active: false },
-    ],
-  },
-]
 
 export default function ClientesPage() {
-  const { user, logout } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
-    Compras: false,
-    "Servicios Técnicos": false,
-    Ventas: false,
-    Referencias: true,
-    Administración: false,
-  })
+  const {
+    data: clientes,
+    loading,
+    error,
+    pagination,
+    search,
+    setSorting,
+    setPagination,
+    create,
+    update,
+    delete: deleteCliente,
+  } = useApi<Cliente>('/api/clientes');
+
   const [searchTerm, setSearchTerm] = useState("")
-  const router = useRouter()
+  const [clienteModalOpen, setClienteModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
 
-  const toggleSubmenu = (label: string) => {
-    setExpandedMenus((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }))
+  const handleSearch = (term: string) => {
+    setSearchTerm(term)
+    search(term)
   }
 
-  const navigateTo = (href: string) => {
-    router.push(href)
+  const handleSort = (column: string, order: 'asc' | 'desc') => {
+    setSorting(column, order)
   }
 
-  const filteredClientes = clientes.filter(
-    (cliente) =>
-      cliente.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.telefono.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const handlePageChange = (page: number) => {
+    setPagination(page, pagination?.limit || 10)
+  }
+
+  const handleLimitChange = (limit: number) => {
+    setPagination(1, limit)
+  }
+
+  const handleCreate = () => {
+    setSelectedCliente(null)
+    setModalMode('create')
+    setClienteModalOpen(true)
+  }
+
+  const handleView = (cliente: Cliente) => {
+    setSelectedCliente(cliente)
+    setModalMode('view')
+    setClienteModalOpen(true)
+  }
+
+  const handleEdit = (cliente: Cliente) => {
+    setSelectedCliente(cliente)
+    setModalMode('edit')
+    setClienteModalOpen(true)
+  }
+
+  const handleDelete = (cliente: Cliente) => {
+    setSelectedCliente(cliente)
+    setDeleteModalOpen(true)
+  }
+
+  const handleSaveCliente = async (clienteData: Partial<Cliente>): Promise<boolean> => {
+    try {
+      if (modalMode === 'create') {
+        return await create(clienteData)
+      } else if (modalMode === 'edit' && selectedCliente) {
+        return await update(selectedCliente.cliente_id, clienteData)
+      }
+      return false
+    } catch (error) {
+      console.error('Error al guardar cliente:', error)
+      return false
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (selectedCliente) {
+      const success = await deleteCliente(selectedCliente.cliente_id)
+      if (success) {
+        setDeleteModalOpen(false)
+        setSelectedCliente(null)
+      }
+    }
+  }
+
+  const getModalTitle = () => {
+    switch (modalMode) {
+      case 'create':
+        return 'Crear Nuevo Cliente'
+      case 'edit':
+        return 'Editar Cliente'
+      case 'view':
+        return 'Ver Cliente'
+      default:
+        return 'Cliente'
+    }
+  }
 
   const getEstadoBadge = (estado: string) => {
     switch (estado) {
-      case "Activo":
+      case "activo":
         return "bg-green-100 text-green-800 hover:bg-green-100"
-      case "Inactivo":
+      case "inactivo":
         return "bg-red-100 text-red-800 hover:bg-red-100"
-      case "Suspendido":
-        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-      case "Prospecto":
-        return "bg-blue-100 text-blue-800 hover:bg-blue-100"
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-100"
     }
   }
 
-  const getTipoBadge = (tipo: string) => {
-    switch (tipo) {
-      case "Individual":
-        return "bg-purple-100 text-purple-800 hover:bg-purple-100"
-      case "Empresa":
-        return "bg-orange-100 text-orange-800 hover:bg-orange-100"
+  const getEstadoIcon = (estado: string) => {
+    switch (estado) {
+      case "activo":
+        return <CheckCircle className="h-3 w-3" />
+      case "inactivo":
+        return <XCircle className="h-3 w-3" />
       default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
+        return <User className="h-3 w-3" />
     }
   }
 
-  return (
-    <ProtectedRoute>
-      <div className="flex h-screen bg-gray-50">
-        {/* Sidebar */}
-        <div className={cn("bg-slate-800 text-white transition-all duration-300", sidebarOpen ? "w-64" : "w-16")}>
-          {/* Logo */}
-          <div className="p-4 border-b border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="bg-white p-2 rounded-lg">
-                <Wrench className="h-6 w-6 text-slate-800" />
-              </div>
-              {sidebarOpen && (
-                <div>
-                  <h2 className="font-bold text-sm">Taller Castro</h2>
-                  <p className="text-xs text-slate-300">Sistema de Gestión</p>
-                </div>
-              )}
+  const columns = [
+    {
+      key: 'cliente_id',
+      label: 'ID',
+      width: '80px',
+    },
+    {
+      key: 'nombre',
+      label: 'Cliente',
+      sortable: true,
+      render: (cliente: Cliente) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-blue-600" />
+          <span className="font-medium text-gray-900">{cliente.nombre}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'ruc',
+      label: 'RUC',
+      render: (cliente: Cliente) => (
+        <div className="flex items-center gap-1 text-sm text-gray-600">
+          <CreditCard className="h-3 w-3" />
+          {cliente.ruc || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'contacto',
+      label: 'Información de Contacto',
+      render: (cliente: Cliente) => (
+        <div className="space-y-1">
+          {cliente.email && (
+            <div className="flex items-center gap-1 text-sm text-gray-600">
+              <Mail className="h-3 w-3" />
+              {cliente.email}
             </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="p-4">
-            <ul className="space-y-2">
-              {sidebarItems.map((item, index) => (
-                <li key={index}>
-                  <div>
-                    <button
-                      onClick={() => {
-                        if (item.submenu) {
-                          toggleSubmenu(item.label)
-                        } else if (item.href) {
-                          navigateTo(item.href)
-                        }
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
-                        item.active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white",
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {sidebarOpen && (
-                        <>
-                          <span className="text-sm">{item.label}</span>
-                          {item.submenu ? (
-                            expandedMenus[item.label] ? (
-                              <ChevronDown className="h-4 w-4 ml-auto" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 ml-auto" />
-                            )
-                          ) : (
-                            <ChevronRight className="h-4 w-4 ml-auto" />
-                          )}
-                        </>
-                      )}
-                    </button>
-
-                    {item.submenu && expandedMenus[item.label] && sidebarOpen && (
-                      <ul className="mt-2 ml-6 space-y-1">
-                        {item.submenu.map((subItem, subIndex) => (
-                          <li key={subIndex}>
-                            <button
-                              onClick={() => navigateTo(subItem.href)}
-                              className={cn(
-                                "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors text-xs",
-                                subItem.active
-                                  ? "bg-slate-600 text-white"
-                                  : "text-slate-400 hover:bg-slate-600 hover:text-white",
-                              )}
-                            >
-                              <span>{subItem.label}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {sidebarOpen && (
-            <div className="absolute bottom-4 left-4 right-4">
-              <Button
-                onClick={logout}
-                variant="outline"
-                className="w-full text-white border-slate-600 hover:bg-slate-700 bg-transparent"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Cerrar Sesión
-              </Button>
+          )}
+          {cliente.telefono && (
+            <div className="flex items-center gap-1 text-sm text-gray-600">
+              <Phone className="h-3 w-3" />
+              {cliente.telefono}
             </div>
           )}
         </div>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <header className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-between">
-              {/* Search */}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                </Button>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Buscar pedidos, clientes, productos..." className="pl-10 w-80" />
-                </div>
-              </div>
-
-              {/* User Profile */}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" className="relative">
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    3
-                  </span>
-                </Button>
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback className="bg-blue-600 text-white">
-                      {user?.username?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-sm">
-                    <p className="font-medium">{user?.username || "Usuario"}</p>
-                    <p className="text-gray-500">{user?.role || "Usuario"}</p>
-                  </div>
-                </div>
-                <Button onClick={logout} variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700">
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </header>
-
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto p-6">
-            {/* Page Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Clientes</h1>
-                <p className="text-gray-600">Gestión de clientes y base de datos de contactos</p>
-              </div>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Cliente
-              </Button>
-            </div>
-
-            {/* Filters and Search */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Lista de Clientes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Buscar clientes..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                {/* Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Código</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Contacto</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Dirección</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Tipo</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredClientes.map((cliente, index) => (
-                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4 font-medium text-gray-900">{cliente.codigo}</td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              {cliente.tipo === "Individual" ? (
-                                <User className="h-4 w-4 text-purple-600" />
-                              ) : (
-                                <Building className="h-4 w-4 text-orange-600" />
-                              )}
-                              <span className="text-gray-900 font-medium">{cliente.nombre}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1 text-sm text-gray-600">
-                                <Phone className="h-3 w-3" />
-                                {cliente.telefono}
-                              </div>
-                              <div className="flex items-center gap-1 text-sm text-gray-600">
-                                <Mail className="h-3 w-3" />
-                                {cliente.email}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-1 text-sm text-gray-600">
-                              <MapPin className="h-3 w-3" />
-                              <span className="max-w-xs truncate">{cliente.direccion}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge className={getTipoBadge(cliente.tipo)}>{cliente.tipo}</Badge>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge className={getEstadoBadge(cliente.estado)}>{cliente.estado}</Badge>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {filteredClientes.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No se encontraron clientes que coincidan con la búsqueda.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </main>
+      ),
+    },
+    {
+      key: 'direccion',
+      label: 'Dirección',
+      render: (cliente: Cliente) => (
+        <div className="flex items-center gap-1 text-sm text-gray-600">
+          <MapPin className="h-3 w-3" />
+          <span className="max-w-xs truncate">{cliente.direccion || '-'}</span>
         </div>
-      </div>
-    </ProtectedRoute>
+      ),
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      sortable: true,
+      render: (cliente: Cliente) => (
+        <Badge className={getEstadoBadge(cliente.estado)}>
+          <div className="flex items-center gap-1">
+            {getEstadoIcon(cliente.estado)}
+            {cliente.estado === 'activo' ? 'Activo' : 'Inactivo'}
+          </div>
+        </Badge>
+      ),
+    },
+    {
+      key: 'created_at',
+      label: 'Fecha Registro',
+      sortable: true,
+      render: (cliente: Cliente) => (
+        <span className="text-gray-600">
+          {cliente.created_at ? new Date(cliente.created_at).toLocaleDateString() : '-'}
+        </span>
+      ),
+    },
+  ]
+
+  return (
+    <AppLayout
+      title="Clientes"
+      subtitle="Gestión de clientes y base de datos de contactos"
+      currentModule="Referencias"
+      currentSubmodule="/referencias/clientes"
+    >
+      <DataTable
+        title="Lista de Clientes"
+        data={clientes}
+        columns={columns}
+        loading={loading}
+        error={error}
+        pagination={pagination}
+        searchTerm={searchTerm}
+        onSearch={handleSearch}
+        onSort={handleSort}
+        onPageChange={handlePageChange}
+        onLimitChange={handleLimitChange}
+        onCreate={handleCreate}
+        onView={handleView}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        createButtonText="Nuevo Cliente"
+        searchPlaceholder="Buscar clientes..."
+        emptyMessage="No se encontraron clientes que coincidan con la búsqueda."
+      />
+
+      {/* Modales */}
+      <ClienteModal
+        isOpen={clienteModalOpen}
+        onClose={() => setClienteModalOpen(false)}
+        onSave={handleSaveCliente}
+        cliente={modalMode === 'view' ? selectedCliente : (modalMode === 'edit' ? selectedCliente : null)}
+        title={getModalTitle()}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Cliente"
+        message="¿Estás seguro de que quieres eliminar este cliente?"
+        itemName={selectedCliente?.nombre || ''}
+      />
+    </AppLayout>
   )
 }
-
-const clientes = [
-  {
-    codigo: "CLI-001",
-    nombre: "María González Pérez",
-    telefono: "0981234567",
-    email: "maria.gonzalez@email.com",
-    direccion: "Av. 18 de Julio 1234, Montevideo",
-    tipo: "Individual",
-    estado: "Activo",
-  },
-  {
-    codigo: "CLI-002",
-    nombre: "TechSolutions S.A.",
-    telefono: "0987654321",
-    email: "contacto@techsolutions.com",
-    direccion: "World Trade Center, Montevideo",
-    tipo: "Empresa",
-    estado: "Activo",
-  },
-  {
-    codigo: "CLI-003",
-    nombre: "Carlos Rodríguez",
-    telefono: "0976543210",
-    email: "carlos.rodriguez@gmail.com",
-    direccion: "Bvar. Artigas 567, Montevideo",
-    tipo: "Individual",
-    estado: "Prospecto",
-  },
-  {
-    codigo: "CLI-004",
-    nombre: "Innovación Digital Ltda.",
-    telefono: "0965432109",
-    email: "info@innovacion.com.uy",
-    direccion: "Pocitos Plaza, Montevideo",
-    tipo: "Empresa",
-    estado: "Activo",
-  },
-  {
-    codigo: "CLI-005",
-    nombre: "Ana Martínez Silva",
-    telefono: "0954321098",
-    email: "ana.martinez@hotmail.com",
-    direccion: "Malvín Norte 890, Montevideo",
-    tipo: "Individual",
-    estado: "Suspendido",
-  },
-  {
-    codigo: "CLI-006",
-    nombre: "Sistemas Integrados S.R.L.",
-    telefono: "0943210987",
-    email: "ventas@sistemasintegrados.com",
-    direccion: "Zona Franca, Montevideo",
-    tipo: "Empresa",
-    estado: "Inactivo",
-  },
-]

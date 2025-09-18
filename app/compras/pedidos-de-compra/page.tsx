@@ -1,564 +1,340 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ProtectedRoute } from "@/components/protected-route"
-import { useAuth } from "@/contexts/auth-context"
-import {
-  Wrench,
-  LayoutDashboard,
-  ShoppingCart,
-  Settings,
-  Receipt,
-  FileText,
-  Users,
-  Search,
-  Bell,
-  ChevronRight,
-  ChevronDown,
-  LogOut,
-  Plus,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  Eye,
-  Edit,
-  Trash2,
-  Package,
-  DollarSign,
-  Calendar,
-  Filter,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
-
-const sidebarItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", active: false },
-  {
-    icon: ShoppingCart,
-    label: "Compras",
-    active: true,
-    submenu: [
-      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: true },
-      { label: "Presupuestos Proveedor", href: "/compras/presupuestos", active: false },
-      { label: "Órdenes de Compra", href: "/compras/ordenes", active: false },
-      { label: "Registro de Compras", href: "/compras/registro", active: false },
-      { label: "Ajustes de Inventario", href: "/compras/ajustes", active: false },
-      { label: "Notas de Crédito/Débito", href: "/compras/notas", active: false },
-      { label: "Transferencias", href: "/compras/transferencias", active: false },
-      { label: "Informes", href: "/compras/informes", active: false },
-    ],
-  },
-  {
-    icon: Settings,
-    label: "Servicios Técnicos",
-    active: false,
-    submenu: [
-      { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: false },
-      { label: "Recepción de Equipos", href: "/servicios/recepcion", active: false },
-      { label: "Diagnósticos", href: "/servicios/diagnosticos", active: false },
-      { label: "Presupuestos", href: "/servicios/presupuestos", active: false },
-      { label: "Órdenes de Servicio", href: "/servicios/ordenes", active: false },
-      { label: "Retiro de Equipos", href: "/servicios/retiro", active: false },
-      { label: "Reclamos", href: "/servicios/reclamos", active: false },
-      { label: "Informes", href: "/servicios/informes", active: false },
-    ],
-  },
-  {
-    icon: Receipt,
-    label: "Ventas",
-    active: false,
-    submenu: [
-      { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: false },
-      { label: "Pedidos de Clientes", href: "/ventas/pedidos", active: false },
-      { label: "Registro de Ventas", href: "/ventas/registro", active: false },
-      { label: "Cobros", href: "/ventas/cobros", active: false },
-      { label: "Presupuestos", href: "/ventas/presupuestos", active: false },
-      { label: "Notas de Remisión", href: "/ventas/notas-remision", active: false },
-      { label: "Notas de Crédito/Débito", href: "/ventas/notas-credito", active: false },
-      { label: "Informes", href: "/ventas/informes", active: false },
-    ],
-  },
-  {
-    icon: FileText,
-    label: "Referencias",
-    active: false,
-    submenu: [
-      { label: "Proveedores", href: "/referencias/proveedores", active: false },
-      { label: "Productos", href: "/referencias/productos", active: false },
-      { label: "Categorías", href: "/referencias/categorias", active: false },
-      { label: "Clientes", href: "/referencias/clientes", active: false },
-      { label: "Marcas", href: "/referencias/marcas", active: false },
-      { label: "Tipos de Servicio", href: "/referencias/tipos-servicio", active: false },
-    ],
-  },
-  {
-    icon: Users,
-    label: "Administración",
-    active: false,
-    submenu: [
-      { label: "Usuarios", href: "/administracion/usuarios", active: false },
-      { label: "Roles y Permisos", href: "/administracion/roles", active: false },
-      { label: "Auditoría", href: "/administracion/auditoria", active: false },
-      { label: "Configuración", href: "/administracion/configuracion", active: false },
-    ],
-  },
-]
+import { AppLayout } from "@/components/app-layout"
+import { DataTable } from "@/components/data-table"
+import { PedidoCompraModal } from "@/components/modals/pedido-compra-modal"
+import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
+import { useApi } from "@/hooks/use-api"
+import { PedidoCompra, CreatePedidoCompraRequest, UpdatePedidoCompraRequest } from "@/lib/types/compras"
+import { getEstadoColor, getEstadoLabel } from "@/lib/utils/compras"
+import { Plus, Package, Calendar, User, Building, Warehouse, Eye, Edit, Trash2 } from "lucide-react"
 
 export default function PedidosDeCompraPage() {
-  const { user, logout } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
-    Compras: true,
-  })
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterStatus, setFilterStatus] = useState("all")
-  const router = useRouter()
+  const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [pedidoToDelete, setPedidoToDelete] = useState<PedidoCompra | null>(null)
 
+  // Hook para manejar la API
+  const {
+    data: pedidos,
+    loading,
+    error,
+    pagination,
+    search,
+    sort,
+    page,
+    limit,
+    handleSearch,
+    handleSort,
+    handlePageChange,
+    handleLimitChange,
+    createItem,
+    updateItem,
+    deleteItem,
+    refresh
+  } = useApi<PedidoCompra>('/api/compras/pedidos')
+
+  // Columnas para la tabla
+  const columns = [
+    {
+      key: 'nro_comprobante',
+      label: 'Número',
+      sortable: true,
+      render: (pedido: PedidoCompra) => (
+        <div className="font-medium text-foreground">
+          {pedido.nro_comprobante}
+        </div>
+      )
+    },
+    {
+      key: 'fecha_pedido',
+      label: 'Fecha',
+      sortable: true,
+      render: (pedido: PedidoCompra) => (
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>{new Date(pedido.fecha_pedido).toLocaleDateString('es-CR')}</span>
+        </div>
+      )
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      sortable: true,
+      render: (pedido: PedidoCompra) => (
+        <Badge className={getEstadoColor(pedido.estado)}>
+          {getEstadoLabel(pedido.estado)}
+        </Badge>
+      )
+    },
+    {
+      key: 'usuario_nombre',
+      label: 'Usuario',
+      sortable: true,
+      render: (pedido: PedidoCompra) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <span>{pedido.usuario_nombre || 'N/A'}</span>
+        </div>
+      )
+    },
+    {
+      key: 'sucursal_nombre',
+      label: 'Sucursal',
+      sortable: true,
+      render: (pedido: PedidoCompra) => (
+        <div className="flex items-center gap-2">
+          <Building className="h-4 w-4 text-muted-foreground" />
+          <span>{pedido.sucursal_nombre || 'N/A'}</span>
+        </div>
+      )
+    },
+    {
+      key: 'almacen_nombre',
+      label: 'Almacén',
+      sortable: true,
+      render: (pedido: PedidoCompra) => (
+        <div className="flex items-center gap-2">
+          <Warehouse className="h-4 w-4 text-muted-foreground" />
+          <span>{pedido.almacen_nombre || 'N/A'}</span>
+        </div>
+      )
+    },
+    {
+      key: 'total_items',
+      label: 'Items',
+      sortable: true,
+      render: (pedido: PedidoCompra) => (
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-muted-foreground" />
+          <span>{pedido.total_items || 0}</span>
+        </div>
+      )
+    },
+    {
+      key: 'monto_total',
+      label: 'Monto Total',
+      sortable: true,
+      render: (pedido: PedidoCompra) => (
+        <div className="font-medium">
+          ₡{(pedido.monto_total || 0).toLocaleString()}
+        </div>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Acciones',
+      render: (pedido: PedidoCompra) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleView(pedido)}
+            className="h-8 w-8 p-0"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleEdit(pedido)}
+            className="h-8 w-8 p-0"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleDelete(pedido)}
+            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )
+    }
+  ]
+
+  // Handlers
+  const handleCreate = () => {
+    setSelectedPedido(null)
+    setModalMode('create')
+    setIsModalOpen(true)
+  }
+
+  const handleView = (pedido: PedidoCompra) => {
+    setSelectedPedido(pedido)
+    setModalMode('view')
+    setIsModalOpen(true)
+  }
+
+  const handleEdit = (pedido: PedidoCompra) => {
+    setSelectedPedido(pedido)
+    setModalMode('edit')
+    setIsModalOpen(true)
+  }
+
+  const handleDelete = (pedido: PedidoCompra) => {
+    setPedidoToDelete(pedido)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleSave = async (data: CreatePedidoCompraRequest | UpdatePedidoCompraRequest) => {
+    try {
+      if (modalMode === 'create') {
+        await createItem(data as CreatePedidoCompraRequest)
+      } else {
+        await updateItem((data as UpdatePedidoCompraRequest).pedido_compra_id!, data as UpdatePedidoCompraRequest)
+      }
+      setIsModalOpen(false)
+      setSelectedPedido(null)
+    } catch (error) {
+      console.error('Error guardando pedido:', error)
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (pedidoToDelete) {
+      try {
+        await deleteItem(pedidoToDelete.pedido_compra_id)
+        setIsDeleteModalOpen(false)
+        setPedidoToDelete(null)
+      } catch (error) {
+        console.error('Error eliminando pedido:', error)
+      }
+    }
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedPedido(null)
+  }
+
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false)
+    setPedidoToDelete(null)
+  }
+
+  // Métricas calculadas
   const metrics = [
     {
       title: "Total Pedidos",
-      value: "24",
+      value: pagination?.total?.toString() || "0",
       change: "+12%",
-      trend: "up",
+      trend: "up" as const,
       icon: Package,
       color: "bg-primary text-primary-foreground",
     },
     {
       title: "Pendientes",
-      value: "8",
+      value: pedidos?.filter(p => p.estado === 'pendiente').length.toString() || "0",
       change: "-5%",
-      trend: "down",
-      icon: Clock,
+      trend: "down" as const,
+      icon: Calendar,
       color: "bg-secondary text-secondary-foreground",
     },
     {
       title: "Aprobados",
-      value: "12",
+      value: pedidos?.filter(p => p.estado === 'aprobado').length.toString() || "0",
       change: "+8%",
-      trend: "up",
-      icon: CheckCircle,
+      trend: "up" as const,
+      icon: Package,
       color: "bg-chart-1 text-white",
     },
     {
       title: "Valor Total",
-      value: "₡2.4M",
+      value: `₡${(pedidos?.reduce((total, p) => total + (p.monto_total || 0), 0) || 0).toLocaleString()}`,
       change: "+15%",
-      trend: "up",
-      icon: DollarSign,
+      trend: "up" as const,
+      icon: Package,
       color: "bg-chart-2 text-white",
     },
   ]
 
-  const purchaseOrders = [
-    {
-      id: "PC-001",
-      supplier: "Distribuidora Tech SA",
-      date: "2024-01-15",
-      status: "pending",
-      items: 5,
-      total: "₡2,500,000",
-      priority: "high",
-      description: "Componentes electrónicos varios",
-      deliveryDate: "2024-01-25",
-    },
-    {
-      id: "PC-002",
-      supplier: "Electrónica Central",
-      date: "2024-01-14",
-      status: "approved",
-      items: 3,
-      total: "₡1,800,000",
-      priority: "medium",
-      description: "Pantallas y displays",
-      deliveryDate: "2024-01-22",
-    },
-    {
-      id: "PC-003",
-      supplier: "Componentes del Este",
-      date: "2024-01-13",
-      status: "cancelled",
-      items: 2,
-      total: "₡950,000",
-      priority: "low",
-      description: "Cables y conectores",
-      deliveryDate: "2024-01-20",
-    },
-    {
-      id: "PC-004",
-      supplier: "TechParts Solutions",
-      date: "2024-01-12",
-      status: "delivered",
-      items: 7,
-      total: "₡3,200,000",
-      priority: "high",
-      description: "Procesadores y memorias",
-      deliveryDate: "2024-01-18",
-    },
-  ]
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-secondary text-secondary-foreground"
-      case "approved":
-        return "bg-chart-1 text-white"
-      case "delivered":
-        return "bg-green-500 text-white"
-      case "cancelled":
-        return "bg-destructive text-destructive-foreground"
-      default:
-        return "bg-muted text-muted-foreground"
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "Pendiente"
-      case "approved":
-        return "Aprobado"
-      case "delivered":
-        return "Entregado"
-      case "cancelled":
-        return "Cancelado"
-      default:
-        return status
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-100 text-red-800 border-red-200"
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "low":
-        return "bg-green-100 text-green-800 border-green-200"
-      default:
-        return "bg-muted text-muted-foreground"
-    }
-  }
-
-  const filteredOrders = purchaseOrders.filter((order) => {
-    const matchesSearch =
-      order.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === "all" || order.status === filterStatus
-    return matchesSearch && matchesFilter
-  })
-
-  const toggleSubmenu = (label: string) => {
-    setExpandedMenus((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }))
-  }
-
-  const navigateTo = (href: string) => {
-    router.push(href)
-  }
-
   return (
-    <ProtectedRoute>
-      <div className="flex h-screen bg-background">
-        {/* Sidebar */}
-        <div className={cn("bg-slate-800 text-white transition-all duration-300", sidebarOpen ? "w-64" : "w-16")}>
-          {/* Logo */}
-          <div className="p-4 border-b border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="bg-white p-2 rounded-lg">
-                <Wrench className="h-6 w-6 text-slate-800" />
-              </div>
-              {sidebarOpen && (
-                <div>
-                  <h2 className="font-bold text-sm">Taller Castro</h2>
-                  <p className="text-xs text-slate-300">Sistema de Gestión</p>
-                </div>
-              )}
-            </div>
+    <AppLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Pedidos de Compra</h1>
+            <p className="text-muted-foreground">Gestión de solicitudes a proveedores</p>
           </div>
-
-          {/* Navigation */}
-          <nav className="p-4">
-            <ul className="space-y-2">
-              {sidebarItems.map((item, index) => (
-                <li key={index}>
-                  <div>
-                    <button
-                      onClick={() => {
-                        if (item.submenu) {
-                          toggleSubmenu(item.label)
-                        } else if (item.href) {
-                          navigateTo(item.href)
-                        }
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
-                        item.active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white",
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {sidebarOpen && (
-                        <>
-                          <span className="text-sm">{item.label}</span>
-                          {item.submenu ? (
-                            expandedMenus[item.label] ? (
-                              <ChevronDown className="h-4 w-4 ml-auto" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 ml-auto" />
-                            )
-                          ) : (
-                            <ChevronRight className="h-4 w-4 ml-auto" />
-                          )}
-                        </>
-                      )}
-                    </button>
-
-                    {item.submenu && expandedMenus[item.label] && sidebarOpen && (
-                      <ul className="mt-2 ml-6 space-y-1">
-                        {item.submenu.map((subItem, subIndex) => (
-                          <li key={subIndex}>
-                            <button
-                              onClick={() => navigateTo(subItem.href)}
-                              className={cn(
-                                "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors text-xs",
-                                subItem.active
-                                  ? "bg-slate-600 text-white"
-                                  : "text-slate-400 hover:bg-slate-600 hover:text-white",
-                              )}
-                            >
-                              <span>{subItem.label}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {sidebarOpen && (
-            <div className="absolute bottom-4 left-4 right-4">
-              <Button
-                onClick={logout}
-                variant="outline"
-                className="w-full text-white border-slate-600 hover:bg-slate-700 bg-transparent"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Cerrar Sesión
-              </Button>
-            </div>
-          )}
+          <Button onClick={handleCreate} className="bg-primary hover:bg-primary/90">
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Pedido
+          </Button>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <header className="bg-card border-b border-border px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                </Button>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar pedidos, proveedores..."
-                    className="pl-10 w-80 bg-input border-border"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* User Profile */}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" className="relative">
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    3
-                  </span>
-                </Button>
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      {user?.username?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-sm">
-                    <p className="font-medium text-foreground">{user?.username || "Usuario"}</p>
-                    <p className="text-muted-foreground">{user?.role || "Usuario"}</p>
-                  </div>
-                </div>
-                <Button
-                  onClick={logout}
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </header>
-
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto p-6 bg-background">
-            {/* Page Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Pedidos de Compra</h1>
-                <p className="text-muted-foreground">Dashboard de gestión de solicitudes a proveedores</p>
-              </div>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Pedido
-              </Button>
-            </div>
-
-            {/* Metrics Dashboard */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {metrics.map((metric, index) => (
-                <Card key={index} className="hover:shadow-lg transition-all duration-300 border-border">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-1">{metric.title}</p>
-                        <p className="text-2xl font-bold text-foreground">{metric.value}</p>
-                        <div className="flex items-center mt-2">
-                          <TrendingUp
-                            className={cn("h-4 w-4 mr-1", metric.trend === "up" ? "text-green-500" : "text-red-500")}
-                          />
-                          <span
-                            className={cn(
-                              "text-sm font-medium",
-                              metric.trend === "up" ? "text-green-500" : "text-red-500",
-                            )}
-                          >
-                            {metric.change}
-                          </span>
-                        </div>
-                      </div>
-                      <div className={cn("p-3 rounded-lg", metric.color)}>
-                        <metric.icon className="h-6 w-6" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Filters and Search */}
-            <Card className="mb-6 border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center gap-4">
-                    <h3 className="font-semibold text-foreground">Pedidos Activos</h3>
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-muted-foreground" />
-                      <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="bg-input border border-border rounded-md px-3 py-1 text-sm"
-                      >
-                        <option value="all">Todos los estados</option>
-                        <option value="pending">Pendientes</option>
-                        <option value="approved">Aprobados</option>
-                        <option value="delivered">Entregados</option>
-                        <option value="cancelled">Cancelados</option>
-                      </select>
+        {/* Métricas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {metrics.map((metric, index) => (
+            <Card key={index} className="hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">{metric.title}</p>
+                    <p className="text-2xl font-bold text-foreground">{metric.value}</p>
+                    <div className="flex items-center mt-2">
+                      <span className={`text-sm font-medium ${metric.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+                        {metric.change}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {filteredOrders.length} de {purchaseOrders.length} pedidos
+                  <div className={`p-3 rounded-lg ${metric.color}`}>
+                    <metric.icon className="h-6 w-6" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Purchase Orders Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredOrders.map((order) => (
-                <Card key={order.id} className="hover:shadow-lg transition-all duration-300 border-border group">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-semibold text-foreground">{order.id}</CardTitle>
-                      <Badge className={cn("text-xs", getPriorityColor(order.priority))}>
-                        {order.priority === "high" ? "Alta" : order.priority === "medium" ? "Media" : "Baja"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{order.supplier}</p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Descripción</p>
-                      <p className="text-sm font-medium text-foreground">{order.description}</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Fecha</p>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                          <p className="text-sm font-medium">{order.date}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Entrega</p>
-                        <p className="text-sm font-medium">{order.deliveryDate}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Items: {order.items}</p>
-                        <p className="text-lg font-bold text-foreground">{order.total}</p>
-                      </div>
-                      <Badge className={getStatusColor(order.status)}>{getStatusLabel(order.status)}</Badge>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                        <Eye className="h-3 w-3 mr-1" />
-                        Ver
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive hover:text-destructive bg-transparent"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {filteredOrders.length === 0 && (
-              <Card className="border-border">
-                <CardContent className="p-12 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No se encontraron pedidos</h3>
-                  <p className="text-muted-foreground">Intenta ajustar los filtros o crear un nuevo pedido</p>
-                </CardContent>
-              </Card>
-            )}
-          </main>
+          ))}
         </div>
+
+        {/* Tabla de datos */}
+        <Card>
+          <CardContent className="p-0">
+            <DataTable
+              data={pedidos || []}
+              columns={columns}
+              loading={loading}
+              error={error}
+              pagination={pagination}
+              search={search}
+              sort={sort}
+              onSearch={handleSearch}
+              onSort={handleSort}
+              onPageChange={handlePageChange}
+              onLimitChange={handleLimitChange}
+              searchPlaceholder="Buscar pedidos, usuarios, sucursales..."
+            />
+          </CardContent>
+        </Card>
       </div>
-    </ProtectedRoute>
+
+      {/* Modales */}
+      <PedidoCompraModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSave}
+        pedido={selectedPedido}
+        mode={modalMode}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Pedido de Compra"
+        message={`¿Estás seguro de que deseas eliminar el pedido "${pedidoToDelete?.nro_comprobante}"?`}
+        itemName={pedidoToDelete?.nro_comprobante || ''}
+      />
+    </AppLayout>
   )
 }

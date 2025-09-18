@@ -45,9 +45,9 @@ export default function LoginPage() {
     setLoginError("")
 
     if (validateForm()) {
-      const success = await login(formData.username, formData.password)
+      const success = await login(formData.username, formData.password, formData.rememberMe)
       if (!success) {
-        setLoginError("Credenciales incorrectas. Intenta con: admin / admin123")
+        setLoginError("Credenciales incorrectas. Verifica tu usuario y contraseña.")
       }
     }
   }
@@ -109,7 +109,7 @@ export default function LoginPage() {
               <Alert className="mb-6 border-green-200 bg-green-50">
                 <Info className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800">
-                  <strong>Demo:</strong> Usuario: admin | Contraseña: admin123
+                  <strong>Demo:</strong> Usuario: admin | Contraseña: admin.2025
                 </AlertDescription>
               </Alert>
 

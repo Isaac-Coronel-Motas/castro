@@ -1,286 +1,360 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Plus, ArrowRight, Package, MapPin, Clock, CheckCircle, AlertCircle, Truck } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { AppLayout } from "@/components/app-layout"
+import { DataTable } from "@/components/data-table"
+import { TransferenciaStockModal } from "@/components/modals/transferencia-stock-modal"
+import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
+import { useApi } from "@/hooks/use-api"
+import { TransferenciaStock, CreateTransferenciaStockRequest, UpdateTransferenciaStockRequest } from "@/lib/types/compras"
+import { Plus, Package, Calendar, User, Warehouse, ArrowRightLeft, Eye, Edit, Trash2, Truck, CheckCircle } from "lucide-react"
 
-export default function TransferenciasPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedFilter, setSelectedFilter] = useState("todos")
+export default function TransferenciasStockPage() {
+  const [selectedTransferencia, setSelectedTransferencia] = useState<TransferenciaStock | null>(null)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [transferenciaToDelete, setTransferenciaToDelete] = useState<TransferenciaStock | null>(null)
 
-  // Datos de ejemplo para transferencias
-  const transferencias = [
+  const {
+    data: transferencias,
+    loading,
+    error,
+    pagination,
+    search,
+    sort,
+    page,
+    limit,
+    handleSearch,
+    handleSort,
+    handlePageChange,
+    handleLimitChange,
+    createItem,
+    updateItem,
+    deleteItem,
+    refresh
+  } = useApi<TransferenciaStock>('/api/compras/transferencias')
+
+  const columns = [
     {
-      id: "TRF-001",
-      origen: "Almacén Principal",
-      destino: "Taller Reparaciones",
-      productos: 5,
-      estado: "En Tránsito",
-      fecha: "2024-01-15",
-      responsable: "Carlos Méndez",
-      observaciones: "Componentes para reparación Samsung Galaxy",
-      valor: 450000,
+      key: 'transferencia_id',
+      label: 'ID',
+      sortable: true,
+      render: (transferencia: TransferenciaStock) => (
+        <div className="font-medium text-foreground">
+          #{transferencia.transferencia_id}
+        </div>
+      )
     },
     {
-      id: "TRF-002",
-      origen: "Taller Reparaciones",
-      destino: "Almacén Principal",
-      productos: 3,
-      estado: "Completada",
-      fecha: "2024-01-14",
-      responsable: "Ana Rodríguez",
-      observaciones: "Devolución de piezas no utilizadas",
-      valor: 280000,
+      key: 'fecha',
+      label: 'Fecha',
+      sortable: true,
+      render: (transferencia: TransferenciaStock) => (
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>{new Date(transferencia.fecha).toLocaleDateString('es-CR')}</span>
+        </div>
+      )
     },
     {
-      id: "TRF-003",
-      origen: "Almacén Principal",
-      destino: "Sucursal Centro",
-      productos: 8,
-      estado: "Pendiente",
-      fecha: "2024-01-16",
-      responsable: "Luis García",
-      observaciones: "Stock para venta directa",
-      valor: 750000,
+      key: 'estado',
+      label: 'Estado',
+      sortable: true,
+      render: (transferencia: TransferenciaStock) => (
+        <Badge className={getEstadoColor(transferencia.estado)}>
+          {getEstadoLabel(transferencia.estado)}
+        </Badge>
+      )
     },
     {
-      id: "TRF-004",
-      origen: "Sucursal Centro",
-      destino: "Taller Reparaciones",
-      productos: 2,
-      estado: "En Tránsito",
-      fecha: "2024-01-15",
-      responsable: "María González",
-      observaciones: "Equipos para diagnóstico",
-      valor: 320000,
+      key: 'almacenes',
+      label: 'Almacenes',
+      sortable: false,
+      render: (transferencia: TransferenciaStock) => (
+        <div className="flex items-center gap-2">
+          <Warehouse className="h-4 w-4 text-muted-foreground" />
+          <div className="text-sm">
+            <div className="font-medium">{transferencia.almacen_origen_nombre}</div>
+            <div className="text-muted-foreground">→ {transferencia.almacen_destino_nombre}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'usuario_nombre',
+      label: 'Usuario',
+      sortable: true,
+      render: (transferencia: TransferenciaStock) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <span>{transferencia.usuario_nombre}</span>
+        </div>
+      )
+    },
+    {
+      key: 'total_items',
+      label: 'Items',
+      sortable: true,
+      render: (transferencia: TransferenciaStock) => (
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-muted-foreground" />
+          <span>{transferencia.total_items || 0}</span>
+        </div>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Acciones',
+      render: (transferencia: TransferenciaStock) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleView(transferencia)}
+            className="h-8 w-8 p-0"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          {transferencia.estado === 'pendiente' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleEdit(transferencia)}
+              className="h-8 w-8 p-0"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          )}
+          {transferencia.estado === 'pendiente' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleComplete(transferencia)}
+              className="h-8 w-8 p-0 text-green-500 hover:text-green-700"
+            >
+              <CheckCircle className="h-4 w-4" />
+            </Button>
+          )}
+          {transferencia.estado === 'pendiente' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(transferencia)}
+              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      )
+    }
+  ]
+
+  const handleCreate = () => {
+    setSelectedTransferencia(null)
+    setModalMode('create')
+    setIsModalOpen(true)
+  }
+
+  const handleView = (transferencia: TransferenciaStock) => {
+    setSelectedTransferencia(transferencia)
+    setModalMode('view')
+    setIsModalOpen(true)
+  }
+
+  const handleEdit = (transferencia: TransferenciaStock) => {
+    setSelectedTransferencia(transferencia)
+    setModalMode('edit')
+    setIsModalOpen(true)
+  }
+
+  const handleDelete = (transferencia: TransferenciaStock) => {
+    setTransferenciaToDelete(transferencia)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleComplete = async (transferencia: TransferenciaStock) => {
+    try {
+      await fetch(`/api/compras/transferencias/${transferencia.transferencia_id}/completar`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      refresh()
+    } catch (error) {
+      console.error('Error completando transferencia:', error)
+    }
+  }
+
+  const handleSave = async (data: CreateTransferenciaStockRequest | UpdateTransferenciaStockRequest) => {
+    try {
+      if (modalMode === 'create') {
+        await createItem(data as CreateTransferenciaStockRequest)
+      } else {
+        await updateItem((data as UpdateTransferenciaStockRequest).transferencia_id!, data as UpdateTransferenciaStockRequest)
+      }
+      setIsModalOpen(false)
+      setSelectedTransferencia(null)
+    } catch (error) {
+      console.error('Error guardando transferencia:', error)
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (transferenciaToDelete) {
+      try {
+        await deleteItem(transferenciaToDelete.transferencia_id)
+        setIsDeleteModalOpen(false)
+        setTransferenciaToDelete(null)
+      } catch (error) {
+        console.error('Error eliminando transferencia:', error)
+      }
+    }
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedTransferencia(null)
+  }
+
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false)
+    setTransferenciaToDelete(null)
+  }
+
+  const getEstadoColor = (estado: string) => {
+    const colores: { [key: string]: string } = {
+      'pendiente': 'bg-secondary text-secondary-foreground',
+      'enviada': 'bg-chart-1 text-white',
+      'recibida': 'bg-green-500 text-white',
+      'cancelada': 'bg-destructive text-destructive-foreground'
+    }
+    return colores[estado] || 'bg-muted text-muted-foreground'
+  }
+
+  const getEstadoLabel = (estado: string) => {
+    const etiquetas: { [key: string]: string } = {
+      'pendiente': 'Pendiente',
+      'enviada': 'Enviada',
+      'recibida': 'Recibida',
+      'cancelada': 'Cancelada'
+    }
+    return etiquetas[estado] || estado
+  }
+
+  const metrics = [
+    {
+      title: "Total Transferencias",
+      value: pagination?.total?.toString() || "0",
+      change: "+12%",
+      trend: "up" as const,
+      icon: ArrowRightLeft,
+      color: "bg-primary text-primary-foreground",
+    },
+    {
+      title: "Pendientes",
+      value: transferencias?.filter(t => t.estado === 'pendiente').length.toString() || "0",
+      change: "+8%",
+      trend: "up" as const,
+      icon: Package,
+      color: "bg-secondary text-secondary-foreground",
+    },
+    {
+      title: "Enviadas",
+      value: transferencias?.filter(t => t.estado === 'enviada').length.toString() || "0",
+      change: "+15%",
+      trend: "up" as const,
+      icon: Truck,
+      color: "bg-chart-1 text-white",
+    },
+    {
+      title: "Completadas",
+      value: transferencias?.filter(t => t.estado === 'recibida').length.toString() || "0",
+      change: "+20%",
+      trend: "up" as const,
+      icon: CheckCircle,
+      color: "bg-chart-2 text-white",
     },
   ]
 
-  const filteredTransferencias = transferencias.filter((transferencia) => {
-    const matchesSearch =
-      transferencia.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transferencia.origen.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transferencia.destino.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transferencia.responsable.toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesFilter =
-      selectedFilter === "todos" || transferencia.estado.toLowerCase().replace(" ", "-") === selectedFilter
-
-    return matchesSearch && matchesFilter
-  })
-
-  const getStatusIcon = (estado: string) => {
-    switch (estado) {
-      case "Completada":
-        return <CheckCircle className="w-4 h-4" />
-      case "En Tránsito":
-        return <Truck className="w-4 h-4" />
-      case "Pendiente":
-        return <Clock className="w-4 h-4" />
-      default:
-        return <AlertCircle className="w-4 h-4" />
-    }
-  }
-
-  const getStatusColor = (estado: string) => {
-    switch (estado) {
-      case "Completada":
-        return "bg-green-100 text-green-800 border-green-200"
-      case "En Tránsito":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      case "Pendiente":
-        return "bg-amber-100 text-amber-800 border-amber-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
-    }
-  }
-
-  // Métricas calculadas
-  const totalTransferencias = transferencias.length
-  const enTransito = transferencias.filter((t) => t.estado === "En Tránsito").length
-  const completadas = transferencias.filter((t) => t.estado === "Completada").length
-  const valorTotal = transferencias.reduce((sum, t) => sum + t.valor, 0)
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Transferencias</h1>
-            <p className="text-slate-600 mt-1">Gestión de movimientos entre ubicaciones</p>
+            <h1 className="text-3xl font-bold text-foreground">Transferencias de Stock</h1>
+            <p className="text-muted-foreground">Gestión de transferencias entre almacenes</p>
           </div>
-          <Button className="bg-cyan-600 hover:bg-cyan-700 text-white shadow-lg">
-            <Plus className="w-4 h-4 mr-2" />
+          <Button onClick={handleCreate} className="bg-primary hover:bg-primary/90">
+            <Plus className="h-4 w-4 mr-2" />
             Nueva Transferencia
           </Button>
         </div>
 
-        {/* Métricas */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Total Transferencias</p>
-                <p className="text-2xl font-bold text-slate-900">{totalTransferencias}</p>
-              </div>
-              <div className="p-3 bg-cyan-100 rounded-lg">
-                <Package className="w-6 h-6 text-cyan-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">En Tránsito</p>
-                <p className="text-2xl font-bold text-blue-600">{enTransito}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Truck className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Completadas</p>
-                <p className="text-2xl font-bold text-green-600">{completadas}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Valor Total</p>
-                <p className="text-2xl font-bold text-slate-900">₡{valorTotal.toLocaleString()}</p>
-              </div>
-              <div className="p-3 bg-amber-100 rounded-lg">
-                <MapPin className="w-6 h-6 text-amber-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filtros y Búsqueda */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <Input
-                  placeholder="Buscar por código, origen, destino o responsable..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {["todos", "pendiente", "en-tránsito", "completada"].map((filter) => (
-                <Button
-                  key={filter}
-                  variant={selectedFilter === filter ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedFilter(filter)}
-                  className={selectedFilter === filter ? "bg-cyan-600 hover:bg-cyan-700" : ""}
-                >
-                  {filter.charAt(0).toUpperCase() + filter.slice(1).replace("-", " ")}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Lista de Transferencias */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredTransferencias.map((transferencia) => (
-            <div
-              key={transferencia.id}
-              className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-all duration-200 hover:border-cyan-200"
-            >
-              <div className="space-y-4">
-                {/* Header de la transferencia */}
-                <div className="flex items-start justify-between">
+          {metrics.map((metric, index) => (
+            <Card key={index} className="hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-slate-900">{transferencia.id}</h3>
-                    <p className="text-sm text-slate-600">{transferencia.fecha}</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">{metric.title}</p>
+                    <p className="text-2xl font-bold text-foreground">{metric.value}</p>
+                    <div className="flex items-center mt-2">
+                      <span className={`text-sm font-medium ${metric.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+                        {metric.change}
+                      </span>
+                    </div>
                   </div>
-                  <Badge className={`${getStatusColor(transferencia.estado)} flex items-center gap-1`}>
-                    {getStatusIcon(transferencia.estado)}
-                    {transferencia.estado}
-                  </Badge>
-                </div>
-
-                {/* Ruta de transferencia */}
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">Origen</p>
-                    <p className="font-medium text-slate-900">{transferencia.origen}</p>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-slate-400" />
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">Destino</p>
-                    <p className="font-medium text-slate-900">{transferencia.destino}</p>
+                  <div className={`p-3 rounded-lg ${metric.color}`}>
+                    <metric.icon className="h-6 w-6" />
                   </div>
                 </div>
-
-                {/* Detalles */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">Productos</p>
-                    <p className="font-semibold text-slate-900">{transferencia.productos} items</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">Valor</p>
-                    <p className="font-semibold text-slate-900">₡{transferencia.valor.toLocaleString()}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Responsable</p>
-                  <p className="font-medium text-slate-900">{transferencia.responsable}</p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Observaciones</p>
-                  <p className="text-sm text-slate-700">{transferencia.observaciones}</p>
-                </div>
-
-                {/* Acciones */}
-                <div className="flex gap-2 pt-2 border-t border-slate-100">
-                  <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                    Ver Detalles
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                    Editar
-                  </Button>
-                  {transferencia.estado === "En Tránsito" && (
-                    <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700">
-                      Completar
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
 
-        {filteredTransferencias.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No se encontraron transferencias</h3>
-            <p className="text-slate-600">Intenta ajustar los filtros de búsqueda</p>
-          </div>
-        )}
+        <Card>
+          <CardContent className="p-0">
+            <DataTable
+              data={transferencias || []}
+              columns={columns}
+              loading={loading}
+              error={error}
+              pagination={pagination}
+              search={search}
+              sort={sort}
+              onSearch={handleSearch}
+              onSort={handleSort}
+              onPageChange={handlePageChange}
+              onLimitChange={handleLimitChange}
+              searchPlaceholder="Buscar transferencias..."
+            />
+          </CardContent>
+        </Card>
       </div>
-    </div>
+
+      <TransferenciaStockModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSave}
+        transferencia={selectedTransferencia}
+        mode={modalMode}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Transferencia"
+        message={`¿Estás seguro de que deseas eliminar la transferencia #${transferenciaToDelete?.transferencia_id}?`}
+        itemName={`Transferencia #${transferenciaToDelete?.transferencia_id}`}
+      />
+    </AppLayout>
   )
 }

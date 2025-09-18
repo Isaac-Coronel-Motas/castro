@@ -2,608 +2,337 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ProtectedRoute } from "@/components/protected-route"
-import { useAuth } from "@/contexts/auth-context"
-import {
-  Wrench,
-  LayoutDashboard,
-  ShoppingCart,
-  Settings,
-  Receipt,
-  FileText,
-  Users,
-  Search,
-  Bell,
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  Eye,
-  Edit,
-  Trash2,
-  LogOut,
-  Stethoscope,
-  Clock,
-  AlertCircle,
-  CheckCircle,
-  Filter,
-  User,
-  Calendar,
-  Zap,
-  AlertTriangle,
-  PenTool as Tool,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
-
-const sidebarItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", active: false },
-  {
-    icon: ShoppingCart,
-    label: "Compras",
-    active: false,
-    submenu: [
-      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: false },
-      { label: "Presupuestos Proveedor", href: "/compras/presupuestos", active: false },
-      { label: "Órdenes de Compra", href: "/compras/ordenes", active: false },
-      { label: "Registro de Compras", href: "/compras/registro", active: false },
-      { label: "Ajustes de Inventario", href: "/compras/ajustes", active: false },
-      { label: "Notas de Crédito/Débito", href: "/compras/notas", active: false },
-      { label: "Transferencias", href: "/compras/transferencias", active: false },
-      { label: "Informes", href: "/compras/informes", active: false },
-    ],
-  },
-  {
-    icon: Settings,
-    label: "Servicios Técnicos",
-    active: true,
-    submenu: [
-      { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: false },
-      { label: "Recepción de Equipos", href: "/servicios/recepcion-equipos", active: false },
-      { label: "Diagnósticos", href: "/servicios/diagnosticos", active: true },
-      { label: "Presupuestos", href: "/servicios/presupuestos", active: false },
-      { label: "Órdenes de Servicio", href: "/servicios/ordenes-servicio", active: false },
-      { label: "Retiro de Equipos", href: "/servicios/retiro-equipos", active: false },
-      { label: "Reclamos", href: "/servicios/reclamos", active: false },
-      { label: "Informes", href: "/servicios/informes", active: false },
-    ],
-  },
-  {
-    icon: Receipt,
-    label: "Ventas",
-    active: false,
-    submenu: [
-      { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: false },
-      { label: "Pedidos de Clientes", href: "/ventas/pedidos-clientes", active: false },
-      { label: "Registro de Ventas", href: "/ventas/registro-ventas", active: false },
-      { label: "Cobros", href: "/ventas/cobros", active: false },
-      { label: "Presupuestos", href: "/ventas/presupuestos", active: false },
-      { label: "Notas de Remisión", href: "/ventas/notas-remision", active: false },
-      { label: "Notas de Crédito/Débito", href: "/ventas/notas-credito-debito", active: false },
-      { label: "Informes", href: "/ventas/informes", active: false },
-    ],
-  },
-  {
-    icon: FileText,
-    label: "Referencias",
-    active: false,
-    submenu: [
-      { label: "Proveedores", href: "/referencias/proveedores", active: false },
-      { label: "Productos", href: "/referencias/productos", active: false },
-      { label: "Categorías", href: "/referencias/categorias", active: false },
-      { label: "Clientes", href: "/referencias/clientes", active: false },
-      { label: "Marcas", href: "/referencias/marcas", active: false },
-      { label: "Tipos de Servicio", href: "/referencias/tipos-servicio", active: false },
-    ],
-  },
-  {
-    icon: Users,
-    label: "Administración",
-    active: false,
-    submenu: [
-      { label: "Usuarios", href: "/administracion/usuarios", active: false },
-      { label: "Roles y Permisos", href: "/administracion/roles-permisos", active: false },
-      { label: "Auditoría", href: "/administracion/auditoria", active: false },
-      { label: "Configuración", href: "/administracion/configuracion", active: false },
-    ],
-  },
-]
+import { AppLayout } from "@/components/app-layout"
+import { DataTable } from "@/components/data-table"
+import { DiagnosticoModal } from "@/components/modals/diagnostico-modal"
+import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
+import { useApi } from "@/hooks/use-api"
+import { Diagnostico, CreateDiagnosticoRequest, UpdateDiagnosticoRequest } from "@/lib/types/servicios-tecnicos"
+import { Plus, Stethoscope, Calendar, User, Eye, Edit, Trash2, Wrench, AlertCircle } from "lucide-react"
 
 export default function DiagnosticosPage() {
-  const { user, logout } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
-    Compras: false,
-    "Servicios Técnicos": true,
-    Ventas: false,
-    Referencias: false,
-    Administración: false,
-  })
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterEstado, setFilterEstado] = useState("Todos")
-  const router = useRouter()
+  const [selectedDiagnostico, setSelectedDiagnostico] = useState<Diagnostico | null>(null)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [diagnosticoToDelete, setDiagnosticoToDelete] = useState<Diagnostico | null>(null)
 
-  const toggleSubmenu = (label: string) => {
-    setExpandedMenus((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }))
-  }
+  const {
+    data: diagnosticos,
+    loading,
+    error,
+    pagination,
+    search,
+    sort,
+    page,
+    limit,
+    handleSearch,
+    handleSort,
+    handlePageChange,
+    handleLimitChange,
+    createItem,
+    updateItem,
+    deleteItem,
+    refresh
+  } = useApi<Diagnostico>('/api/servicios/diagnosticos')
 
-  const navigateTo = (href: string) => {
-    router.push(href)
-  }
-
-  const totalDiagnosticos = diagnosticos.length
-  const pendientes = diagnosticos.filter((d) => d.estado === "Pendiente").length
-  const enProceso = diagnosticos.filter((d) => d.estado === "En Proceso").length
-  const completados = diagnosticos.filter((d) => d.estado === "Completado").length
-
-  const filteredDiagnosticos = diagnosticos.filter((diagnostico) => {
-    const matchesSearch =
-      diagnostico.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      diagnostico.equipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      diagnostico.tecnico.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      diagnostico.cliente.toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesFilter = filterEstado === "Todos" || diagnostico.estado === filterEstado
-
-    return matchesSearch && matchesFilter
-  })
-
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case "Pendiente":
-        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-      case "En Proceso":
-        return "bg-blue-100 text-blue-800 hover:bg-blue-100"
-      case "Completado":
-        return "bg-green-100 text-green-800 hover:bg-green-100"
-      case "Requiere Repuestos":
-        return "bg-orange-100 text-orange-800 hover:bg-orange-100"
-      default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
-    }
-  }
-
-  const getPrioridadBadge = (prioridad: string) => {
-    switch (prioridad) {
-      case "Urgente":
-        return "bg-red-100 text-red-800 hover:bg-red-100"
-      case "Alta":
-        return "bg-orange-100 text-orange-800 hover:bg-orange-100"
-      case "Media":
-        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-      case "Baja":
-        return "bg-green-100 text-green-800 hover:bg-green-100"
-      default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
-    }
-  }
-
-  const getDiagnosticoIcon = (estado: string) => {
-    switch (estado) {
-      case "Pendiente":
-        return <Clock className="h-5 w-5 text-yellow-600" />
-      case "En Proceso":
-        return <Tool className="h-5 w-5 text-blue-600" />
-      case "Completado":
-        return <CheckCircle className="h-5 w-5 text-green-600" />
-      case "Requiere Repuestos":
-        return <AlertTriangle className="h-5 w-5 text-orange-600" />
-      default:
-        return <Stethoscope className="h-5 w-5 text-gray-600" />
-    }
-  }
-
-  return (
-    <ProtectedRoute>
-      <div className="flex h-screen bg-background">
-        {/* Sidebar */}
-        <div className={cn("bg-slate-800 text-white transition-all duration-300", sidebarOpen ? "w-64" : "w-16")}>
-          {/* Logo */}
-          <div className="p-4 border-b border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="bg-white p-2 rounded-lg">
-                <Wrench className="h-6 w-6 text-slate-800" />
-              </div>
-              {sidebarOpen && (
-                <div>
-                  <h2 className="font-bold text-sm">Taller Castro</h2>
-                  <p className="text-xs text-slate-300">Sistema de Gestión</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="p-4">
-            <ul className="space-y-2">
-              {sidebarItems.map((item, index) => (
-                <li key={index}>
-                  <div>
-                    <button
-                      onClick={() => {
-                        if (item.submenu) {
-                          toggleSubmenu(item.label)
-                        } else if (item.href) {
-                          navigateTo(item.href)
-                        }
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
-                        item.active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white",
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {sidebarOpen && (
-                        <>
-                          <span className="text-sm">{item.label}</span>
-                          {item.submenu ? (
-                            expandedMenus[item.label] ? (
-                              <ChevronDown className="h-4 w-4 ml-auto" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 ml-auto" />
-                            )
-                          ) : (
-                            <ChevronRight className="h-4 w-4 ml-auto" />
-                          )}
-                        </>
-                      )}
-                    </button>
-
-                    {item.submenu && expandedMenus[item.label] && sidebarOpen && (
-                      <ul className="mt-2 ml-6 space-y-1">
-                        {item.submenu.map((subItem, subIndex) => (
-                          <li key={subIndex}>
-                            <button
-                              onClick={() => navigateTo(subItem.href)}
-                              className={cn(
-                                "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors text-xs",
-                                subItem.active
-                                  ? "bg-slate-600 text-white"
-                                  : "text-slate-400 hover:bg-slate-600 hover:text-white",
-                              )}
-                            >
-                              <span>{subItem.label}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {sidebarOpen && (
-            <div className="absolute bottom-4 left-4 right-4">
-              <Button
-                onClick={logout}
-                variant="outline"
-                className="w-full text-white border-slate-600 hover:bg-slate-700 bg-transparent"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Cerrar Sesión
-              </Button>
-            </div>
+  const columns = [
+    {
+      key: 'diagnostico_id',
+      label: 'ID',
+      sortable: true,
+      render: (diagnostico: Diagnostico) => (
+        <div className="font-medium text-foreground">
+          #{diagnostico.diagnostico_id}
+        </div>
+      )
+    },
+    {
+      key: 'fecha_diagnostico',
+      label: 'Fecha',
+      sortable: true,
+      render: (diagnostico: Diagnostico) => (
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>{new Date(diagnostico.fecha_diagnostico).toLocaleDateString('es-CR')}</span>
+        </div>
+      )
+    },
+    {
+      key: 'estado_diagnostico',
+      label: 'Estado',
+      sortable: true,
+      render: (diagnostico: Diagnostico) => (
+        <Badge className={getEstadoColor(diagnostico.estado_diagnostico)}>
+          {getEstadoLabel(diagnostico.estado_diagnostico)}
+        </Badge>
+      )
+    },
+    {
+      key: 'tecnico_nombre',
+      label: 'Técnico',
+      sortable: true,
+      render: (diagnostico: Diagnostico) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <span>{diagnostico.tecnico_nombre}</span>
+        </div>
+      )
+    },
+    {
+      key: 'tipo_diagnostico_nombre',
+      label: 'Tipo',
+      sortable: true,
+      render: (diagnostico: Diagnostico) => (
+        <div className="flex items-center gap-2">
+          <Stethoscope className="h-4 w-4 text-muted-foreground" />
+          <span>{diagnostico.tipo_diagnostico_nombre}</span>
+        </div>
+      )
+    },
+    {
+      key: 'total_equipos',
+      label: 'Equipos',
+      sortable: true,
+      render: (diagnostico: Diagnostico) => (
+        <div className="flex items-center gap-2">
+          <Wrench className="h-4 w-4 text-muted-foreground" />
+          <span>{diagnostico.total_equipos || 0}</span>
+        </div>
+      )
+    },
+    {
+      key: 'observacion',
+      label: 'Observación',
+      sortable: false,
+      render: (diagnostico: Diagnostico) => (
+        <div className="max-w-xs truncate" title={diagnostico.observacion}>
+          {diagnostico.observacion}
+        </div>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Acciones',
+      render: (diagnostico: Diagnostico) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleView(diagnostico)}
+            className="h-8 w-8 p-0"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          {diagnostico.estado_diagnostico === 'Pendiente' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleEdit(diagnostico)}
+              className="h-8 w-8 p-0"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          )}
+          {diagnostico.estado_diagnostico === 'Pendiente' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(diagnostico)}
+              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           )}
         </div>
+      )
+    }
+  ]
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <header className="bg-white border-b border-border px-6 py-4">
-            <div className="flex items-center justify-between">
-              {/* Search */}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                </Button>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Buscar diagnósticos, equipos, técnicos..." className="pl-10 w-80" />
-                </div>
-              </div>
+  const handleCreate = () => {
+    setSelectedDiagnostico(null)
+    setModalMode('create')
+    setIsModalOpen(true)
+  }
 
-              {/* User Profile */}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" className="relative">
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    3
-                  </span>
-                </Button>
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback className="bg-blue-600 text-white">
-                      {user?.username?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-sm">
-                    <p className="font-medium">{user?.username || "Usuario"}</p>
-                    <p className="text-gray-500">{user?.role || "Usuario"}</p>
-                  </div>
-                </div>
-                <Button onClick={logout} variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700">
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </header>
+  const handleView = (diagnostico: Diagnostico) => {
+    setSelectedDiagnostico(diagnostico)
+    setModalMode('view')
+    setIsModalOpen(true)
+  }
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto p-6 bg-background">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Diagnósticos Técnicos</h1>
-                <p className="text-muted-foreground">Gestión y seguimiento de diagnósticos de equipos</p>
-              </div>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Diagnóstico
-              </Button>
-            </div>
+  const handleEdit = (diagnostico: Diagnostico) => {
+    setSelectedDiagnostico(diagnostico)
+    setModalMode('edit')
+    setIsModalOpen(true)
+  }
 
-            {/* Metrics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Diagnósticos</p>
-                      <p className="text-3xl font-bold text-card-foreground">{totalDiagnosticos}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Este mes</p>
-                    </div>
-                    <div className="bg-primary/10 p-3 rounded-full">
-                      <Stethoscope className="h-6 w-6 text-primary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+  const handleDelete = (diagnostico: Diagnostico) => {
+    setDiagnosticoToDelete(diagnostico)
+    setIsDeleteModalOpen(true)
+  }
 
-              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Pendientes</p>
-                      <p className="text-3xl font-bold text-card-foreground">{pendientes}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Por iniciar</p>
-                    </div>
-                    <div className="bg-yellow-100 p-3 rounded-full">
-                      <Clock className="h-6 w-6 text-yellow-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+  const handleSave = async (data: CreateDiagnosticoRequest | UpdateDiagnosticoRequest) => {
+    try {
+      if (modalMode === 'create') {
+        await createItem(data as CreateDiagnosticoRequest)
+      } else {
+        await updateItem((data as UpdateDiagnosticoRequest).diagnostico_id!, data as UpdateDiagnosticoRequest)
+      }
+      setIsModalOpen(false)
+      setSelectedDiagnostico(null)
+    } catch (error) {
+      console.error('Error guardando diagnóstico:', error)
+    }
+  }
 
-              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">En Proceso</p>
-                      <p className="text-3xl font-bold text-card-foreground">{enProceso}</p>
-                      <p className="text-xs text-muted-foreground mt-1">En desarrollo</p>
-                    </div>
-                    <div className="bg-blue-100 p-3 rounded-full">
-                      <Zap className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+  const handleConfirmDelete = async () => {
+    if (diagnosticoToDelete) {
+      try {
+        await deleteItem(diagnosticoToDelete.diagnostico_id)
+        setIsDeleteModalOpen(false)
+        setDiagnosticoToDelete(null)
+      } catch (error) {
+        console.error('Error eliminando diagnóstico:', error)
+      }
+    }
+  }
 
-              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Completados</p>
-                      <p className="text-3xl font-bold text-card-foreground">{completados}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Este mes</p>
-                    </div>
-                    <div className="bg-green-100 p-3 rounded-full">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedDiagnostico(null)
+  }
 
-            {/* Diagnostics List */}
-            <Card className="bg-card border-border shadow-sm">
-              <CardHeader className="bg-muted/50 border-b border-border">
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false)
+    setDiagnosticoToDelete(null)
+  }
+
+  const getEstadoColor = (estado: string) => {
+    const colores: { [key: string]: string } = {
+      'Pendiente': 'bg-secondary text-secondary-foreground',
+      'En proceso': 'bg-chart-1 text-white',
+      'Completado': 'bg-green-500 text-white',
+      'Rechazado': 'bg-destructive text-destructive-foreground',
+      'Cancelado': 'bg-muted text-muted-foreground'
+    }
+    return colores[estado] || 'bg-muted text-muted-foreground'
+  }
+
+  const getEstadoLabel = (estado: string) => {
+    return estado
+  }
+
+  const metrics = [
+    {
+      title: "Total Diagnósticos",
+      value: pagination?.total?.toString() || "0",
+      change: "+22%",
+      trend: "up" as const,
+      icon: Stethoscope,
+      color: "bg-primary text-primary-foreground",
+    },
+    {
+      title: "Pendientes",
+      value: diagnosticos?.filter(d => d.estado_diagnostico === 'Pendiente').length.toString() || "0",
+      change: "+15%",
+      trend: "up" as const,
+      icon: AlertCircle,
+      color: "bg-secondary text-secondary-foreground",
+    },
+    {
+      title: "En Proceso",
+      value: diagnosticos?.filter(d => d.estado_diagnostico === 'En proceso').length.toString() || "0",
+      change: "+18%",
+      trend: "up" as const,
+      icon: Calendar,
+      color: "bg-chart-1 text-white",
+    },
+    {
+      title: "Completados",
+      value: diagnosticos?.filter(d => d.estado_diagnostico === 'Completado').length.toString() || "0",
+      change: "+30%",
+      trend: "up" as const,
+      icon: Wrench,
+      color: "bg-chart-2 text-white",
+    },
+  ]
+
+  return (
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Diagnósticos</h1>
+            <p className="text-muted-foreground">Gestión de diagnósticos técnicos de equipos</p>
+          </div>
+          <Button onClick={handleCreate} className="bg-primary hover:bg-primary/90">
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Diagnóstico
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {metrics.map((metric, index) => (
+            <Card key={index} className="hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-card-foreground">Lista de Diagnósticos</CardTitle>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-muted-foreground" />
-                      <select
-                        value={filterEstado}
-                        onChange={(e) => setFilterEstado(e.target.value)}
-                        className="text-sm border border-border rounded-md px-3 py-1 bg-background"
-                      >
-                        <option value="Todos">Todos los estados</option>
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="En Proceso">En Proceso</option>
-                        <option value="Completado">Completado</option>
-                        <option value="Requiere Repuestos">Requiere Repuestos</option>
-                      </select>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">{metric.title}</p>
+                    <p className="text-2xl font-bold text-foreground">{metric.value}</p>
+                    <div className="flex items-center mt-2">
+                      <span className={`text-sm font-medium ${metric.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+                        {metric.change}
+                      </span>
                     </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="p-6 border-b border-border">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por número, equipo, técnico o cliente..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-background border-border"
-                    />
+                  <div className={`p-3 rounded-lg ${metric.color}`}>
+                    <metric.icon className="h-6 w-6" />
                   </div>
                 </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-muted/30">
-                      <tr>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Número
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Equipo/Cliente
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Técnico Asignado
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Fecha Inicio
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Estado
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Prioridad
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Problema Encontrado
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Acciones
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredDiagnosticos.map((diagnostico, index) => (
-                        <tr key={index} className="border-b border-border hover:bg-muted/20 transition-colors">
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-3">
-                              <div className="bg-muted p-2 rounded-lg">{getDiagnosticoIcon(diagnostico.estado)}</div>
-                              <span className="font-semibold text-primary">{diagnostico.numero}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div>
-                              <span className="font-medium text-foreground block">{diagnostico.equipo}</span>
-                              <span className="text-sm text-muted-foreground">{diagnostico.cliente}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback className="bg-secondary/10 text-secondary text-xs">
-                                  {diagnostico.tecnico
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <span className="font-medium text-foreground block">{diagnostico.tecnico}</span>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <User className="h-3 w-3" />
-                                  Técnico
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              {diagnostico.fechaInicio}
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <Badge className={getEstadoBadge(diagnostico.estado)}>{diagnostico.estado}</Badge>
-                          </td>
-                          <td className="py-4 px-6">
-                            <Badge className={getPrioridadBadge(diagnostico.prioridad)}>{diagnostico.prioridad}</Badge>
-                          </td>
-                          <td className="py-4 px-6">
-                            <span className="text-foreground max-w-xs truncate block" title={diagnostico.problema}>
-                              {diagnostico.problema}
-                            </span>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-primary/10">
-                                <Eye className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-secondary/10">
-                                <Edit className="h-4 w-4 text-muted-foreground hover:text-secondary" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-destructive/10">
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {filteredDiagnosticos.length === 0 && (
-                  <div className="text-center py-12">
-                    <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">
-                      No se encontraron diagnósticos que coincidan con los filtros.
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
-          </main>
+          ))}
         </div>
+
+        <Card>
+          <CardContent className="p-0">
+            <DataTable
+              data={diagnosticos || []}
+              columns={columns}
+              loading={loading}
+              error={error}
+              pagination={pagination}
+              search={search}
+              sort={sort}
+              onSearch={handleSearch}
+              onSort={handleSort}
+              onPageChange={handlePageChange}
+              onLimitChange={handleLimitChange}
+              searchPlaceholder="Buscar diagnósticos..."
+            />
+          </CardContent>
+        </Card>
       </div>
-    </ProtectedRoute>
+
+      <DiagnosticoModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSave}
+        diagnostico={selectedDiagnostico}
+        mode={modalMode}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Diagnóstico"
+        message={`¿Estás seguro de que deseas eliminar el diagnóstico #${diagnosticoToDelete?.diagnostico_id}?`}
+        itemName={`Diagnóstico #${diagnosticoToDelete?.diagnostico_id}`}
+      />
+    </AppLayout>
   )
 }
-
-const diagnosticos = [
-  {
-    numero: "DG-001",
-    equipo: "Samsung Galaxy A54",
-    cliente: "María González",
-    tecnico: "Juan Pérez",
-    fechaInicio: "2024-01-15",
-    estado: "En Proceso",
-    prioridad: "Media",
-    problema: "Pantalla rota, digitalizador dañado, requiere reemplazo completo",
-  },
-  {
-    numero: "DG-002",
-    equipo: "HP Pavilion 15",
-    cliente: "Carlos Rodríguez",
-    tecnico: "Ana Martínez",
-    fechaInicio: "2024-01-14",
-    estado: "Completado",
-    prioridad: "Alta",
-    problema: "Fuente de poder defectuosa, capacitores hinchados",
-  },
-  {
-    numero: "DG-003",
-    equipo: "iPhone 12",
-    cliente: "Ana Martínez",
-    tecnico: "Luis Castro",
-    fechaInicio: "2024-01-13",
-    estado: "Requiere Repuestos",
-    prioridad: "Baja",
-    problema: "Batería degradada al 65%, requiere reemplazo",
-  },
-  {
-    numero: "DG-004",
-    equipo: "LG Monitor 24MK430H",
-    cliente: "Luis Pérez",
-    tecnico: "Juan Pérez",
-    fechaInicio: "2024-01-12",
-    estado: "Pendiente",
-    prioridad: "Urgente",
-    problema: "Líneas verticales, posible falla en panel LCD",
-  },
-]

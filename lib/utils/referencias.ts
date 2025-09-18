@@ -448,3 +448,36 @@ export function canDeleteProveedor(comprasCount: number): boolean {
 export function canDeleteCliente(ventasCount: number): boolean {
   return ventasCount === 0;
 }
+
+/**
+ * Verifica si un servicio puede ser eliminado
+ */
+export async function canDeleteServicio(servicioId: number): Promise<{ canDelete: boolean; reason?: string }> {
+  try {
+    const { pool } = await import('@/lib/db');
+    
+    // Verificar si el servicio está siendo usado en presupuestos
+    const presupuestosQuery = `
+      SELECT COUNT(*) as count 
+      FROM presupuesto_servicios ps 
+      WHERE ps.servicio_id = $1
+    `;
+    const presupuestosResult = await pool.query(presupuestosQuery, [servicioId]);
+    const presupuestosCount = parseInt(presupuestosResult.rows[0].count);
+
+    if (presupuestosCount > 0) {
+      return {
+        canDelete: false,
+        reason: `No se puede eliminar el servicio porque está siendo usado en ${presupuestosCount} presupuesto(s)`
+      };
+    }
+
+    return { canDelete: true };
+  } catch (error) {
+    console.error('Error verificando dependencias del servicio:', error);
+    return {
+      canDelete: false,
+      reason: 'Error al verificar dependencias'
+    };
+  }
+}

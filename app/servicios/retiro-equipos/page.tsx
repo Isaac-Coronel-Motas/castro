@@ -2,656 +2,394 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ProtectedRoute } from "@/components/protected-route"
-import { useAuth } from "@/contexts/auth-context"
-import {
-  Wrench,
-  LayoutDashboard,
-  ShoppingCart,
-  Settings,
-  Receipt,
-  FileText,
-  Users,
-  Search,
-  Bell,
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  Eye,
-  Edit,
-  Trash2,
-  LogOut,
-  PackageCheck,
-  AlertCircle,
-  CheckCircle,
-  Filter,
-  Phone,
-  Calendar,
-  Clock,
-  Truck,
-  User,
-  MapPin,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
-
-const sidebarItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", active: false },
-  {
-    icon: ShoppingCart,
-    label: "Compras",
-    active: false,
-    submenu: [
-      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: false },
-      { label: "Presupuestos Proveedor", href: "/compras/presupuestos", active: false },
-      { label: "Órdenes de Compra", href: "/compras/ordenes", active: false },
-      { label: "Registro de Compras", href: "/compras/registro", active: false },
-      { label: "Ajustes de Inventario", href: "/compras/ajustes", active: false },
-      { label: "Notas de Crédito/Débito", href: "/compras/notas", active: false },
-      { label: "Transferencias", href: "/compras/transferencias", active: false },
-      { label: "Informes", href: "/compras/informes", active: false },
-    ],
-  },
-  {
-    icon: Settings,
-    label: "Servicios Técnicos",
-    active: true,
-    submenu: [
-      { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: false },
-      { label: "Recepción de Equipos", href: "/servicios/recepcion-equipos", active: false },
-      { label: "Diagnósticos", href: "/servicios/diagnosticos", active: false },
-      { label: "Presupuestos", href: "/servicios/presupuestos", active: false },
-      { label: "Órdenes de Servicio", href: "/servicios/ordenes-servicio", active: false },
-      { label: "Retiro de Equipos", href: "/servicios/retiro-equipos", active: true },
-      { label: "Reclamos", href: "/servicios/reclamos", active: false },
-      { label: "Informes", href: "/servicios/informes", active: false },
-    ],
-  },
-  {
-    icon: Receipt,
-    label: "Ventas",
-    active: false,
-    submenu: [
-      { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: false },
-      { label: "Pedidos de Clientes", href: "/ventas/pedidos-clientes", active: false },
-      { label: "Registro de Ventas", href: "/ventas/registro-ventas", active: false },
-      { label: "Cobros", href: "/ventas/cobros", active: false },
-      { label: "Presupuestos", href: "/ventas/presupuestos", active: false },
-      { label: "Notas de Remisión", href: "/ventas/notas-remision", active: false },
-      { label: "Notas de Crédito/Débito", href: "/ventas/notas-credito-debito", active: false },
-      { label: "Informes", href: "/ventas/informes", active: false },
-    ],
-  },
-  {
-    icon: FileText,
-    label: "Referencias",
-    active: false,
-    submenu: [
-      { label: "Proveedores", href: "/referencias/proveedores", active: false },
-      { label: "Productos", href: "/referencias/productos", active: false },
-      { label: "Categorías", href: "/referencias/categorias", active: false },
-      { label: "Clientes", href: "/referencias/clientes", active: false },
-      { label: "Marcas", href: "/referencias/marcas", active: false },
-      { label: "Tipos de Servicio", href: "/referencias/tipos-servicio", active: false },
-    ],
-  },
-  {
-    icon: Users,
-    label: "Administración",
-    active: false,
-    submenu: [
-      { label: "Usuarios", href: "/administracion/usuarios", active: false },
-      { label: "Roles y Permisos", href: "/administracion/roles-permisos", active: false },
-      { label: "Auditoría", href: "/administracion/auditoria", active: false },
-      { label: "Configuración", href: "/administracion/configuracion", active: false },
-    ],
-  },
-]
+import { AppLayout } from "@/components/app-layout"
+import { DataTable } from "@/components/data-table"
+import { SalidaEquipoModal } from "@/components/modals/salida-equipo-modal"
+import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
+import { useApi } from "@/hooks/use-api"
+import { SalidaEquipo, CreateSalidaEquipoRequest, UpdateSalidaEquipoRequest } from "@/lib/types/servicios-tecnicos"
+import { Plus, PackageCheck, Calendar, User, Building, Eye, Edit, Trash2, Clock, Phone, MapPin, Truck, CheckCircle, AlertCircle } from "lucide-react"
 
 export default function RetiroEquiposPage() {
-  const { user, logout } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
-    Compras: false,
-    "Servicios Técnicos": true,
-    Ventas: false,
-    Referencias: false,
-    Administración: false,
-  })
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterEstado, setFilterEstado] = useState("Todos")
-  const router = useRouter()
+  const [selectedSalida, setSelectedSalida] = useState<SalidaEquipo | null>(null)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [salidaToDelete, setSalidaToDelete] = useState<SalidaEquipo | null>(null)
 
-  const toggleSubmenu = (label: string) => {
-    setExpandedMenus((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }))
-  }
+  const {
+    data: salidas,
+    loading,
+    error,
+    pagination,
+    search,
+    sort,
+    page,
+    limit,
+    handleSearch,
+    handleSort,
+    handlePageChange,
+    handleLimitChange,
+    createItem,
+    updateItem,
+    deleteItem,
+    refresh
+  } = useApi<SalidaEquipo>('/api/servicios/retiro-equipos')
 
-  const navigateTo = (href: string) => {
-    router.push(href)
-  }
-
-  const totalRetiros = retiros.length
-  const listosParaRetiro = retiros.filter((r) => r.estado === "Listo para Retiro").length
-  const retiradosHoy = retiros.filter((r) => r.estado === "Retirado" && r.fechaRetiro === "2024-01-15").length
-  const pendientesNotificacion = retiros.filter((r) => r.estado === "Pendiente Notificación").length
-
-  const filteredRetiros = retiros.filter((retiro) => {
-    const matchesSearch =
-      retiro.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      retiro.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      retiro.equipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      retiro.telefono.includes(searchTerm)
-
-    const matchesFilter = filterEstado === "Todos" || retiro.estado === filterEstado
-
-    return matchesSearch && matchesFilter
-  })
-
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case "Pendiente Notificación":
-        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-      case "Cliente Notificado":
-        return "bg-blue-100 text-blue-800 hover:bg-blue-100"
-      case "Listo para Retiro":
-        return "bg-green-100 text-green-800 hover:bg-green-100"
-      case "Retirado":
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
-      case "Entrega a Domicilio":
-        return "bg-purple-100 text-purple-800 hover:bg-purple-100"
-      default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
-    }
-  }
-
-  const getEstadoIcon = (estado: string) => {
-    switch (estado) {
-      case "Pendiente Notificación":
-        return <Clock className="h-4 w-4 text-yellow-600" />
-      case "Cliente Notificado":
-        return <Phone className="h-4 w-4 text-blue-600" />
-      case "Listo para Retiro":
-        return <PackageCheck className="h-4 w-4 text-green-600" />
-      case "Retirado":
-        return <CheckCircle className="h-4 w-4 text-gray-600" />
-      case "Entrega a Domicilio":
-        return <Truck className="h-4 w-4 text-purple-600" />
-      default:
-        return <PackageCheck className="h-4 w-4 text-gray-600" />
-    }
-  }
-
-  const getMetodoEntregaBadge = (metodo: string) => {
-    switch (metodo) {
-      case "Retiro en Taller":
-        return "bg-blue-100 text-blue-800 hover:bg-blue-100"
-      case "Entrega a Domicilio":
-        return "bg-purple-100 text-purple-800 hover:bg-purple-100"
-      case "Envío por Courier":
-        return "bg-orange-100 text-orange-800 hover:bg-orange-100"
-      default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
-    }
-  }
-
-  const diasEnTaller = (fechaCompletado: string) => {
-    const hoy = new Date()
-    const completado = new Date(fechaCompletado)
-    const diferencia = Math.ceil((hoy.getTime() - completado.getTime()) / (1000 * 3600 * 24))
-    return diferencia
-  }
-
-  return (
-    <ProtectedRoute>
-      <div className="flex h-screen bg-background">
-        {/* Sidebar */}
-        <div className={cn("bg-slate-800 text-white transition-all duration-300", sidebarOpen ? "w-64" : "w-16")}>
-          {/* Logo */}
-          <div className="p-4 border-b border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="bg-white p-2 rounded-lg">
-                <Wrench className="h-6 w-6 text-slate-800" />
+  const columns = [
+    {
+      key: 'nro_salida',
+      label: 'Número',
+      sortable: true,
+      render: (salida: SalidaEquipo) => (
+        <div className="font-medium text-foreground">
+          {salida.nro_salida || `#${salida.salida_equipo_id}`}
+        </div>
+      )
+    },
+    {
+      key: 'fecha_salida',
+      label: 'Fecha',
+      sortable: true,
+      render: (salida: SalidaEquipo) => (
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>{new Date(salida.fecha_salida).toLocaleDateString('es-CR')}</span>
+        </div>
+      )
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      sortable: true,
+      render: (salida: SalidaEquipo) => (
+        <Badge className={getEstadoColor(salida.estado)}>
+          {getEstadoLabel(salida.estado)}
+        </Badge>
+      )
+    },
+    {
+      key: 'cliente_nombre',
+      label: 'Cliente',
+      sortable: true,
+      render: (salida: SalidaEquipo) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <div>
+            <span className="font-medium text-foreground block">{salida.cliente_nombre || 'N/A'}</span>
+            {salida.telefono_contacto && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Phone className="h-3 w-3" />
+                {salida.telefono_contacto}
               </div>
-              {sidebarOpen && (
-                <div>
-                  <h2 className="font-bold text-sm">Taller Castro</h2>
-                  <p className="text-xs text-slate-300">Sistema de Gestión</p>
-                </div>
-              )}
-            </div>
+            )}
           </div>
-
-          {/* Navigation */}
-          <nav className="p-4">
-            <ul className="space-y-2">
-              {sidebarItems.map((item, index) => (
-                <li key={index}>
-                  <div>
-                    <button
-                      onClick={() => {
-                        if (item.submenu) {
-                          toggleSubmenu(item.label)
-                        } else if (item.href) {
-                          navigateTo(item.href)
-                        }
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
-                        item.active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white",
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {sidebarOpen && (
-                        <>
-                          <span className="text-sm">{item.label}</span>
-                          {item.submenu ? (
-                            expandedMenus[item.label] ? (
-                              <ChevronDown className="h-4 w-4 ml-auto" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 ml-auto" />
-                            )
-                          ) : (
-                            <ChevronRight className="h-4 w-4 ml-auto" />
-                          )}
-                        </>
-                      )}
-                    </button>
-
-                    {item.submenu && expandedMenus[item.label] && sidebarOpen && (
-                      <ul className="mt-2 ml-6 space-y-1">
-                        {item.submenu.map((subItem, subIndex) => (
-                          <li key={subIndex}>
-                            <button
-                              onClick={() => navigateTo(subItem.href)}
-                              className={cn(
-                                "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors text-xs",
-                                subItem.active
-                                  ? "bg-slate-600 text-white"
-                                  : "text-slate-400 hover:bg-slate-600 hover:text-white",
-                              )}
-                            >
-                              <span>{subItem.label}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {sidebarOpen && (
-            <div className="absolute bottom-4 left-4 right-4">
-              <Button
-                onClick={logout}
-                variant="outline"
-                className="w-full text-white border-slate-600 hover:bg-slate-700 bg-transparent"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Cerrar Sesión
-              </Button>
-            </div>
+        </div>
+      )
+    },
+    {
+      key: 'equipo_info',
+      label: 'Equipo',
+      sortable: false,
+      render: (salida: SalidaEquipo) => (
+        <div>
+          <span className="font-medium text-foreground block">{salida.equipo_info || 'N/A'}</span>
+          <span className="text-sm text-muted-foreground">{salida.descripcion_reparacion || ''}</span>
+        </div>
+      )
+    },
+    {
+      key: 'metodo_entrega',
+      label: 'Método',
+      sortable: true,
+      render: (salida: SalidaEquipo) => (
+        <div className="flex items-center gap-2">
+          {salida.metodo_entrega === 'entrega_domicilio' ? (
+            <Truck className="h-4 w-4 text-purple-600" />
+          ) : salida.metodo_entrega === 'envio_courier' ? (
+            <MapPin className="h-4 w-4 text-orange-600" />
+          ) : (
+            <User className="h-4 w-4 text-blue-600" />
+          )}
+          <Badge className={getMetodoEntregaColor(salida.metodo_entrega)}>
+            {getMetodoEntregaLabel(salida.metodo_entrega)}
+          </Badge>
+        </div>
+      )
+    },
+    {
+      key: 'sucursal_nombre',
+      label: 'Sucursal',
+      sortable: true,
+      render: (salida: SalidaEquipo) => (
+        <div className="flex items-center gap-2">
+          <Building className="h-4 w-4 text-muted-foreground" />
+          <span>{salida.sucursal_nombre}</span>
+        </div>
+      )
+    },
+    {
+      key: 'costo_envio',
+      label: 'Costo Envío',
+      sortable: true,
+      render: (salida: SalidaEquipo) => (
+        salida.costo_envio && salida.costo_envio > 0 ? (
+          <span className="font-medium text-foreground">₡{salida.costo_envio.toLocaleString()}</span>
+        ) : (
+          <span className="text-muted-foreground">Sin costo</span>
+        )
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Acciones',
+      render: (salida: SalidaEquipo) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleView(salida)}
+            className="h-8 w-8 p-0"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          {salida.estado !== 'retirado' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleEdit(salida)}
+              className="h-8 w-8 p-0"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          )}
+          {salida.estado === 'pendiente_notificacion' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(salida)}
+              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           )}
         </div>
+      )
+    }
+  ]
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <header className="bg-white border-b border-border px-6 py-4">
-            <div className="flex items-center justify-between">
-              {/* Search */}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                </Button>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Buscar retiros, clientes, equipos..." className="pl-10 w-80" />
-                </div>
-              </div>
+  const handleCreate = () => {
+    setSelectedSalida(null)
+    setModalMode('create')
+    setIsModalOpen(true)
+  }
 
-              {/* User Profile */}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" className="relative">
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    3
-                  </span>
-                </Button>
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback className="bg-blue-600 text-white">
-                      {user?.username?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-sm">
-                    <p className="font-medium">{user?.username || "Usuario"}</p>
-                    <p className="text-gray-500">{user?.role || "Usuario"}</p>
-                  </div>
-                </div>
-                <Button onClick={logout} variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700">
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </header>
+  const handleView = (salida: SalidaEquipo) => {
+    setSelectedSalida(salida)
+    setModalMode('view')
+    setIsModalOpen(true)
+  }
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto p-6 bg-background">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Retiro de Equipos</h1>
-                <p className="text-muted-foreground">Gestión de entrega de equipos reparados a clientes</p>
-              </div>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Plus className="h-4 w-4 mr-2" />
-                Registrar Retiro
-              </Button>
-            </div>
+  const handleEdit = (salida: SalidaEquipo) => {
+    setSelectedSalida(salida)
+    setModalMode('edit')
+    setIsModalOpen(true)
+  }
 
-            {/* Metrics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Retiros</p>
-                      <p className="text-3xl font-bold text-card-foreground">{totalRetiros}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Este mes</p>
-                    </div>
-                    <div className="bg-primary/10 p-3 rounded-full">
-                      <PackageCheck className="h-6 w-6 text-primary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+  const handleDelete = (salida: SalidaEquipo) => {
+    setSalidaToDelete(salida)
+    setIsDeleteModalOpen(true)
+  }
 
-              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Listos para Retiro</p>
-                      <p className="text-3xl font-bold text-card-foreground">{listosParaRetiro}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Esperando cliente</p>
-                    </div>
-                    <div className="bg-green-100 p-3 rounded-full">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+  const handleSave = async (data: CreateSalidaEquipoRequest | UpdateSalidaEquipoRequest) => {
+    try {
+      if (modalMode === 'create') {
+        await createItem(data as CreateSalidaEquipoRequest)
+      } else {
+        await updateItem((data as UpdateSalidaEquipoRequest).salida_equipo_id!, data as UpdateSalidaEquipoRequest)
+      }
+      setIsModalOpen(false)
+      setSelectedSalida(null)
+    } catch (error) {
+      console.error('Error guardando salida de equipo:', error)
+    }
+  }
 
-              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Retirados Hoy</p>
-                      <p className="text-3xl font-bold text-card-foreground">{retiradosHoy}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Entregas completadas</p>
-                    </div>
-                    <div className="bg-blue-100 p-3 rounded-full">
-                      <Truck className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+  const handleConfirmDelete = async () => {
+    if (salidaToDelete) {
+      try {
+        await deleteItem(salidaToDelete.salida_equipo_id)
+        setIsDeleteModalOpen(false)
+        setSalidaToDelete(null)
+      } catch (error) {
+        console.error('Error eliminando salida de equipo:', error)
+      }
+    }
+  }
 
-              <Card className="bg-card border-border hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Pendientes Notificación</p>
-                      <p className="text-3xl font-bold text-card-foreground">{pendientesNotificacion}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Por contactar</p>
-                    </div>
-                    <div className="bg-yellow-100 p-3 rounded-full">
-                      <Phone className="h-6 w-6 text-yellow-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedSalida(null)
+  }
 
-            {/* Equipment Pickup List */}
-            <Card className="bg-card border-border shadow-sm">
-              <CardHeader className="bg-muted/50 border-b border-border">
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false)
+    setSalidaToDelete(null)
+  }
+
+  const getEstadoColor = (estado: string) => {
+    const colores: { [key: string]: string } = {
+      'pendiente_notificacion': 'bg-yellow-500 text-white',
+      'cliente_notificado': 'bg-blue-500 text-white',
+      'listo_retiro': 'bg-green-500 text-white',
+      'retirado': 'bg-gray-500 text-white',
+      'entrega_domicilio': 'bg-purple-500 text-white'
+    }
+    return colores[estado] || 'bg-muted text-muted-foreground'
+  }
+
+  const getEstadoLabel = (estado: string) => {
+    const labels: { [key: string]: string } = {
+      'pendiente_notificacion': 'Pendiente Notificación',
+      'cliente_notificado': 'Cliente Notificado',
+      'listo_retiro': 'Listo para Retiro',
+      'retirado': 'Retirado',
+      'entrega_domicilio': 'Entrega a Domicilio'
+    }
+    return labels[estado] || estado
+  }
+
+  const getMetodoEntregaColor = (metodo: string) => {
+    const colores: { [key: string]: string } = {
+      'retiro_taller': 'bg-blue-500 text-white',
+      'entrega_domicilio': 'bg-purple-500 text-white',
+      'envio_courier': 'bg-orange-500 text-white'
+    }
+    return colores[metodo] || 'bg-muted text-muted-foreground'
+  }
+
+  const getMetodoEntregaLabel = (metodo: string) => {
+    const labels: { [key: string]: string } = {
+      'retiro_taller': 'Retiro en Taller',
+      'entrega_domicilio': 'Entrega a Domicilio',
+      'envio_courier': 'Envío por Courier'
+    }
+    return labels[metodo] || metodo
+  }
+
+  const metrics = [
+    {
+      title: "Total Retiros",
+      value: pagination?.total?.toString() || "0",
+      change: "+20%",
+      trend: "up" as const,
+      icon: PackageCheck,
+      color: "bg-primary text-primary-foreground",
+    },
+    {
+      title: "Listos para Retiro",
+      value: salidas?.filter(s => s.estado === 'listo_retiro').length.toString() || "0",
+      change: "+15%",
+      trend: "up" as const,
+      icon: CheckCircle,
+      color: "bg-secondary text-secondary-foreground",
+    },
+    {
+      title: "Retirados Hoy",
+      value: salidas?.filter(s => {
+        const hoy = new Date().toDateString()
+        return s.estado === 'retirado' && new Date(s.fecha_salida).toDateString() === hoy
+      }).length.toString() || "0",
+      change: "+25%",
+      trend: "up" as const,
+      icon: Truck,
+      color: "bg-chart-1 text-white",
+    },
+    {
+      title: "Pendientes Notificación",
+      value: salidas?.filter(s => s.estado === 'pendiente_notificacion').length.toString() || "0",
+      change: "+8%",
+      trend: "up" as const,
+      icon: Phone,
+      color: "bg-chart-2 text-white",
+    },
+  ]
+
+  return (
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Retiro de Equipos</h1>
+            <p className="text-muted-foreground">Gestión de entrega de equipos reparados a clientes</p>
+          </div>
+          <Button onClick={handleCreate} className="bg-primary hover:bg-primary/90">
+            <Plus className="h-4 w-4 mr-2" />
+            Registrar Retiro
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {metrics.map((metric, index) => (
+            <Card key={index} className="hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-card-foreground">Lista de Retiros de Equipos</CardTitle>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-muted-foreground" />
-                      <select
-                        value={filterEstado}
-                        onChange={(e) => setFilterEstado(e.target.value)}
-                        className="text-sm border border-border rounded-md px-3 py-1 bg-background"
-                      >
-                        <option value="Todos">Todos los estados</option>
-                        <option value="Pendiente Notificación">Pendiente Notificación</option>
-                        <option value="Cliente Notificado">Cliente Notificado</option>
-                        <option value="Listo para Retiro">Listo para Retiro</option>
-                        <option value="Retirado">Retirado</option>
-                        <option value="Entrega a Domicilio">Entrega a Domicilio</option>
-                      </select>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">{metric.title}</p>
+                    <p className="text-2xl font-bold text-foreground">{metric.value}</p>
+                    <div className="flex items-center mt-2">
+                      <span className={`text-sm font-medium ${metric.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+                        {metric.change}
+                      </span>
                     </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="p-6 border-b border-border">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por número, cliente, equipo o teléfono..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-background border-border"
-                    />
+                  <div className={`p-3 rounded-lg ${metric.color}`}>
+                    <metric.icon className="h-6 w-6" />
                   </div>
                 </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-muted/30">
-                      <tr>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Número
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Cliente/Contacto
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Equipo
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Fecha Completado
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Método Entrega
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Estado
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Días en Taller
-                        </th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground border-b border-border">
-                          Acciones
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredRetiros.map((retiro, index) => (
-                        <tr key={index} className="border-b border-border hover:bg-muted/20 transition-colors">
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-3">
-                              <div className="bg-muted p-2 rounded-lg">{getEstadoIcon(retiro.estado)}</div>
-                              <span className="font-semibold text-primary">{retiro.numero}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                  {retiro.cliente
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <span className="font-medium text-foreground block">{retiro.cliente}</span>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Phone className="h-3 w-3" />
-                                  {retiro.telefono}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div>
-                              <span className="font-medium text-foreground block">{retiro.equipo}</span>
-                              <span className="text-sm text-muted-foreground">{retiro.descripcionReparacion}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              {retiro.fechaCompletado}
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-2">
-                              {retiro.metodoEntrega === "Entrega a Domicilio" ? (
-                                <Truck className="h-4 w-4 text-purple-600" />
-                              ) : retiro.metodoEntrega === "Envío por Courier" ? (
-                                <MapPin className="h-4 w-4 text-orange-600" />
-                              ) : (
-                                <User className="h-4 w-4 text-blue-600" />
-                              )}
-                              <Badge className={getMetodoEntregaBadge(retiro.metodoEntrega)}>
-                                {retiro.metodoEntrega}
-                              </Badge>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <Badge className={getEstadoBadge(retiro.estado)}>{retiro.estado}</Badge>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span
-                                className={cn(
-                                  "text-sm font-medium",
-                                  diasEnTaller(retiro.fechaCompletado) > 7
-                                    ? "text-red-600"
-                                    : diasEnTaller(retiro.fechaCompletado) > 3
-                                      ? "text-yellow-600"
-                                      : "text-muted-foreground",
-                                )}
-                              >
-                                {diasEnTaller(retiro.fechaCompletado)} días
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-primary/10">
-                                <Eye className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-secondary/10">
-                                <Edit className="h-4 w-4 text-muted-foreground hover:text-secondary" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-destructive/10">
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {filteredRetiros.length === 0 && (
-                  <div className="text-center py-12">
-                    <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">
-                      No se encontraron retiros de equipos que coincidan con los filtros.
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
-          </main>
+          ))}
         </div>
+
+        <Card>
+          <CardContent className="p-0">
+            <DataTable
+              data={salidas || []}
+              columns={columns}
+              loading={loading}
+              error={error}
+              pagination={pagination}
+              search={search}
+              sort={sort}
+              onSearch={handleSearch}
+              onSort={handleSort}
+              onPageChange={handlePageChange}
+              onLimitChange={handleLimitChange}
+              searchPlaceholder="Buscar retiros..."
+            />
+          </CardContent>
+        </Card>
       </div>
-    </ProtectedRoute>
+
+      <SalidaEquipoModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSave}
+        salida={selectedSalida}
+        mode={modalMode}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Salida de Equipo"
+        message={`¿Estás seguro de que deseas eliminar la salida "${salidaToDelete?.nro_salida || `#${salidaToDelete?.salida_equipo_id}`}"?`}
+        itemName={salidaToDelete?.nro_salida || `Salida #${salidaToDelete?.salida_equipo_id}`}
+      />
+    </AppLayout>
   )
 }
-
-const retiros = [
-  {
-    numero: "RT-001",
-    cliente: "María González",
-    telefono: "0981234567",
-    equipo: "Samsung Galaxy A54",
-    descripcionReparacion: "Reemplazo de pantalla completo",
-    fechaCompletado: "2024-01-12",
-    fechaRetiro: null,
-    metodoEntrega: "Retiro en Taller",
-    estado: "Listo para Retiro",
-  },
-  {
-    numero: "RT-002",
-    cliente: "Carlos Rodríguez",
-    telefono: "0987654321",
-    equipo: "HP Pavilion 15",
-    descripcionReparacion: "Reemplazo de fuente de poder",
-    fechaCompletado: "2024-01-14",
-    fechaRetiro: "2024-01-15",
-    metodoEntrega: "Retiro en Taller",
-    estado: "Retirado",
-  },
-  {
-    numero: "RT-003",
-    cliente: "Ana Martínez",
-    telefono: "0976543210",
-    equipo: "iPhone 12",
-    descripcionReparacion: "Reemplazo de batería",
-    fechaCompletado: "2024-01-10",
-    fechaRetiro: null,
-    metodoEntrega: "Entrega a Domicilio",
-    estado: "Cliente Notificado",
-  },
-  {
-    numero: "RT-004",
-    cliente: "Luis Pérez",
-    telefono: "0965432109",
-    equipo: "LG Monitor 24MK430H",
-    descripcionReparacion: "Reparación de panel LCD",
-    fechaCompletado: "2024-01-08",
-    fechaRetiro: null,
-    metodoEntrega: "Envío por Courier",
-    estado: "Pendiente Notificación",
-  },
-  {
-    numero: "RT-005",
-    cliente: "Carmen Silva",
-    telefono: "0954321098",
-    equipo: "MacBook Air M1",
-    descripcionReparacion: "Reemplazo de teclado",
-    fechaCompletado: "2024-01-13",
-    fechaRetiro: null,
-    metodoEntrega: "Retiro en Taller",
-    estado: "Listo para Retiro",
-  },
-]

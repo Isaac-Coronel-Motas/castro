@@ -1,454 +1,279 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ProtectedRoute } from "@/components/protected-route"
-import { useAuth } from "@/contexts/auth-context"
+import { AppLayout } from "@/components/app-layout"
+import { DataTable } from "@/components/data-table"
+import { ProductoModal } from "@/components/modals/producto-modal"
+import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
+import { useApi } from "@/hooks/use-api"
+import { Producto, Categoria, Marca } from "@/lib/types/referencias"
 import {
-  Wrench,
-  LayoutDashboard,
-  ShoppingCart,
-  Settings,
-  Receipt,
-  FileText,
-  Users,
-  Search,
-  Bell,
-  ChevronRight,
-  ChevronDown,
-  Plus,
+  Package,
+  DollarSign,
+  Hash,
+  Tag,
+  Building,
   Eye,
   Edit,
   Trash2,
-  Package,
-  DollarSign,
-  LogOut,
+  Plus,
+  AlertTriangle,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
-
-const sidebarItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", active: false },
-  {
-    icon: ShoppingCart,
-    label: "Compras",
-    active: false,
-    submenu: [
-      { label: "Pedidos de Compra", href: "/compras/pedidos-de-compra", active: false },
-      { label: "Presupuestos Proveedor", href: "/compras/presupuestos", active: false },
-      { label: "Órdenes de Compra", href: "/compras/ordenes", active: false },
-      { label: "Registro de Compras", href: "/compras/registro", active: false },
-      { label: "Ajustes de Inventario", href: "/compras/ajustes", active: false },
-      { label: "Notas de Crédito/Débito", href: "/compras/notas", active: false },
-      { label: "Transferencias", href: "/compras/transferencias", active: false },
-      { label: "Informes", href: "/compras/informes", active: false },
-    ],
-  },
-  {
-    icon: Settings,
-    label: "Servicios Técnicos",
-    active: false,
-    submenu: [
-      { label: "Solicitudes de Cliente", href: "/servicios/solicitudes-de-cliente", active: false },
-      { label: "Recepción de Equipos", href: "/servicios/recepcion-equipos", active: false },
-      { label: "Diagnósticos", href: "/servicios/diagnosticos", active: false },
-      { label: "Presupuestos", href: "/servicios/presupuestos", active: false },
-      { label: "Órdenes de Servicio", href: "/servicios/ordenes-servicio", active: false },
-      { label: "Retiro de Equipos", href: "/servicios/retiro-equipos", active: false },
-      { label: "Reclamos", href: "/servicios/reclamos", active: false },
-      { label: "Informes", href: "/servicios/informes", active: false },
-    ],
-  },
-  {
-    icon: Receipt,
-    label: "Ventas",
-    active: false,
-    submenu: [
-      { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: false },
-      { label: "Pedidos de Clientes", href: "/ventas/pedidos-clientes", active: false },
-      { label: "Registro de Ventas", href: "/ventas/registro-ventas", active: false },
-      { label: "Cobros", href: "/ventas/cobros", active: false },
-      { label: "Presupuestos", href: "/ventas/presupuestos", active: false },
-      { label: "Notas de Remisión", href: "/ventas/notas-remision", active: false },
-      { label: "Notas de Crédito/Débito", href: "/ventas/notas-credito-debito", active: false },
-      { label: "Informes", href: "/ventas/informes", active: false },
-    ],
-  },
-  {
-    icon: FileText,
-    label: "Referencias",
-    active: true,
-    submenu: [
-      { label: "Proveedores", href: "/referencias/proveedores", active: false },
-      { label: "Productos", href: "/referencias/productos", active: true },
-      { label: "Categorías", href: "/referencias/categorias", active: false },
-      { label: "Clientes", href: "/referencias/clientes", active: false },
-      { label: "Marcas", href: "/referencias/marcas", active: false },
-      { label: "Tipos de Servicio", href: "/referencias/tipos-servicio", active: false },
-    ],
-  },
-  {
-    icon: Users,
-    label: "Administración",
-    active: false,
-    submenu: [
-      { label: "Usuarios", href: "/administracion/usuarios", active: false },
-      { label: "Roles y Permisos", href: "/administracion/roles-permisos", active: false },
-      { label: "Auditoría", href: "/administracion/auditoria", active: false },
-      { label: "Configuración", href: "/administracion/configuracion", active: false },
-    ],
-  },
-]
 
 export default function ProductosPage() {
-  const { user, logout } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
-    Compras: false,
-    "Servicios Técnicos": false,
-    Ventas: false,
-    Referencias: true,
-    Administración: false,
-  })
+  const {
+    data: productos,
+    loading,
+    error,
+    pagination,
+    search,
+    setSorting,
+    setPagination,
+    create,
+    update,
+    delete: deleteProducto,
+  } = useApi<Producto>('/api/productos');
+
+  const {
+    data: categorias,
+    loading: categoriasLoading,
+  } = useApi<Categoria>('/api/referencias/categorias');
+
+  const {
+    data: marcas,
+    loading: marcasLoading,
+  } = useApi<Marca>('/api/referencias/marcas');
+
   const [searchTerm, setSearchTerm] = useState("")
-  const router = useRouter()
+  const [productoModalOpen, setProductoModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
 
-  const toggleSubmenu = (label: string) => {
-    setExpandedMenus((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }))
+  const handleSearch = (term: string) => {
+    setSearchTerm(term)
+    search(term)
   }
 
-  const navigateTo = (href: string) => {
-    router.push(href)
+  const handleSort = (column: string, order: 'asc' | 'desc') => {
+    setSorting(column, order)
   }
 
-  const filteredProductos = productos.filter(
-    (producto) =>
-      producto.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      producto.categoria.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      producto.marca.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const handlePageChange = (page: number) => {
+    setPagination(page, pagination?.limit || 10)
+  }
 
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case "Disponible":
-        return "bg-green-100 text-green-800 hover:bg-green-100"
-      case "Agotado":
-        return "bg-red-100 text-red-800 hover:bg-red-100"
-      case "Descontinuado":
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
-      case "Bajo Stock":
-        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-      default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
+  const handleLimitChange = (limit: number) => {
+    setPagination(1, limit)
+  }
+
+  const handleCreate = () => {
+    setSelectedProducto(null)
+    setModalMode('create')
+    setProductoModalOpen(true)
+  }
+
+  const handleView = (producto: Producto) => {
+    setSelectedProducto(producto)
+    setModalMode('view')
+    setProductoModalOpen(true)
+  }
+
+  const handleEdit = (producto: Producto) => {
+    setSelectedProducto(producto)
+    setModalMode('edit')
+    setProductoModalOpen(true)
+  }
+
+  const handleDelete = (producto: Producto) => {
+    setSelectedProducto(producto)
+    setDeleteModalOpen(true)
+  }
+
+  const handleSaveProducto = async (productoData: Partial<Producto>): Promise<boolean> => {
+    try {
+      if (modalMode === 'create') {
+        return await create(productoData)
+      } else if (modalMode === 'edit' && selectedProducto) {
+        return await update(selectedProducto.producto_id, productoData)
+      }
+      return false
+    } catch (error) {
+      console.error('Error al guardar producto:', error)
+      return false
     }
   }
 
-  const getStockBadge = (stock: number) => {
-    if (stock === 0) return "bg-red-100 text-red-800 hover:bg-red-100"
-    if (stock <= 5) return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-    return "bg-green-100 text-green-800 hover:bg-green-100"
+  const handleConfirmDelete = async () => {
+    if (selectedProducto) {
+      const success = await deleteProducto(selectedProducto.producto_id)
+      if (success) {
+        setDeleteModalOpen(false)
+        setSelectedProducto(null)
+      }
+    }
   }
 
-  return (
-    <ProtectedRoute>
-      <div className="flex h-screen bg-gray-50">
-        {/* Sidebar */}
-        <div className={cn("bg-slate-800 text-white transition-all duration-300", sidebarOpen ? "w-64" : "w-16")}>
-          {/* Logo */}
-          <div className="p-4 border-b border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="bg-white p-2 rounded-lg">
-                <Wrench className="h-6 w-6 text-slate-800" />
-              </div>
-              {sidebarOpen && (
-                <div>
-                  <h2 className="font-bold text-sm">Taller Castro</h2>
-                  <p className="text-xs text-slate-300">Sistema de Gestión</p>
-                </div>
-              )}
-            </div>
+  const getModalTitle = () => {
+    switch (modalMode) {
+      case 'create':
+        return 'Crear Nuevo Producto'
+      case 'edit':
+        return 'Editar Producto'
+      case 'view':
+        return 'Ver Producto'
+      default:
+        return 'Producto'
+    }
+  }
+
+  const getStockBadge = (stock: number, stockMinimo?: number) => {
+    if (stockMinimo && stock <= stockMinimo) {
+      return "bg-red-100 text-red-800 hover:bg-red-100"
+    } else if (stock <= (stockMinimo || 0) * 2) {
+      return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+    } else {
+      return "bg-green-100 text-green-800 hover:bg-green-100"
+    }
+  }
+
+  const getEstadoBadge = (estado: boolean) => {
+    return estado
+      ? "bg-green-100 text-green-800 hover:bg-green-100"
+      : "bg-red-100 text-red-800 hover:bg-red-100"
+  }
+
+  const columns = [
+    {
+      key: 'producto_id',
+      label: 'ID',
+      width: '80px',
+    },
+    {
+      key: 'nombre_producto',
+      label: 'Producto',
+      sortable: true,
+      render: (producto: Producto) => (
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-blue-600" />
+          <div>
+            <p className="font-medium text-gray-900">{producto.nombre_producto}</p>
+            {producto.cod_product && (
+              <p className="text-xs text-gray-500">Código: {producto.cod_product}</p>
+            )}
           </div>
-
-          {/* Navigation */}
-          <nav className="p-4">
-            <ul className="space-y-2">
-              {sidebarItems.map((item, index) => (
-                <li key={index}>
-                  <div>
-                    <button
-                      onClick={() => {
-                        if (item.submenu) {
-                          toggleSubmenu(item.label)
-                        } else if (item.href) {
-                          navigateTo(item.href)
-                        }
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
-                        item.active ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white",
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {sidebarOpen && (
-                        <>
-                          <span className="text-sm">{item.label}</span>
-                          {item.submenu ? (
-                            expandedMenus[item.label] ? (
-                              <ChevronDown className="h-4 w-4 ml-auto" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 ml-auto" />
-                            )
-                          ) : (
-                            <ChevronRight className="h-4 w-4 ml-auto" />
-                          )}
-                        </>
-                      )}
-                    </button>
-
-                    {item.submenu && expandedMenus[item.label] && sidebarOpen && (
-                      <ul className="mt-2 ml-6 space-y-1">
-                        {item.submenu.map((subItem, subIndex) => (
-                          <li key={subIndex}>
-                            <button
-                              onClick={() => navigateTo(subItem.href)}
-                              className={cn(
-                                "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors text-xs",
-                                subItem.active
-                                  ? "bg-slate-600 text-white"
-                                  : "text-slate-400 hover:bg-slate-600 hover:text-white",
-                              )}
-                            >
-                              <span>{subItem.label}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {sidebarOpen && (
-            <div className="absolute bottom-4 left-4 right-4">
-              <Button
-                onClick={logout}
-                variant="outline"
-                className="w-full text-white border-slate-600 hover:bg-slate-700 bg-transparent"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Cerrar Sesión
-              </Button>
-            </div>
+        </div>
+      ),
+    },
+    {
+      key: 'categoria_id',
+      label: 'Categoría',
+      render: (producto: Producto) => (
+        <div className="flex items-center gap-1">
+          <Tag className="h-3 w-3 text-gray-500" />
+          <Badge variant="outline" className="text-xs">
+            Ver categoría
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      key: 'marca_id',
+      label: 'Marca',
+      render: (producto: Producto) => (
+        <div className="flex items-center gap-1">
+          <Building className="h-3 w-3 text-gray-500" />
+          <Badge variant="outline" className="text-xs">
+            Ver marca
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      key: 'precio_venta',
+      label: 'Precio',
+      sortable: true,
+      render: (producto: Producto) => (
+        <div className="flex items-center gap-1 text-sm text-gray-600">
+          <DollarSign className="h-3 w-3" />
+          {producto.precio_venta ? `$${producto.precio_venta.toFixed(2)}` : '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'stock',
+      label: 'Stock',
+      sortable: true,
+      render: (producto: Producto) => (
+        <div className="flex items-center gap-2">
+          <Badge className={getStockBadge(producto.stock, producto.stock_minimo)}>
+            {producto.stock}
+          </Badge>
+          {producto.stock_minimo && producto.stock <= producto.stock_minimo && (
+            <AlertTriangle className="h-3 w-3 text-red-500" />
           )}
         </div>
+      ),
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (producto: Producto) => (
+        <Badge className={getEstadoBadge(producto.estado)}>
+          {producto.estado ? 'Activo' : 'Inactivo'}
+        </Badge>
+      ),
+    },
+  ]
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <header className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-between">
-              {/* Search */}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                </Button>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Buscar pedidos, clientes, productos..." className="pl-10 w-80" />
-                </div>
-              </div>
+  return (
+    <AppLayout
+      title="Productos"
+      subtitle="Gestión de productos e inventario"
+      currentModule="Referencias"
+      currentSubmodule="/referencias/productos"
+    >
+      <DataTable
+        title="Lista de Productos"
+        data={productos}
+        columns={columns}
+        loading={loading}
+        error={error}
+        pagination={pagination}
+        searchTerm={searchTerm}
+        onSearch={handleSearch}
+        onSort={handleSort}
+        onPageChange={handlePageChange}
+        onLimitChange={handleLimitChange}
+        onCreate={handleCreate}
+        onView={handleView}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        createButtonText="Nuevo Producto"
+        searchPlaceholder="Buscar productos..."
+        emptyMessage="No se encontraron productos que coincidan con la búsqueda."
+      />
 
-              {/* User Profile */}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" className="relative">
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    3
-                  </span>
-                </Button>
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback className="bg-blue-600 text-white">
-                      {user?.username?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-sm">
-                    <p className="font-medium">{user?.username || "Usuario"}</p>
-                    <p className="text-gray-500">{user?.role || "Usuario"}</p>
-                  </div>
-                </div>
-                <Button onClick={logout} variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700">
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </header>
+      {/* Modales */}
+      <ProductoModal
+        isOpen={productoModalOpen}
+        onClose={() => setProductoModalOpen(false)}
+        onSave={handleSaveProducto}
+        producto={modalMode === 'view' ? selectedProducto : (modalMode === 'edit' ? selectedProducto : null)}
+        categorias={categorias}
+        marcas={marcas}
+        title={getModalTitle()}
+      />
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto p-6">
-            {/* Page Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Productos</h1>
-                <p className="text-gray-600">Gestión de inventario y catálogo de productos</p>
-              </div>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Producto
-              </Button>
-            </div>
-
-            {/* Filters and Search */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Lista de Productos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Buscar productos..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                {/* Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Código</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Categoría</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Marca</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Precio</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Stock</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredProductos.map((producto, index) => (
-                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4 font-medium text-gray-900">{producto.codigo}</td>
-                          <td className="py-3 px-4 text-gray-900 font-medium">{producto.nombre}</td>
-                          <td className="py-3 px-4 text-gray-600">{producto.categoria}</td>
-                          <td className="py-3 px-4 text-gray-600">{producto.marca}</td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-1 text-gray-900 font-medium">
-                              <DollarSign className="h-3 w-3" />
-                              {producto.precio.toLocaleString()}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Package className="h-3 w-3 text-gray-400" />
-                              <Badge className={getStockBadge(producto.stock)}>{producto.stock} unidades</Badge>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge className={getEstadoBadge(producto.estado)}>{producto.estado}</Badge>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {filteredProductos.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No se encontraron productos que coincidan con la búsqueda.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </main>
-        </div>
-      </div>
-    </ProtectedRoute>
+      <ConfirmDeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Producto"
+        message="¿Estás seguro de que quieres eliminar este producto?"
+        itemName={selectedProducto?.nombre_producto || ''}
+      />
+    </AppLayout>
   )
 }
-
-const productos = [
-  {
-    codigo: "PROD-001",
-    nombre: "Pantalla Samsung Galaxy A54",
-    categoria: "Pantallas",
-    marca: "Samsung",
-    precio: 15000,
-    stock: 12,
-    estado: "Disponible",
-  },
-  {
-    codigo: "PROD-002",
-    nombre: "Batería iPhone 12",
-    categoria: "Baterías",
-    marca: "Apple",
-    precio: 8500,
-    stock: 3,
-    estado: "Bajo Stock",
-  },
-  {
-    codigo: "PROD-003",
-    nombre: "Cargador USB-C Universal",
-    categoria: "Accesorios",
-    marca: "Genérico",
-    precio: 2500,
-    stock: 25,
-    estado: "Disponible",
-  },
-  {
-    codigo: "PROD-004",
-    nombre: "Placa Madre Laptop HP",
-    categoria: "Componentes",
-    marca: "HP",
-    precio: 45000,
-    stock: 0,
-    estado: "Agotado",
-  },
-  {
-    codigo: "PROD-005",
-    nombre: "Teclado Mecánico RGB",
-    categoria: "Periféricos",
-    marca: "Logitech",
-    precio: 12000,
-    stock: 8,
-    estado: "Disponible",
-  },
-  {
-    codigo: "PROD-006",
-    nombre: "Memoria RAM DDR4 8GB",
-    categoria: "Memoria",
-    marca: "Kingston",
-    precio: 6500,
-    stock: 0,
-    estado: "Descontinuado",
-  },
-]
