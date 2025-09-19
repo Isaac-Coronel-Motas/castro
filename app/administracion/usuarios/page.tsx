@@ -88,17 +88,18 @@ export default function UsuariosPage() {
     setDeleteModalOpen(true)
   }
 
-  const handleSaveUser = async (userData: Partial<Usuario>): Promise<boolean> => {
+  const handleSaveUser = async (userData: Partial<Usuario>): Promise<{ success: boolean; errors?: any[] }> => {
     try {
+      let result = { success: false, errors: undefined as any[] | undefined }
       if (modalMode === 'create') {
-        return await create(userData)
+        result = await create(userData)
       } else if (modalMode === 'edit' && selectedUser) {
-        return await update(selectedUser.usuario_id, userData)
+        result = await update(selectedUser.usuario_id, userData)
       }
-      return false
+      return result
     } catch (error) {
       console.error('Error al guardar usuario:', error)
-      return false
+      return { success: false }
     }
   }
 

@@ -32,8 +32,8 @@ export function isValidPhone(phone: string): boolean {
  * Valida formato de RUC paraguayo
  */
 export function isValidRUC(ruc: string): boolean {
-  // RUC paraguayo: 8 dígitos + 1 dígito verificador
-  const rucRegex = /^[0-9]{8}-[0-9]$/;
+  // RUC paraguayo: 6-8 dígitos + 1 dígito verificador
+  const rucRegex = /^[0-9]{6,8}-[0-9]$/;
   return rucRegex.test(ruc);
 }
 
@@ -80,7 +80,7 @@ export function validateProveedorData(data: CreateProveedorRequest): Referencias
   if (data.ruc && !isValidRUC(data.ruc)) {
     errors.push({ 
       field: 'ruc', 
-      message: 'El formato del RUC no es válido (formato: 12345678-9)' 
+      message: 'El formato del RUC no es válido (formato: 12345678-9 o 123456-9)' 
     });
   }
 
@@ -212,7 +212,7 @@ export function validateClienteData(data: CreateClienteRequest): ReferenciasVali
   if (data.ruc && !isValidRUC(data.ruc)) {
     errors.push({ 
       field: 'ruc', 
-      message: 'El formato del RUC no es válido (formato: 12345678-9)' 
+      message: 'El formato del RUC no es válido (formato: 12345678-9 o 123456-9)' 
     });
   }
 
@@ -348,15 +348,28 @@ export function buildSearchWhereClause(
 export function buildOrderByClause(
   sortBy: string, 
   sortOrder: 'asc' | 'desc', 
-  defaultSort: string = 'created_at'
+  defaultSort: string = 'nombre'
 ): string {
   const validSortFields = [
     'nombre', 'nombre_producto', 'nombre_categoria', 'nombre_proveedor', 
     'descripcion', 'precio_unitario', 'stock', 'estado', 'activo',
-    'created_at', 'updated_at'
+    'categoria_id', 'marca_id', 'producto_id', 'proveedor_id', 'cliente_id'
   ];
   
-  const field = validSortFields.includes(sortBy) ? sortBy : defaultSort;
+  // Mapear campos que no existen en las tablas a campos válidos
+  const fieldMapping: { [key: string]: string } = {
+    'created_at': defaultSort,
+    'updated_at': defaultSort,
+    'id': defaultSort
+  };
+  
+  let field = sortBy;
+  if (fieldMapping[sortBy]) {
+    field = fieldMapping[sortBy];
+  } else if (!validSortFields.includes(sortBy)) {
+    field = defaultSort;
+  }
+  
   const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   
   return `ORDER BY ${field} ${order}`;
@@ -480,4 +493,35 @@ export async function canDeleteServicio(servicioId: number): Promise<{ canDelete
       reason: 'Error al verificar dependencias'
     };
   }
+}
+
+// ===== UTILIDADES DE LOGGING =====
+
+/**
+ * Sanitiza datos para logging, removiendo información sensible
+ */
+export function sanitizeForLog(data: any): any {
+  if (!data || typeof data !== 'object') {
+    return data;
+  }
+
+  const sanitized = { ...data };
+  
+  // Campos sensibles que deben ser removidos o enmascarados
+  const sensitiveFields = ['password', 'token', 'secret', 'key', 'auth'];
+  
+  for (const field of sensitiveFields) {
+    if (sanitized[field]) {
+      sanitized[field] = '[REDACTED]';
+    }
+  }
+
+  // Recursivamente sanitizar objetos anidados
+  for (const key in sanitized) {
+    if (sanitized[key] && typeof sanitized[key] === 'object') {
+      sanitized[key] = sanitizeForLog(sanitized[key]);
+    }
+  }
+
+  return sanitized;
 }

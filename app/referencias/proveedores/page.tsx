@@ -80,17 +80,18 @@ export default function ProveedoresPage() {
     setDeleteModalOpen(true)
   }
 
-  const handleSaveProveedor = async (proveedorData: Partial<Proveedor>): Promise<boolean> => {
+  const handleSaveProveedor = async (proveedorData: Partial<Proveedor>): Promise<{ success: boolean; errors?: any[] }> => {
     try {
+      let result = { success: false, errors: undefined as any[] | undefined }
       if (modalMode === 'create') {
-        return await create(proveedorData)
+        result = await create(proveedorData)
       } else if (modalMode === 'edit' && selectedProveedor) {
-        return await update(selectedProveedor.proveedor_id, proveedorData)
+        result = await update(selectedProveedor.proveedor_id, proveedorData)
       }
-      return false
+      return result
     } catch (error) {
       console.error('Error al guardar proveedor:', error)
-      return false
+      return { success: false }
     }
   }
 

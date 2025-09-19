@@ -22,6 +22,7 @@ import {
 export default function ConfiguracionPage() {
   const { token } = useAuth()
   const [configuraciones, setConfiguraciones] = useState<Record<string, any>>({})
+  const [configIds, setConfigIds] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,10 +54,13 @@ export default function ConfiguracionPage() {
       if (result.success) {
         // Convertir array de configuraciones a objeto
         const configObj: Record<string, any> = {}
+        const configIdsObj: Record<string, number> = {}
         result.data.forEach((config: any) => {
           configObj[config.clave] = config.valor
+          configIdsObj[config.clave] = config.config_id
         })
         setConfiguraciones(configObj)
+        setConfigIds(configIdsObj)
       } else {
         throw new Error(result.message || 'Error al cargar configuraciones')
       }
@@ -83,6 +87,7 @@ export default function ConfiguracionPage() {
 
       // Preparar configuraciones para enviar
       const configsToSave = Object.entries(configuraciones).map(([clave, valor]) => ({
+        config_id: configIds[clave],
         clave,
         valor,
         tipo: typeof valor === 'boolean' ? 'boolean' : 
@@ -99,14 +104,37 @@ export default function ConfiguracionPage() {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            config_id: null, // Se determinará por clave
-            ...config
-          })
+          body: JSON.stringify(config)
         })
       )
 
-      await Promise.all(promises)
+      const results = await Promise.allSettled(promises)
+      
+      // Verificar si alguna petición falló
+      const failedRequests = results.filter(result => result.status === 'rejected')
+      const failedResponses = results.filter(result => 
+        result.status === 'fulfilled' && !result.value.ok
+      )
+      
+      if (failedRequests.length > 0 || failedResponses.length > 0) {
+        const errorMessages = []
+        
+        failedRequests.forEach((result: any) => {
+          errorMessages.push(result.reason?.message || 'Error de red')
+        })
+        
+        failedResponses.forEach(async (result: any) => {
+          try {
+            const errorData = await result.value.json()
+            errorMessages.push(errorData.message || 'Error del servidor')
+          } catch {
+            errorMessages.push('Error del servidor')
+          }
+        })
+        
+        throw new Error(`Error al guardar configuraciones: ${errorMessages.join(', ')}`)
+      }
+      
       setSuccess('Configuraciones guardadas exitosamente')
       
       // Limpiar mensaje de éxito después de 3 segundos

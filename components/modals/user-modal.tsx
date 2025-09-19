@@ -13,7 +13,7 @@ import { X, Save, User, Mail, Lock, Shield } from "lucide-react"
 interface UserModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (user: Partial<Usuario>) => Promise<boolean>
+  onSave: (user: Partial<Usuario>) => Promise<{ success: boolean; errors?: any[] }>
   user?: Usuario | null
   roles: Rol[]
   title: string
@@ -126,6 +126,7 @@ export function UserModal({ isOpen, onClose, onSave, user, roles, title }: UserM
     if (!validateForm()) return
 
     setLoading(true)
+    setErrors({}) // Limpiar errores previos
     try {
       const userData: Partial<Usuario> = {
         nombre: formData.nombre.trim(),
@@ -139,9 +140,18 @@ export function UserModal({ isOpen, onClose, onSave, user, roles, title }: UserM
         userData.password = formData.password
       }
 
-      const success = await onSave(userData)
-      if (success) {
+      const result = await onSave(userData)
+      if (result.success) {
         onClose()
+      } else if (result.errors) {
+        // Mapear errores de la API a errores del formulario
+        const apiErrors: FormErrors = {}
+        result.errors.forEach((error: any) => {
+          if (error.field && error.message) {
+            apiErrors[error.field as keyof FormErrors] = error.message
+          }
+        })
+        setErrors(apiErrors)
       }
     } catch (error) {
       console.error("Error al guardar usuario:", error)

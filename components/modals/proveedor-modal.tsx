@@ -12,7 +12,7 @@ import { X, Save, Building, Mail, Phone, MapPin, CreditCard } from "lucide-react
 interface ProveedorModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (proveedor: Partial<Proveedor>) => Promise<boolean>
+  onSave: (proveedor: Partial<Proveedor>) => Promise<{ success: boolean; errors?: any[] }>
   proveedor?: Proveedor | null
   title: string
 }
@@ -88,6 +88,7 @@ export function ProveedorModal({ isOpen, onClose, onSave, proveedor, title }: Pr
     if (!validateForm()) return
 
     setLoading(true)
+    setErrors({}) // Limpiar errores previos
     try {
       const proveedorData: Partial<Proveedor> = {
         nombre_proveedor: formData.nombre_proveedor.trim(),
@@ -97,9 +98,18 @@ export function ProveedorModal({ isOpen, onClose, onSave, proveedor, title }: Pr
         direccion: formData.direccion.trim() || null,
       }
 
-      const success = await onSave(proveedorData)
-      if (success) {
+      const result = await onSave(proveedorData)
+      if (result.success) {
         onClose()
+      } else if (result.errors) {
+        // Mapear errores de la API a errores del formulario
+        const apiErrors: FormErrors = {}
+        result.errors.forEach((error: any) => {
+          if (error.field && error.message) {
+            apiErrors[error.field as keyof FormErrors] = error.message
+          }
+        })
+        setErrors(apiErrors)
       }
     } catch (error) {
       console.error("Error al guardar proveedor:", error)

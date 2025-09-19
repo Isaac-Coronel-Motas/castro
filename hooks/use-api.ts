@@ -118,8 +118,8 @@ export function useApi<T = any>(
     }
   };
 
-  const create = async (item: any): Promise<boolean> => {
-    if (!token) return false;
+  const create = async (item: any): Promise<{ success: boolean; errors?: any[] }> => {
+    if (!token) return { success: false };
     
     setLoading(true);
     setError(null);
@@ -138,22 +138,22 @@ export function useApi<T = any>(
       
       if (result.success) {
         await fetchData(); // Refresh data
-        return true;
+        return { success: true };
       } else {
         setError(result.message || 'Error al crear el elemento');
-        return false;
+        return { success: false, errors: result.data };
       }
     } catch (err) {
       setError('Error de conexión');
       console.error('Create Error:', err);
-      return false;
+      return { success: false };
     } finally {
       setLoading(false);
     }
   };
 
-  const update = async (id: string | number, item: any): Promise<boolean> => {
-    if (!token) return false;
+  const update = async (id: string | number, item: any): Promise<{ success: boolean; errors?: any[] }> => {
+    if (!token) return { success: false };
     
     setLoading(true);
     setError(null);
@@ -172,15 +172,15 @@ export function useApi<T = any>(
       
       if (result.success) {
         await fetchData(); // Refresh data
-        return true;
+        return { success: true };
       } else {
         setError(result.message || 'Error al actualizar el elemento');
-        return false;
+        return { success: false, errors: result.data };
       }
     } catch (err) {
       setError('Error de conexión');
       console.error('Update Error:', err);
-      return false;
+      return { success: false };
     } finally {
       setLoading(false);
     }
