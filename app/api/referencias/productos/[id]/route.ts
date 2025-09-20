@@ -31,7 +31,7 @@ export async function GET(
     }
 
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_productos')(request);
+    const { authorized, error } = requirePermission('productos.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -119,7 +119,7 @@ export async function PUT(
     }
 
     // Verificar permisos
-    const { authorized, error } = requirePermission('actualizar_productos')(request);
+    const { authorized, error } = requirePermission('productos.actualizar')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -422,7 +422,7 @@ export async function DELETE(
     }
 
     // Verificar permisos
-    const { authorized, error } = requirePermission('eliminar_productos')(request);
+    const { authorized, error } = requirePermission('productos.eliminar')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');

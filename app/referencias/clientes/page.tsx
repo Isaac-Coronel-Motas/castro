@@ -34,7 +34,7 @@ export default function ClientesPage() {
     create,
     update,
     delete: deleteCliente,
-  } = useApi<Cliente>('/api/clientes');
+  } = useApi<Cliente>('/api/referencias/clientes');
 
   const [searchTerm, setSearchTerm] = useState("")
   const [clienteModalOpen, setClienteModalOpen] = useState(false)

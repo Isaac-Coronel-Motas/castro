@@ -114,6 +114,18 @@ export default function TiposServicioPage() {
     }
   }
 
+  // Helper function para formatear valores numéricos de forma segura
+  const formatPrice = (value: any): string => {
+    if (value === null || value === undefined || value === '') {
+      return '-'
+    }
+    const numValue = typeof value === 'string' ? parseFloat(value) : value
+    if (isNaN(numValue)) {
+      return '-'
+    }
+    return `$${numValue.toFixed(2)}`
+  }
+
   const columns = [
     {
       key: 'servicio_id',
@@ -147,7 +159,7 @@ export default function TiposServicioPage() {
       render: (servicio: Servicio) => (
         <div className="flex items-center gap-1 text-sm text-gray-600">
           <DollarSign className="h-3 w-3" />
-          {servicio.precio_base ? `$${servicio.precio_base.toFixed(2)}` : '-'}
+          {formatPrice(servicio.precio_base)}
         </div>
       ),
     },

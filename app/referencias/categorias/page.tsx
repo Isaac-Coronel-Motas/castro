@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { AppLayout } from "@/components/app-layout"
 import { DataTable } from "@/components/data-table"
+import { CategoriaModal } from "@/components/modals/categoria-modal"
+import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
 import { useApi } from "@/hooks/use-api"
 import {
   Tag,
@@ -15,11 +17,9 @@ import {
 
 interface Categoria {
   categoria_id: number;
-  nombre: string;
-  descripcion?: string;
-  activo: boolean;
-  created_at: string;
-  updated_at?: string;
+  nombre_categoria: string;
+  estado: boolean;
+  productos_count?: number;
 }
 
 export default function CategoriasPage() {
@@ -37,6 +37,10 @@ export default function CategoriasPage() {
   } = useApi<Categoria>('/api/referencias/categorias');
 
   const [searchTerm, setSearchTerm] = useState("")
+  const [categoriaModalOpen, setCategoriaModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [selectedCategoria, setSelectedCategoria] = useState<Categoria | null>(null)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
 
   const handleSearch = (term: string) => {
     setSearchTerm(term)
@@ -56,31 +60,67 @@ export default function CategoriasPage() {
   }
 
   const handleCreate = () => {
-    // TODO: Implement create categoria modal
-    console.log('Create categoria')
+    setSelectedCategoria(null)
+    setModalMode('create')
+    setCategoriaModalOpen(true)
   }
 
   const handleView = (categoria: Categoria) => {
-    // TODO: Implement view categoria modal
-    console.log('View categoria:', categoria)
+    setSelectedCategoria(categoria)
+    setModalMode('view')
+    setCategoriaModalOpen(true)
   }
 
   const handleEdit = (categoria: Categoria) => {
-    // TODO: Implement edit categoria modal
-    console.log('Edit categoria:', categoria)
+    setSelectedCategoria(categoria)
+    setModalMode('edit')
+    setCategoriaModalOpen(true)
   }
 
-  const handleDelete = async (categoria: Categoria) => {
-    if (confirm(`¿Estás seguro de que quieres eliminar la categoría ${categoria.nombre}?`)) {
-      const success = await deleteCategoria(categoria.categoria_id)
+  const handleDelete = (categoria: Categoria) => {
+    setSelectedCategoria(categoria)
+    setDeleteModalOpen(true)
+  }
+
+  const handleSaveCategoria = async (categoriaData: Partial<Categoria>): Promise<boolean> => {
+    try {
+      if (modalMode === 'create') {
+        return await create(categoriaData)
+      } else if (modalMode === 'edit' && selectedCategoria) {
+        return await update(selectedCategoria.categoria_id, categoriaData)
+      }
+      return false
+    } catch (error) {
+      console.error('Error al guardar categoría:', error)
+      return false
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (selectedCategoria) {
+      const success = await deleteCategoria(selectedCategoria.categoria_id)
       if (success) {
-        // Success handled by the hook
+        setDeleteModalOpen(false)
+        setSelectedCategoria(null)
       }
     }
   }
 
-  const getEstadoBadge = (activo: boolean) => {
-    return activo 
+  const getModalTitle = () => {
+    switch (modalMode) {
+      case 'create':
+        return 'Crear Nueva Categoría'
+      case 'edit':
+        return 'Editar Categoría'
+      case 'view':
+        return 'Ver Categoría'
+      default:
+        return 'Categoría'
+    }
+  }
+
+  const getEstadoBadge = (estado: boolean) => {
+    return estado 
       ? "bg-green-100 text-green-800 hover:bg-green-100"
       : "bg-red-100 text-red-800 hover:bg-red-100"
   }
@@ -92,42 +132,33 @@ export default function CategoriasPage() {
       width: '80px',
     },
     {
-      key: 'nombre',
+      key: 'nombre_categoria',
       label: 'Nombre',
       sortable: true,
       render: (categoria: Categoria) => (
         <div className="flex items-center gap-2">
           <Tag className="h-4 w-4 text-blue-600" />
-          <span className="text-gray-900 font-medium">{categoria.nombre}</span>
+          <span className="text-gray-900 font-medium">{categoria.nombre_categoria}</span>
         </div>
       ),
     },
     {
-      key: 'descripcion',
-      label: 'Descripción',
-      render: (categoria: Categoria) => (
-        <span className="text-gray-600 max-w-xs truncate">
-          {categoria.descripcion || '-'}
-        </span>
-      ),
-    },
-    {
-      key: 'activo',
+      key: 'estado',
       label: 'Estado',
       render: (categoria: Categoria) => (
-        <Badge className={getEstadoBadge(categoria.activo)}>
-          {categoria.activo ? 'Activa' : 'Inactiva'}
+        <Badge className={getEstadoBadge(categoria.estado)}>
+          {categoria.estado ? 'Activa' : 'Inactiva'}
         </Badge>
       ),
     },
     {
-      key: 'created_at',
-      label: 'Fecha Creación',
-      sortable: true,
+      key: 'productos_count',
+      label: 'Productos',
       render: (categoria: Categoria) => (
-        <span className="text-gray-600">
-          {new Date(categoria.created_at).toLocaleDateString()}
-        </span>
+        <div className="flex items-center gap-1">
+          <Package className="h-3 w-3 text-gray-500" />
+          <span className="text-sm text-gray-600">{categoria.productos_count || 0}</span>
+        </div>
       ),
     },
   ]
@@ -158,6 +189,24 @@ export default function CategoriasPage() {
         createButtonText="Nueva Categoría"
         searchPlaceholder="Buscar categorías..."
         emptyMessage="No se encontraron categorías que coincidan con la búsqueda."
+      />
+
+      {/* Modales */}
+      <CategoriaModal
+        isOpen={categoriaModalOpen}
+        onClose={() => setCategoriaModalOpen(false)}
+        onSave={handleSaveCategoria}
+        categoria={modalMode === 'view' ? selectedCategoria : (modalMode === 'edit' ? selectedCategoria : null)}
+        title={getModalTitle()}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Categoría"
+        message="¿Estás seguro de que quieres eliminar esta categoría?"
+        itemName={selectedCategoria?.nombre || ''}
       />
     </AppLayout>
   )

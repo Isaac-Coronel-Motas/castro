@@ -67,11 +67,9 @@ export interface Servicio {
 
 export interface Categoria {
   categoria_id: number;
-  nombre: string;
-  descripcion?: string;
-  activo: boolean;
-  created_at: string;
-  updated_at?: string;
+  nombre_categoria: string;
+  estado: boolean;
+  productos_count?: number;
 }
 
 // Tipos para formularios
@@ -120,7 +118,6 @@ export interface ServicioFormData {
 
 export interface CategoriaFormData {
   nombre: string;
-  descripcion: string;
   activo: boolean;
 }
 

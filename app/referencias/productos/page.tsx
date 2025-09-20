@@ -33,7 +33,7 @@ export default function ProductosPage() {
     create,
     update,
     delete: deleteProducto,
-  } = useApi<Producto>('/api/productos');
+  } = useApi<Producto>('/api/referencias/productos');
 
   const {
     data: categorias,
@@ -128,10 +128,13 @@ export default function ProductosPage() {
     }
   }
 
-  const getStockBadge = (stock: number, stockMinimo?: number) => {
-    if (stockMinimo && stock <= stockMinimo) {
+  const getStockBadge = (stock: any, stockMinimo?: any) => {
+    const stockNum = formatNumber(stock)
+    const stockMinimoNum = formatNumber(stockMinimo)
+    
+    if (stockMinimoNum > 0 && stockNum <= stockMinimoNum) {
       return "bg-red-100 text-red-800 hover:bg-red-100"
-    } else if (stock <= (stockMinimo || 0) * 2) {
+    } else if (stockNum <= stockMinimoNum * 2) {
       return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
     } else {
       return "bg-green-100 text-green-800 hover:bg-green-100"
@@ -139,9 +142,33 @@ export default function ProductosPage() {
   }
 
   const getEstadoBadge = (estado: boolean) => {
-    return estado
+    return estado 
       ? "bg-green-100 text-green-800 hover:bg-green-100"
       : "bg-red-100 text-red-800 hover:bg-red-100"
+  }
+
+  // Helper function para formatear valores numéricos de forma segura
+  const formatPrice = (value: any): string => {
+    if (value === null || value === undefined || value === '') {
+      return '-'
+    }
+    const numValue = typeof value === 'string' ? parseFloat(value) : value
+    if (isNaN(numValue)) {
+      return '-'
+    }
+    return `$${numValue.toFixed(2)}`
+  }
+
+  // Helper function para formatear números enteros de forma segura
+  const formatNumber = (value: any): number => {
+    if (value === null || value === undefined || value === '') {
+      return 0
+    }
+    const numValue = typeof value === 'string' ? parseInt(value) : value
+    if (isNaN(numValue)) {
+      return 0
+    }
+    return numValue
   }
 
   const columns = [
@@ -197,7 +224,7 @@ export default function ProductosPage() {
       render: (producto: Producto) => (
         <div className="flex items-center gap-1 text-sm text-gray-600">
           <DollarSign className="h-3 w-3" />
-          {producto.precio_venta ? `$${producto.precio_venta.toFixed(2)}` : '-'}
+          {formatPrice(producto.precio_venta)}
         </div>
       ),
     },
@@ -208,9 +235,9 @@ export default function ProductosPage() {
       render: (producto: Producto) => (
         <div className="flex items-center gap-2">
           <Badge className={getStockBadge(producto.stock, producto.stock_minimo)}>
-            {producto.stock}
+            {formatNumber(producto.stock)}
           </Badge>
-          {producto.stock_minimo && producto.stock <= producto.stock_minimo && (
+          {producto.stock_minimo && formatNumber(producto.stock) <= formatNumber(producto.stock_minimo) && (
             <AlertTriangle className="h-3 w-3 text-red-500" />
           )}
         </div>

@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Rol } from "@/lib/types/auth"
-import { X, Save, Shield, FileText } from "lucide-react"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Rol, Permiso } from "@/lib/types/auth"
+import { X, Save, Shield, FileText, Key, Search } from "lucide-react"
 
 interface RoleModalProps {
   isOpen: boolean
@@ -16,12 +18,14 @@ interface RoleModalProps {
   onSave: (role: Partial<Rol>) => Promise<boolean>
   role?: Rol | null
   title: string
+  permisos?: Permiso[]
 }
 
 interface FormData {
   nombre: string
   descripcion: string
   activo: boolean
+  permisos: number[]
 }
 
 interface FormErrors {
@@ -29,12 +33,15 @@ interface FormErrors {
   descripcion?: string
 }
 
-export function RoleModal({ isOpen, onClose, onSave, role, title }: RoleModalProps) {
+export function RoleModal({ isOpen, onClose, onSave, role, title, permisos = [] }: RoleModalProps) {
   const [formData, setFormData] = useState<FormData>({
     nombre: "",
     descripcion: "",
     activo: true,
+    permisos: [],
   })
+  
+  const [searchTerm, setSearchTerm] = useState("")
   
   const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
@@ -45,15 +52,18 @@ export function RoleModal({ isOpen, onClose, onSave, role, title }: RoleModalPro
         nombre: role.nombre || "",
         descripcion: role.descripcion || "",
         activo: role.activo ?? true,
+        permisos: role.permisos?.map(p => p.permiso_id) || [],
       })
     } else {
       setFormData({
         nombre: "",
         descripcion: "",
         activo: true,
+        permisos: [],
       })
     }
     setErrors({})
+    setSearchTerm("")
   }, [role, isOpen])
 
   const validateForm = (): boolean => {
@@ -86,6 +96,7 @@ export function RoleModal({ isOpen, onClose, onSave, role, title }: RoleModalPro
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion.trim() || null,
         activo: formData.activo,
+        permisos: formData.permisos,
       }
 
       const success = await onSave(roleData)
@@ -107,11 +118,55 @@ export function RoleModal({ isOpen, onClose, onSave, role, title }: RoleModalPro
     }
   }
 
+  // Filtrar permisos por término de búsqueda
+  const filteredPermisos = permisos.filter(permiso =>
+    permiso.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    permiso.descripcion?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // Agrupar permisos por categoría
+  const groupedPermisos = filteredPermisos.reduce((groups, permiso) => {
+    const category = permiso.nombre.split('.')[0] || 'Otros'
+    if (!groups[category]) {
+      groups[category] = []
+    }
+    groups[category].push(permiso)
+    return groups
+  }, {} as Record<string, Permiso[]>)
+
+  const handlePermisoToggle = (permisoId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      permisos: prev.permisos.includes(permisoId)
+        ? prev.permisos.filter(id => id !== permisoId)
+        : [...prev.permisos, permisoId]
+    }))
+  }
+
+  const handleSelectAll = (category: string) => {
+    const categoryPermisos = groupedPermisos[category].map(p => p.permiso_id)
+    const allSelected = categoryPermisos.every(id => formData.permisos.includes(id))
+    
+    if (allSelected) {
+      // Deseleccionar todos los permisos de esta categoría
+      setFormData(prev => ({
+        ...prev,
+        permisos: prev.permisos.filter(id => !categoryPermisos.includes(id))
+      }))
+    } else {
+      // Seleccionar todos los permisos de esta categoría
+      setFormData(prev => ({
+        ...prev,
+        permisos: [...new Set([...prev.permisos, ...categoryPermisos])]
+      }))
+    }
+  }
+
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
@@ -175,6 +230,88 @@ export function RoleModal({ isOpen, onClose, onSave, role, title }: RoleModalPro
                 />
                 <Label htmlFor="activo">Rol activo</Label>
               </div>
+            </div>
+
+            {/* Permisos */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  Permisos del Rol
+                </h3>
+                <div className="text-sm text-gray-500">
+                  {formData.permisos.length} de {permisos.length} permisos seleccionados
+                </div>
+              </div>
+
+              {/* Búsqueda de permisos */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar permisos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Lista de permisos agrupados */}
+              <ScrollArea className="h-64 border rounded-md p-4">
+                <div className="space-y-4">
+                  {Object.entries(groupedPermisos).map(([category, categoryPermisos]) => {
+                    const allSelected = categoryPermisos.every(p => formData.permisos.includes(p.permiso_id))
+                    const someSelected = categoryPermisos.some(p => formData.permisos.includes(p.permiso_id))
+                    
+                    return (
+                      <div key={category} className="space-y-2">
+                        <div className="flex items-center space-x-2 pb-2 border-b">
+                          <Checkbox
+                            id={`category-${category}`}
+                            checked={allSelected}
+                            ref={(el) => {
+                              if (el) el.indeterminate = someSelected && !allSelected
+                            }}
+                            onCheckedChange={() => handleSelectAll(category)}
+                          />
+                          <Label 
+                            htmlFor={`category-${category}`}
+                            className="font-medium text-gray-900 capitalize"
+                          >
+                            {category} ({categoryPermisos.length} permisos)
+                          </Label>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-2 ml-6">
+                          {categoryPermisos.map((permiso) => (
+                            <div key={permiso.permiso_id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`permiso-${permiso.permiso_id}`}
+                                checked={formData.permisos.includes(permiso.permiso_id)}
+                                onCheckedChange={() => handlePermisoToggle(permiso.permiso_id)}
+                              />
+                              <Label 
+                                htmlFor={`permiso-${permiso.permiso_id}`}
+                                className="text-sm text-gray-700 cursor-pointer"
+                              >
+                                <div className="font-medium">{permiso.nombre}</div>
+                                {permiso.descripcion && (
+                                  <div className="text-xs text-gray-500">{permiso.descripcion}</div>
+                                )}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  
+                  {Object.keys(groupedPermisos).length === 0 && (
+                    <div className="text-center text-gray-500 py-8">
+                      {searchTerm ? 'No se encontraron permisos que coincidan con la búsqueda' : 'No hay permisos disponibles'}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
 
             {/* Botones */}

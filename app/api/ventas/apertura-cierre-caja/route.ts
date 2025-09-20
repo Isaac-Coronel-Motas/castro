@@ -80,7 +80,19 @@ export async function GET(request: NextRequest) {
     }
 
     const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_apertura');
+    // Mapear sort_by a columnas válidas
+    const validSortColumns: Record<string, string> = {
+      'created_at': 'fecha_apertura',
+      'fecha_apertura': 'fecha_apertura',
+      'fecha_cierre': 'fecha_cierre',
+      'monto_apertura': 'monto_apertura',
+      'monto_cierre': 'monto_cierre',
+      'estado': 'estado',
+      'apertura_cierre_id': 'apertura_cierre_id'
+    };
+    
+    const mappedSortBy = validSortColumns[sort_by] || 'fecha_apertura';
+    const orderByClause = buildOrderByClause(mappedSortBy, sort_order as 'asc' | 'desc', 'fecha_apertura');
 
     // Consulta principal
     const query = `
@@ -100,9 +112,9 @@ export async function GET(request: NextRequest) {
             acc.monto_cierre - acc.monto_apertura
           ELSE NULL
         END as diferencia,
-        COALESCE(SUM(v.monto_venta), 0) as total_ventas,
-        COALESCE(SUM(cob.monto), 0) as total_cobros,
-        COALESCE(COUNT(mc.movimiento_id), 0) as total_movimientos,
+        0 as total_ventas,
+        0 as total_cobros,
+        0 as total_movimientos,
         CASE 
           WHEN acc.estado = 'abierta' THEN 'Abierta'
           WHEN acc.estado = 'cerrada' THEN 'Cerrada'
@@ -115,9 +127,6 @@ export async function GET(request: NextRequest) {
       FROM apertura_cierre_caja acc
       LEFT JOIN cajas c ON acc.caja_id = c.caja_id
       LEFT JOIN sucursales s ON c.sucursal_id = s.sucursal_id
-      LEFT JOIN ventas v ON acc.caja_id = v.caja_id AND DATE(v.fecha_venta) = acc.fecha_apertura
-      LEFT JOIN cobros cob ON acc.caja_id = cob.caja_id AND DATE(cob.fecha_cobro) = acc.fecha_apertura
-      LEFT JOIN movimientos_caja mc ON acc.caja_id = mc.caja_id AND DATE(mc.fecha) = acc.fecha_apertura
       ${whereClause}
       GROUP BY acc.apertura_cierre_id, acc.caja_id, acc.fecha_apertura, acc.monto_apertura, 
                acc.fecha_cierre, acc.hora_cierre, acc.monto_cierre, acc.estado, 

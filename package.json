@@ -6,7 +6,10 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "setup:neon": "node scripts/setup-neon.js",
+    "test:neon": "node scripts/test-neon-connection.js",
+    "db:test": "node scripts/test-neon-connection.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -43,7 +43,7 @@ export function useApi<T = any>(
   endpoint: string,
   options: UseApiOptions = {}
 ): UseApiReturn<T> {
-  const { token } = useAuth();
+  const { token, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<T[]>(options.initialData || []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,28 +89,45 @@ export function useApi<T = any>(
   };
 
   const fetchData = async () => {
-    if (!token) return;
+    if (!token) {
+      console.log('🚨 useApi: No hay token disponible, saltando fetchData');
+      return;
+    }
+    
+    console.log('🔍 useApi: Iniciando fetchData con token:', token.substring(0, 20) + '...');
+    console.log('🔍 useApi: Token completo:', token);
     
     setLoading(true);
     setError(null);
     
     try {
-      const response = await fetch(buildUrl(), {
+      const url = buildUrl();
+      console.log('🌐 useApi: URL:', url);
+      
+      const authHeader = `Bearer ${token}`;
+      console.log('🔑 useApi: Authorization header:', authHeader.substring(0, 50) + '...');
+      
+      const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': authHeader,
           'Content-Type': 'application/json',
         },
       });
       
+      console.log('📡 useApi: Response status:', response.status);
+      
       const result: ApiResponse<T[]> = await response.json();
       
       if (result.success && result.data) {
+        console.log('✅ useApi: Datos cargados exitosamente:', result.data.length, 'elementos');
         setData(result.data);
         setPagination(result.pagination || null);
       } else {
+        console.log('❌ useApi: Error en respuesta:', result.message);
         setError(result.message || 'Error al cargar los datos');
       }
     } catch (err) {
+      console.log('❌ useApi: Error de conexión:', err);
       setError('Error de conexión');
       console.error('API Error:', err);
     } finally {
@@ -240,10 +257,11 @@ export function useApi<T = any>(
 
   // Auto-fetch on mount and when dependencies change
   useEffect(() => {
-    if (options.autoFetch !== false && token) {
+    // Solo hacer fetch si no está cargando la autenticación y hay token
+    if (options.autoFetch !== false && !authLoading && token) {
       fetchData();
     }
-  }, [token, filters, sorting, paginationParams, searchTerm]);
+  }, [token, authLoading, filters, sorting, paginationParams, searchTerm]);
 
   return {
     data,

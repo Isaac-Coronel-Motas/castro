@@ -34,20 +34,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
+    console.log('🔍 AuthContext: Inicializando contexto...')
+    
     // Verificar si hay una sesión guardada
     const savedUser = localStorage.getItem("user")
     const savedToken = localStorage.getItem("token")
     
+    console.log('🔍 AuthContext: Datos guardados:', {
+      hasUser: !!savedUser,
+      hasToken: !!savedToken,
+      tokenPreview: savedToken ? savedToken.substring(0, 20) + '...' : 'null'
+    })
+    
     if (savedUser && savedToken) {
       try {
-        setUser(JSON.parse(savedUser))
+        const userData = JSON.parse(savedUser)
+        console.log('✅ AuthContext: Usuario cargado:', userData.username)
+        console.log('✅ AuthContext: Token cargado:', savedToken.substring(0, 20) + '...')
+        
+        setUser(userData)
         setToken(savedToken)
       } catch (error) {
-        console.error("Error parsing saved user data:", error)
+        console.error("❌ AuthContext: Error parsing saved user data:", error)
         localStorage.removeItem("user")
         localStorage.removeItem("token")
       }
+    } else {
+      console.log('⚠️ AuthContext: No hay datos guardados')
     }
+    
+    console.log('🔍 AuthContext: Finalizando carga...')
     setIsLoading(false)
   }, [])
 
@@ -72,7 +88,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data: LoginResponse = await response.json()
 
       if (data.success && data.data) {
-        const { usuario, token: authToken } = data.data
+        const { usuario, token: authToken, permisos } = data.data
+        
+        console.log('✅ AuthContext: Login exitoso, guardando datos...')
+        console.log('✅ AuthContext: Usuario:', usuario.username)
+        console.log('✅ AuthContext: Token:', authToken.substring(0, 20) + '...')
+        console.log('✅ AuthContext: Permisos recibidos:', permisos?.length || 0, 'permisos')
+        
+        // Verificar que el token incluya los permisos
+        if (!permisos || permisos.length === 0) {
+          console.error('❌ AuthContext: No se recibieron permisos del backend')
+          setIsLoading(false)
+          return false
+        }
         
         const userData: User = {
           usuario_id: usuario.usuario_id,
@@ -85,13 +113,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           is_2fa_enabled: usuario.is_2fa_enabled,
           sucursales: usuario.sucursales || []
         }
-
+        
         setUser(userData)
         setToken(authToken)
         
         // Guardar en localStorage
         localStorage.setItem("user", JSON.stringify(userData))
         localStorage.setItem("token", authToken)
+        
+        console.log('✅ AuthContext: Datos guardados en localStorage')
+        console.log('✅ AuthContext: Redirigiendo a dashboard...')
         
         setIsLoading(false)
         router.push("/dashboard")

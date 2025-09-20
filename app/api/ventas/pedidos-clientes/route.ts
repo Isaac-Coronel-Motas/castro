@@ -1,172 +1,159 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { 
-  requirePermission, 
-  createAuthzErrorResponse 
-} from '@/lib/middleware/auth';
-import { 
-  validatePedidoVentaData, 
-  buildSearchWhereClause,
-  buildOrderByClause,
-  buildPaginationParams,
-  generatePedidoNumber,
-  sanitizeForLog 
-} from '@/lib/utils/ventas';
-import { 
-  CreatePedidoVentaRequest, 
-  VentasApiResponse, 
-  FiltrosPedidosVenta 
-} from '@/lib/types/ventas';
+import { requirePermission, createAuthzErrorResponse } from '@/lib/middleware/auth';
+import { buildSearchWhereClause, buildOrderByClause } from '@/lib/utils/api-helpers';
 
-// GET /api/ventas/pedidos-clientes - Listar pedidos de clientes
+interface VentasApiResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+  error?: string;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
+interface CreatePedidoRequest {
+  cliente_id: number;
+  fecha_pedido?: string;
+  estado?: string;
+  observaciones?: string;
+  productos: Array<{
+    producto_id: number;
+    cantidad: number;
+    precio_unitario: number;
+  }>;
+}
+
+// GET /api/ventas/pedidos-clientes - Listar pedidos/ventas de clientes
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_pedidos_venta')(request);
+    const { authorized, error } = requirePermission('ventas.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    // Obtener parámetros de consulta
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
-    const sort_by = searchParams.get('sort_by') || 'fecha_pedido';
+    const sort_by = searchParams.get('sort_by') || 'fecha_venta';
     const sort_order = searchParams.get('sort_order') || 'desc';
-    const estado = searchParams.get('estado');
-    const fecha_desde = searchParams.get('fecha_desde');
-    const fecha_hasta = searchParams.get('fecha_hasta');
-    const cliente_id = searchParams.get('cliente_id');
-    const sucursal_id = searchParams.get('sucursal_id');
-    const usuario_id = searchParams.get('usuario_id');
-    const forma_cobro_id = searchParams.get('forma_cobro_id');
-    const condicion_pago = searchParams.get('condicion_pago');
+    const estado = searchParams.get('estado') || '';
+    const cliente_id = searchParams.get('cliente_id') || '';
 
-    const offset = (page - 1) * limit;
-    const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
+    // Campos de búsqueda
+    const searchFields = [
+      'c.nombre',
+      'v.nro_factura::text',
+      'v.tipo_documento'
+    ];
 
-    // Construir consulta de búsqueda
-    const searchFields = ['pv.observaciones', 'c.nombre_cliente', 'u.nombre', 's.nombre'];
-    const additionalConditions: string[] = [];
-    const queryParams: any[] = [];
+    // Construir whereClause manualmente para evitar problemas de parámetros
+    const conditions: string[] = [];
+    const allParams: any[] = [];
     let paramCount = 0;
 
+    // Agregar condiciones adicionales
     if (estado) {
       paramCount++;
-      additionalConditions.push(`pv.estado = $${paramCount}`);
-      queryParams.push(estado);
-    }
-
-    if (fecha_desde) {
-      paramCount++;
-      additionalConditions.push(`pv.fecha_pedido >= $${paramCount}`);
-      queryParams.push(fecha_desde);
-    }
-
-    if (fecha_hasta) {
-      paramCount++;
-      additionalConditions.push(`pv.fecha_pedido <= $${paramCount}`);
-      queryParams.push(fecha_hasta);
+      conditions.push(`v.estado = $${paramCount}`);
+      allParams.push(estado);
     }
 
     if (cliente_id) {
       paramCount++;
-      additionalConditions.push(`pv.cliente_id = $${paramCount}`);
-      queryParams.push(parseInt(cliente_id));
+      conditions.push(`v.cliente_id = $${paramCount}`);
+      allParams.push(parseInt(cliente_id));
     }
 
-    if (sucursal_id) {
+    // Agregar búsqueda
+    if (search && search.trim()) {
       paramCount++;
-      additionalConditions.push(`pv.sucursal_id = $${paramCount}`);
-      queryParams.push(parseInt(sucursal_id));
+      const searchCondition = searchFields
+        .map(field => `${field} ILIKE $${paramCount}`)
+        .join(' OR ');
+      conditions.push(`(${searchCondition})`);
+      allParams.push(`%${search.trim()}%`);
     }
 
-    if (usuario_id) {
-      paramCount++;
-      additionalConditions.push(`pv.usuario_id = $${paramCount}`);
-      queryParams.push(parseInt(usuario_id));
-    }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    if (forma_cobro_id) {
-      paramCount++;
-      additionalConditions.push(`pv.forma_cobro_id = $${paramCount}`);
-      queryParams.push(parseInt(forma_cobro_id));
-    }
+    // Mapear sort_by a columnas válidas
+    const validSortColumns: Record<string, string> = {
+      'created_at': 'fecha_venta',
+      'fecha_venta': 'fecha_venta',
+      'fecha_pedido': 'fecha_venta',
+      'monto_venta': 'monto_venta',
+      'estado': 'estado',
+      'cliente_nombre': 'c.nombre',
+      'venta_id': 'venta_id'
+    };
+    
+    const mappedSortBy = validSortColumns[sort_by] || 'fecha_venta';
+    const orderByClause = `ORDER BY ${mappedSortBy} ${sort_order}`;
 
-    if (condicion_pago) {
-      paramCount++;
-      additionalConditions.push(`pv.condicion_pago = $${paramCount}`);
-      queryParams.push(condicion_pago);
-    }
-
-    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_pedido');
+    // Construir parámetros de paginación
+    const validatedLimit = Math.min(limit, 100);
+    const limitParam = validatedLimit;
+    const offsetParam = (page - 1) * validatedLimit;
 
     // Consulta principal
     const query = `
       SELECT 
-        pv.pedido_id,
-        pv.cliente_id,
-        pv.fecha_pedido,
-        pv.fecha_entrega,
-        pv.estado,
-        pv.monto_total,
-        pv.observaciones,
-        pv.usuario_id,
-        pv.sucursal_id,
-        pv.forma_cobro_id,
-        pv.condicion_pago,
-        c.nombre_cliente as cliente_nombre,
+        v.venta_id,
+        v.cliente_id,
+        v.fecha_venta,
+        v.estado,
+        v.tipo_documento,
+        v.monto_venta,
+        v.caja_id,
+        v.tipo_doc_id,
+        v.nro_factura,
+        v.forma_cobro_id,
+        v.monto_gravada_5,
+        v.monto_gravada_10,
+        v.monto_exenta,
+        v.monto_iva,
+        v.condicion_pago,
+        c.nombre as cliente_nombre,
+        c.direccion as cliente_direccion,
+        c.ruc as cliente_ruc,
         c.telefono as cliente_telefono,
         c.email as cliente_email,
-        u.nombre as usuario_nombre,
-        s.nombre as sucursal_nombre,
-        fc.nombre as forma_cobro_nombre,
-        COUNT(pvd.detalle_id) as total_productos,
         CASE 
-          WHEN pv.estado = 'pendiente' THEN 'Pendiente'
-          WHEN pv.estado = 'confirmado' THEN 'Confirmado'
-          WHEN pv.estado = 'cancelado' THEN 'Cancelado'
+          WHEN v.estado = 'abierto' THEN 'Abierto'
+          WHEN v.estado = 'cerrado' THEN 'Cerrado'
+          WHEN v.estado = 'cancelado' THEN 'Cancelado'
+          ELSE v.estado::text
         END as estado_display,
         CASE 
-          WHEN pv.estado = 'pendiente' THEN 'Confirmar'
-          WHEN pv.estado = 'confirmado' THEN 'Ver'
+          WHEN v.estado = 'abierto' THEN 'Editar'
+          WHEN v.estado = 'cerrado' THEN 'Ver'
+          WHEN v.estado = 'cancelado' THEN 'Ver'
           ELSE 'Ver'
         END as estado_accion,
-        CASE 
-          WHEN pv.fecha_entrega IS NOT NULL THEN 
-            EXTRACT(DAYS FROM (pv.fecha_entrega - CURRENT_DATE))
-          ELSE NULL
-        END as dias_restantes,
-        CASE 
-          WHEN pv.fecha_entrega IS NOT NULL THEN
-            CASE 
-              WHEN pv.fecha_entrega < CURRENT_DATE THEN 'vencida'
-              WHEN pv.fecha_entrega <= CURRENT_DATE + INTERVAL '1 day' THEN 'por_vencer'
-              ELSE 'vigente'
-            END
-          ELSE 'sin_entrega'
-        END as estado_entrega,
+        COUNT(vd.detalle_venta_id) as total_productos,
         COUNT(*) OVER() as total_count
-      FROM pedido_venta pv
-      LEFT JOIN clientes c ON pv.cliente_id = c.cliente_id
-      LEFT JOIN usuarios u ON pv.usuario_id = u.usuario_id
-      LEFT JOIN sucursales s ON pv.sucursal_id = s.sucursal_id
-      LEFT JOIN formas_cobro fc ON pv.forma_cobro_id = fc.forma_cobro_id
-      LEFT JOIN pedido_venta_detalle pvd ON pv.pedido_id = pvd.pedido_id
+      FROM ventas v
+      LEFT JOIN clientes c ON v.cliente_id = c.cliente_id
+      LEFT JOIN ventas_detalle vd ON v.venta_id = vd.venta_id
       ${whereClause}
-      GROUP BY pv.pedido_id, pv.cliente_id, pv.fecha_pedido, pv.fecha_entrega, 
-               pv.estado, pv.monto_total, pv.observaciones, pv.usuario_id, 
-               pv.sucursal_id, pv.forma_cobro_id, pv.condicion_pago, 
-               c.nombre_cliente, c.telefono, c.email, u.nombre, s.nombre, fc.nombre
+      GROUP BY v.venta_id, v.cliente_id, v.fecha_venta, v.estado, v.tipo_documento, 
+               v.monto_venta, v.caja_id, v.tipo_doc_id, v.nro_factura, v.forma_cobro_id,
+               v.monto_gravada_5, v.monto_gravada_10, v.monto_exenta, v.monto_iva, 
+               v.condicion_pago, c.nombre, c.direccion, c.ruc, c.telefono, c.email
       ${orderByClause}
-      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      LIMIT $${allParams.length + 1} OFFSET $${allParams.length + 2}
     `;
 
-    const allParams = [...queryParams, ...params, limitParam, offsetParam];
-    const result = await pool.query(query, allParams);
+    const finalParams = [...allParams, limitParam, offsetParam];
+    const result = await pool.query(query, finalParams);
     const pedidos = result.rows;
     const total = pedidos.length > 0 ? parseInt(pedidos[0].total_count) : 0;
 
@@ -200,284 +187,96 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/ventas/pedidos-clientes - Crear pedido de cliente
+// POST /api/ventas/pedidos-clientes - Crear nuevo pedido/venta
 export async function POST(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('crear_pedidos_venta')(request);
+    const { authorized, error } = requirePermission('ventas.crear')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    const body: CreatePedidoVentaRequest = await request.json();
+    const body: CreatePedidoRequest = await request.json();
 
     // Validar datos
-    const validation = validatePedidoVentaData(body);
-    if (!validation.valid) {
+    if (!body.cliente_id) {
       const response: VentasApiResponse = {
         success: false,
-        message: 'Datos de entrada inválidos',
-        error: 'Validación fallida',
-        data: validation.errors
+        message: 'El cliente es requerido',
+        error: 'Datos de entrada inválidos'
       };
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Verificar que el cliente existe
-    const clienteQuery = 'SELECT cliente_id FROM clientes WHERE cliente_id = $1';
-    const clienteResult = await pool.query(clienteQuery, [body.cliente_id]);
-    
-    if (clienteResult.rows.length === 0) {
+    if (!body.productos || body.productos.length === 0) {
       const response: VentasApiResponse = {
         success: false,
-        message: 'El cliente especificado no existe',
-        error: 'Cliente inválido'
+        message: 'Debe incluir al menos un producto',
+        error: 'Datos de entrada inválidos'
       };
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Verificar que el usuario existe
-    const usuarioQuery = 'SELECT usuario_id FROM usuarios WHERE usuario_id = $1';
-    const usuarioResult = await pool.query(usuarioQuery, [body.usuario_id]);
-    
-    if (usuarioResult.rows.length === 0) {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'El usuario especificado no existe',
-        error: 'Usuario inválido'
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
+    // Calcular monto total
+    const montoTotal = body.productos.reduce((total, producto) => {
+      return total + (producto.cantidad * producto.precio_unitario);
+    }, 0);
 
-    // Verificar que la sucursal existe
-    const sucursalQuery = 'SELECT sucursal_id FROM sucursales WHERE sucursal_id = $1';
-    const sucursalResult = await pool.query(sucursalQuery, [body.sucursal_id]);
-    
-    if (sucursalResult.rows.length === 0) {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'La sucursal especificada no existe',
-        error: 'Sucursal inválida'
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
-    // Verificar que la forma de cobro existe si se proporciona
-    if (body.forma_cobro_id) {
-      const formaCobroQuery = 'SELECT forma_cobro_id FROM formas_cobro WHERE forma_cobro_id = $1 AND activo = true';
-      const formaCobroResult = await pool.query(formaCobroQuery, [body.forma_cobro_id]);
-      
-      if (formaCobroResult.rows.length === 0) {
-        const response: VentasApiResponse = {
-          success: false,
-          message: 'La forma de cobro especificada no existe o está inactiva',
-          error: 'Forma de cobro inválida'
-        };
-        return NextResponse.json(response, { status: 400 });
-      }
-    }
-
-    // Verificar que los productos existen
-    if (body.productos && body.productos.length > 0) {
-      for (const producto of body.productos) {
-        const productoQuery = 'SELECT producto_id FROM productos WHERE producto_id = $1 AND estado = true';
-        const productoResult = await pool.query(productoQuery, [producto.producto_id]);
-        
-        if (productoResult.rows.length === 0) {
-          const response: VentasApiResponse = {
-            success: false,
-            message: `El producto con ID ${producto.producto_id} no existe o está inactivo`,
-            error: 'Producto inválido'
-          };
-          return NextResponse.json(response, { status: 400 });
-        }
-      }
-    }
-
-    // Calcular monto total si no se proporciona
-    let montoTotal = body.monto_total || 0;
-    if (!body.monto_total) {
-      montoTotal = body.productos.reduce((sum, p) => {
-        const subtotal = p.cantidad * p.precio_unitario;
-        const descuento = p.descuento || 0;
-        return sum + (subtotal - descuento);
-      }, 0);
-    }
-
-    // Crear pedido de venta
-    const createPedidoQuery = `
-      INSERT INTO pedido_venta (
-        cliente_id, fecha_pedido, fecha_entrega, estado, monto_total, 
-        observaciones, usuario_id, sucursal_id, forma_cobro_id, condicion_pago
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING pedido_id
+    // Crear la venta
+    const ventaQuery = `
+      INSERT INTO ventas (
+        cliente_id, 
+        fecha_venta, 
+        estado, 
+        tipo_documento,
+        monto_venta,
+        condicion_pago
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING venta_id
     `;
 
-    const pedidoResult = await pool.query(createPedidoQuery, [
+    const ventaParams = [
       body.cliente_id,
       body.fecha_pedido || new Date().toISOString().split('T')[0],
-      body.fecha_entrega || null,
-      body.estado || 'pendiente',
+      body.estado || 'abierto',
+      body.tipo_documento || 'Pedido',
       montoTotal,
-      body.observaciones || null,
-      body.usuario_id,
-      body.sucursal_id,
-      body.forma_cobro_id || null,
-      body.condicion_pago || 'contado'
-    ]);
+      'contado'
+    ];
 
-    const newPedidoId = pedidoResult.rows[0].pedido_id;
+    const ventaResult = await pool.query(ventaQuery, ventaParams);
+    const ventaId = ventaResult.rows[0].venta_id;
 
-    // Crear detalles del pedido
-    if (body.productos && body.productos.length > 0) {
-      for (const producto of body.productos) {
-        await pool.query(
-          'INSERT INTO pedido_venta_detalle (pedido_id, producto_id, cantidad, precio_unitario, descuento) VALUES ($1, $2, $3, $4, $5)',
-          [
-            newPedidoId, 
-            producto.producto_id, 
-            producto.cantidad, 
-            producto.precio_unitario,
-            producto.descuento || 0
-          ]
-        );
-      }
+    // Crear detalles de la venta
+    for (const producto of body.productos) {
+      const detalleQuery = `
+        INSERT INTO ventas_detalle (
+          venta_id,
+          producto_id,
+          cantidad,
+          precio_unitario
+        ) VALUES ($1, $2, $3, $4)
+      `;
+
+      await pool.query(detalleQuery, [
+        ventaId,
+        producto.producto_id,
+        producto.cantidad,
+        producto.precio_unitario
+      ]);
     }
-
-    // Obtener el pedido creado con información completa
-    const getPedidoQuery = `
-      SELECT 
-        pv.pedido_id,
-        pv.cliente_id,
-        pv.fecha_pedido,
-        pv.fecha_entrega,
-        pv.estado,
-        pv.monto_total,
-        pv.observaciones,
-        pv.usuario_id,
-        pv.sucursal_id,
-        pv.forma_cobro_id,
-        pv.condicion_pago,
-        c.nombre_cliente as cliente_nombre,
-        c.telefono as cliente_telefono,
-        c.email as cliente_email,
-        u.nombre as usuario_nombre,
-        s.nombre as sucursal_nombre,
-        fc.nombre as forma_cobro_nombre
-      FROM pedido_venta pv
-      LEFT JOIN clientes c ON pv.cliente_id = c.cliente_id
-      LEFT JOIN usuarios u ON pv.usuario_id = u.usuario_id
-      LEFT JOIN sucursales s ON pv.sucursal_id = s.sucursal_id
-      LEFT JOIN formas_cobro fc ON pv.forma_cobro_id = fc.forma_cobro_id
-      WHERE pv.pedido_id = $1
-    `;
-
-    const pedidoData = await pool.query(getPedidoQuery, [newPedidoId]);
 
     const response: VentasApiResponse = {
       success: true,
-      message: 'Pedido de cliente creado exitosamente',
-      data: pedidoData.rows[0]
+      message: 'Pedido creado exitosamente',
+      data: { venta_id: ventaId }
     };
-
-    // Log de auditoría
-    console.log('Pedido de cliente creado:', sanitizeForLog({
-      pedido_id: newPedidoId,
-      nro_pedido: generatePedidoNumber(newPedidoId),
-      cliente_id: body.cliente_id,
-      usuario_id: body.usuario_id,
-      sucursal_id: body.sucursal_id,
-      total_productos: body.productos?.length || 0,
-      monto_total: montoTotal,
-      condicion_pago: body.condicion_pago || 'contado',
-      timestamp: new Date().toISOString()
-    }));
 
     return NextResponse.json(response, { status: 201 });
 
   } catch (error) {
-    console.error('Error al crear pedido de cliente:', error);
-    
-    const response: VentasApiResponse = {
-      success: false,
-      message: 'Error interno del servidor',
-      error: 'Error interno'
-    };
-    
-    return NextResponse.json(response, { status: 500 });
-  }
-}
-
-// PUT /api/ventas/pedidos-clientes/[id]/confirmar - Confirmar pedido
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const pedidoId = parseInt(params.id);
-
-    if (isNaN(pedidoId)) {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'ID de pedido inválido',
-        error: 'ID inválido'
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
-    // Verificar permisos
-    const { authorized, error } = requirePermission('confirmar_pedidos_venta')(request);
-    
-    if (!authorized) {
-      return createAuthzErrorResponse(error || 'No autorizado');
-    }
-
-    // Verificar que el pedido existe
-    const existingPedidoQuery = 'SELECT pedido_id, estado FROM pedido_venta WHERE pedido_id = $1';
-    const existingPedido = await pool.query(existingPedidoQuery, [pedidoId]);
-    
-    if (existingPedido.rows.length === 0) {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'Pedido no encontrado',
-        error: 'Pedido no encontrado'
-      };
-      return NextResponse.json(response, { status: 404 });
-    }
-
-    // Verificar si el pedido puede ser confirmado
-    if (existingPedido.rows[0].estado !== 'pendiente') {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'Solo se pueden confirmar pedidos pendientes',
-        error: 'Estado inválido'
-      };
-      return NextResponse.json(response, { status: 409 });
-    }
-
-    // Confirmar pedido
-    await pool.query(
-      'UPDATE pedido_venta SET estado = $1 WHERE pedido_id = $2',
-      ['confirmado', pedidoId]
-    );
-
-    const response: VentasApiResponse = {
-      success: true,
-      message: 'Pedido confirmado exitosamente'
-    };
-
-    // Log de auditoría
-    console.log('Pedido confirmado:', sanitizeForLog({
-      pedido_id: pedidoId,
-      nro_pedido: generatePedidoNumber(pedidoId),
-      timestamp: new Date().toISOString()
-    }));
-
-    return NextResponse.json(response);
-
-  } catch (error) {
-    console.error('Error al confirmar pedido:', error);
+    console.error('Error al crear pedido:', error);
     
     const response: VentasApiResponse = {
       success: false,

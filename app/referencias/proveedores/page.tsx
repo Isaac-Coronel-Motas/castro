@@ -32,7 +32,7 @@ export default function ProveedoresPage() {
     create,
     update,
     delete: deleteProveedor,
-  } = useApi<Proveedor>('/api/proveedores');
+  } = useApi<Proveedor>('/api/referencias/proveedores');
 
   const [searchTerm, setSearchTerm] = useState("")
   const [proveedorModalOpen, setProveedorModalOpen] = useState(false)

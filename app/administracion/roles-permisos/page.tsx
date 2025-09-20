@@ -7,7 +7,7 @@ import { DataTable } from "@/components/data-table"
 import { RoleModal } from "@/components/modals/role-modal"
 import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
 import { useApi } from "@/hooks/use-api"
-import { Rol } from "@/lib/types/auth"
+import { Rol, Permiso } from "@/lib/types/auth"
 import {
   Shield,
   Key,
@@ -30,6 +30,11 @@ export default function RolesPermisosPage() {
     update,
     delete: deleteRol,
   } = useApi<Rol>('/api/roles');
+
+  const {
+    data: permisos,
+    loading: permisosLoading,
+  } = useApi<Permiso>('/api/permisos');
 
   const [searchTerm, setSearchTerm] = useState("")
   const [roleModalOpen, setRoleModalOpen] = useState(false)
@@ -168,7 +173,7 @@ export default function RolesPermisosPage() {
         <div className="flex items-center gap-1">
           <Key className="h-3 w-3 text-gray-500" />
           <Badge variant="outline" className="text-xs">
-            Ver permisos
+            {rol.permisos?.length || 0} permisos
           </Badge>
         </div>
       ),
@@ -252,6 +257,7 @@ export default function RolesPermisosPage() {
         onSave={handleSaveRole}
         role={modalMode === 'view' ? selectedRole : (modalMode === 'edit' ? selectedRole : null)}
         title={getModalTitle()}
+        permisos={permisos}
       />
 
       <ConfirmDeleteModal

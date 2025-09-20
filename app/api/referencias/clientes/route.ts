@@ -21,7 +21,7 @@ import {
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_clientes')(request);
+    const { authorized, error } = requirePermission('clientes.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('crear_clientes')(request);
+    const { authorized, error } = requirePermission('clientes.crear')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');

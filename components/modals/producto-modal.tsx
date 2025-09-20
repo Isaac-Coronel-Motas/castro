@@ -250,7 +250,7 @@ export function ProductoModal({ isOpen, onClose, onSave, producto, categorias, m
                       <SelectContent>
                         {categorias.map((categoria) => (
                           <SelectItem key={categoria.categoria_id} value={categoria.categoria_id.toString()}>
-                            {categoria.nombre}
+                            {categoria.nombre_categoria}
                           </SelectItem>
                         ))}
                       </SelectContent>
