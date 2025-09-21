@@ -80,7 +80,7 @@ const sidebarItems: SidebarItem[] = [
     submenu: [
       { label: "Apertura/Cierre Caja", href: "/ventas/apertura-cierre-caja", active: false },
       { label: "Pedidos de Clientes", href: "/ventas/pedidos-clientes", active: false },
-      { label: "Registro de Ventas", href: "/ventas/registro-ventas", active: false },
+      { label: "Registro de Ventas", href: "/ventas/registro", active: false },
       { label: "Cobros", href: "/ventas/cobros", active: false },
       { label: "Presupuestos", href: "/ventas/presupuestos", active: false },
       { label: "Notas de Remisión", href: "/ventas/notas-remision", active: false },
