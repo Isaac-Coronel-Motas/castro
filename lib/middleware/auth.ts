@@ -22,7 +22,8 @@ export function authenticateToken(request: NextRequest): { user: JwtPayload | nu
 }
 
 /**
- * Middleware de autorización por permisos
+ * Middleware de autorización por permisos simplificados
+ * Soporta tanto permisos específicos como permisos por módulo
  */
 export function requirePermission(permission: string) {
   return function(request: NextRequest): { authorized: boolean; error: string | null } {
@@ -36,11 +37,48 @@ export function requirePermission(permission: string) {
       return { authorized: false, error: 'Usuario no autenticado' };
     }
 
-    if (!user.permisos.includes(permission)) {
-      return { authorized: false, error: 'No tiene permisos para realizar esta acción' };
+    // Verificar permiso específico exacto
+    if (user.permisos.includes(permission)) {
+      return { authorized: true, error: null };
     }
 
-    return { authorized: true, error: null };
+    // Si el permiso está en formato módulo.acción (ej: ventas.leer)
+    if (permission.includes('.')) {
+      const [module, action] = permission.split('.');
+      
+      // Convertir a formato accion_modulo (ej: leer_ventas)
+      const convertedPermission = `${action}_${module}`;
+      
+      if (user.permisos.includes(convertedPermission)) {
+        return { authorized: true, error: null };
+      }
+    }
+
+    // Si el permiso está en formato accion_modulo (ej: leer_ventas)
+    if (permission.includes('_')) {
+      const [action, module] = permission.split('_');
+      
+      // Convertir a formato módulo.acción (ej: ventas.leer)
+      const convertedPermission = `${module}.${action}`;
+      
+      if (user.permisos.includes(convertedPermission)) {
+        return { authorized: true, error: null };
+      }
+    }
+
+    // Verificar si tiene permisos de administrador (acceso completo)
+    const adminPermissions = [
+      'administracion.crear', 'administracion.leer', 'administracion.actualizar', 'administracion.eliminar',
+      'crear_administracion', 'leer_administracion', 'actualizar_administracion', 'eliminar_administracion'
+    ];
+    
+    const hasAdminPermission = adminPermissions.some(adminPerm => user.permisos.includes(adminPerm));
+    
+    if (hasAdminPermission) {
+      return { authorized: true, error: null };
+    }
+
+    return { authorized: false, error: 'No tiene permisos para realizar esta acción' };
   };
 }
 

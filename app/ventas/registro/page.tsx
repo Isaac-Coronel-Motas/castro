@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useVentas, useVentasStats } from "@/hooks/use-ventas"
 import { Venta } from "@/lib/types/ventas"
+import { ModalNuevaVenta } from "@/components/modals/modal-nueva-venta"
 import { LoadingSpinner } from "@/components/ui/loading"
 import { ErrorDisplay, EmptyState } from "@/components/ui/error-display"
 
@@ -333,10 +334,7 @@ export default function RegistroVentasPage() {
                 <h1 className="text-3xl font-bold text-foreground">Registro de Ventas</h1>
                 <p className="text-muted-foreground">Historial completo de transacciones y facturación</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Venta
-              </Button>
+              <ModalNuevaVenta onVentaCreated={refetchVentas} />
             </div>
 
             {/* Métricas */}

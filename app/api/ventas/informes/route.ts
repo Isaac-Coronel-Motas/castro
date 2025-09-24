@@ -10,7 +10,7 @@ import { VentasApiResponse } from '@/lib/types/ventas';
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_informes_ventas')(request);
+    const { authorized, error } = requirePermission('informes_ventas.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');

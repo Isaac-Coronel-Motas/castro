@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
+import { Toaster } from "@/components/ui/toaster"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Suspense } from "react"
@@ -24,6 +25,7 @@ export default function RootLayout({
         <Suspense fallback={<div>Loading...</div>}>
           <AuthProvider>{children}</AuthProvider>
         </Suspense>
+        <Toaster />
         <Analytics />
       </body>
     </html>

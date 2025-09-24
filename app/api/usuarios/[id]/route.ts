@@ -36,7 +36,7 @@ export async function GET(
     }
 
     // Verificar permisos
-    const { authorized, error } = requirePermission('usuarios.leer')(request);
+    const { authorized, error } = requirePermission('administracion.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');

@@ -13,7 +13,7 @@ interface VentasApiResponse {
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('productos.leer')(request);
+    const { authorized, error } = requirePermission('ventas.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');

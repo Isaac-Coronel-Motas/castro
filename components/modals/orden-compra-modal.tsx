@@ -288,15 +288,15 @@ export function OrdenCompraModal({ isOpen, onClose, onSave, orden, mode }: Orden
                   <div className="space-y-2">
                     <Label htmlFor="presu_prov_id">Presupuesto</Label>
                     <Select
-                      value={formData.presu_prov_id?.toString() || ''}
-                      onValueChange={(value) => handleInputChange('presu_prov_id', value ? parseInt(value) : undefined)}
+                      value={formData.presu_prov_id?.toString() || 'no-presupuesto'}
+                      onValueChange={(value) => handleInputChange('presu_prov_id', value && value !== 'no-presupuesto' ? parseInt(value) : undefined)}
                       disabled={mode === 'view'}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar presupuesto (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Sin presupuesto</SelectItem>
+                        <SelectItem value="no-presupuesto">Sin presupuesto</SelectItem>
                         {presupuestos.map((presupuesto) => (
                           <SelectItem key={presupuesto.presu_prov_id} value={presupuesto.presu_prov_id.toString()}>
                             {presupuesto.nro_comprobante} - {presupuesto.proveedor_nombre}
@@ -309,15 +309,15 @@ export function OrdenCompraModal({ isOpen, onClose, onSave, orden, mode }: Orden
                   <div className="space-y-2">
                     <Label htmlFor="almacen_id">Almacén</Label>
                     <Select
-                      value={formData.almacen_id?.toString() || ''}
-                      onValueChange={(value) => handleInputChange('almacen_id', value ? parseInt(value) : undefined)}
+                      value={formData.almacen_id?.toString() || 'no-almacen'}
+                      onValueChange={(value) => handleInputChange('almacen_id', value && value !== 'no-almacen' ? parseInt(value) : undefined)}
                       disabled={mode === 'view'}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar almacén (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Sin almacén</SelectItem>
+                        <SelectItem value="no-almacen">Sin almacén</SelectItem>
                         {almacenes.map((almacen) => (
                           <SelectItem key={almacen.almacen_id} value={almacen.almacen_id.toString()}>
                             {almacen.nombre}

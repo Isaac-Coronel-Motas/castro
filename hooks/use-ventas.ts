@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Venta, VentasApiResponse, FiltrosVentas } from '@/lib/types/ventas';
+import { useAuth } from '@/contexts/auth-context';
 
 interface UseVentasOptions {
   page?: number;
@@ -28,6 +29,7 @@ interface UseVentasReturn {
 }
 
 export function useVentas(options: UseVentasOptions = {}): UseVentasReturn {
+  const { token } = useAuth();
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +90,7 @@ export function useVentas(options: UseVentasOptions = {}): UseVentasReturn {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
 
@@ -111,7 +114,7 @@ export function useVentas(options: UseVentasOptions = {}): UseVentasReturn {
     } finally {
       setLoading(false);
     }
-  }, [currentOptions]);
+  }, [currentOptions, token]);
 
   const updateFilters = useCallback((newFilters: Partial<FiltrosVentas>) => {
     setCurrentOptions(prev => ({
@@ -180,6 +183,7 @@ interface UseVentasStatsReturn {
 }
 
 export function useVentasStats(): UseVentasStatsReturn {
+  const { token } = useAuth();
   const [stats, setStats] = useState<{
     totalVentas: number;
     ventasCompletadas: number;
@@ -198,6 +202,7 @@ export function useVentasStats(): UseVentasStatsReturn {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
 
@@ -234,7 +239,7 @@ export function useVentasStats(): UseVentasStatsReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   const refetch = useCallback(() => {
     fetchStats();
@@ -260,6 +265,7 @@ interface UseCreateVentaReturn {
 }
 
 export function useCreateVenta(): UseCreateVentaReturn {
+  const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -272,6 +278,7 @@ export function useCreateVenta(): UseCreateVentaReturn {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify(ventaData),
       });
@@ -296,7 +303,7 @@ export function useCreateVenta(): UseCreateVentaReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   return {
     createVenta,

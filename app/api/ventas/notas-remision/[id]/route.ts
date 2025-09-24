@@ -4,14 +4,7 @@ import {
   requirePermission, 
   createAuthzErrorResponse 
 } from '@/lib/middleware/auth';
-import { 
-  validateNotaRemisionData,
-  sanitizeForLog 
-} from '@/lib/utils/ventas';
-import { 
-  UpdateNotaRemisionRequest,
-  VentasApiResponse 
-} from '@/lib/types/ventas';
+import { sanitizeForLog } from '@/lib/utils/ventas';
 
 // GET /api/ventas/notas-remision/[id] - Obtener nota de remisión específica
 export async function GET(
@@ -22,22 +15,22 @@ export async function GET(
     const remisionId = parseInt(params.id);
 
     if (isNaN(remisionId)) {
-      const response: VentasApiResponse = {
+      const response = {
         success: false,
-        message: 'ID de remisión inválido',
+        message: 'ID de nota de remisión inválido',
         error: 'ID inválido'
       };
       return NextResponse.json(response, { status: 400 });
     }
 
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_notas_remision')(request);
+    const { authorized, error } = requirePermission('leer_ventas')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    // Obtener la remisión con detalles
+    // Consulta principal
     const query = `
       SELECT 
         nr.remision_id,
@@ -54,51 +47,48 @@ export async function GET(
         oa.nombre as origen_almacen_nombre,
         ds.nombre as destino_sucursal_nombre,
         da.nombre as destino_almacen_nombre,
-        (
-          SELECT json_agg(
-            json_build_object(
-              'detalle_id', nrd.detalle_id,
-              'producto_id', nrd.producto_id,
-              'cantidad', nrd.cantidad,
-              'producto_nombre', p.nombre,
-              'producto_codigo', p.codigo
-            )
-          )
-          FROM nota_remision_detalle nrd
-          LEFT JOIN productos p ON nrd.producto_id = p.producto_id
-          WHERE nrd.remision_id = nr.remision_id
-        ) as productos
+        CONCAT('REM-', LPAD(nr.remision_id::text, 4, '0')) as codigo_remision,
+        COALESCE(detalle_stats.total_productos, 0) as total_productos,
+        COALESCE(detalle_stats.total_cantidad, 0) as total_cantidad
       FROM nota_remision nr
       LEFT JOIN usuarios u ON nr.usuario_id = u.usuario_id
       LEFT JOIN almacenes oa ON nr.origen_almacen_id = oa.almacen_id
       LEFT JOIN sucursales ds ON nr.destino_sucursal_id = ds.sucursal_id
       LEFT JOIN almacenes da ON nr.destino_almacen_id = da.almacen_id
+      LEFT JOIN (
+        SELECT 
+          remision_id,
+          COUNT(*) as total_productos,
+          SUM(cantidad) as total_cantidad
+        FROM nota_remision_detalle
+        GROUP BY remision_id
+      ) detalle_stats ON nr.remision_id = detalle_stats.remision_id
       WHERE nr.remision_id = $1
     `;
 
     const result = await pool.query(query, [remisionId]);
-
+    
     if (result.rows.length === 0) {
-      const response: VentasApiResponse = {
+      const response = {
         success: false,
-        message: 'Remisión no encontrada',
-        error: 'Remisión no encontrada'
+        message: 'Nota de remisión no encontrada',
+        error: 'Nota de remisión no encontrada'
       };
       return NextResponse.json(response, { status: 404 });
     }
 
-    const response: VentasApiResponse = {
+    const response = {
       success: true,
-      message: 'Remisión obtenida exitosamente',
+      message: 'Nota de remisión obtenida exitosamente',
       data: result.rows[0]
     };
 
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('Error al obtener remisión:', error);
+    console.error('Error al obtener nota de remisión:', error);
     
-    const response: VentasApiResponse = {
+    const response = {
       success: false,
       message: 'Error interno del servidor',
       error: 'Error interno'
@@ -117,123 +107,288 @@ export async function PUT(
     const remisionId = parseInt(params.id);
 
     if (isNaN(remisionId)) {
-      const response: VentasApiResponse = {
+      const response = {
         success: false,
-        message: 'ID de remisión inválido',
+        message: 'ID de nota de remisión inválido',
         error: 'ID inválido'
       };
       return NextResponse.json(response, { status: 400 });
     }
 
     // Verificar permisos
-    const { authorized, error } = requirePermission('modificar_notas_remision')(request);
+    const { authorized, error } = requirePermission('actualizar_ventas')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    const body: UpdateNotaRemisionRequest = await request.json();
+    const body = await request.json();
+    const { 
+      fecha_remision, 
+      usuario_id, 
+      origen_almacen_id, 
+      destino_sucursal_id, 
+      destino_almacen_id, 
+      tipo_remision, 
+      referencia_id, 
+      estado,
+      observaciones,
+      detalles = []
+    } = body;
 
-    // Validar datos
-    const validation = validateNotaRemisionData(body);
-    if (!validation.valid) {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'Datos de entrada inválidos',
-        error: 'Validación fallida',
-        data: validation.errors
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
-    // Verificar que la remisión existe
-    const existingRemisionQuery = 'SELECT remision_id, estado FROM nota_remision WHERE remision_id = $1';
-    const existingRemision = await pool.query(existingRemisionQuery, [remisionId]);
+    // Verificar que la nota de remisión existe
+    const existingNotaQuery = 'SELECT remision_id FROM nota_remision WHERE remision_id = $1';
+    const existingNota = await pool.query(existingNotaQuery, [remisionId]);
     
-    if (existingRemision.rows.length === 0) {
-      const response: VentasApiResponse = {
+    if (existingNota.rows.length === 0) {
+      const response = {
         success: false,
-        message: 'Remisión no encontrada',
-        error: 'Remisión no encontrada'
+        message: 'Nota de remisión no encontrada',
+        error: 'Nota de remisión no encontrada'
       };
       return NextResponse.json(response, { status: 404 });
     }
 
-    // Verificar si la remisión puede ser modificada
-    if (existingRemision.rows[0].estado !== 'pendiente') {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'Solo se pueden modificar remisiones pendientes',
-        error: 'Estado inválido'
-      };
-      return NextResponse.json(response, { status: 409 });
-    }
-
-    // Actualizar remisión
-    const updateRemisionQuery = `
-      UPDATE nota_remision SET
-        fecha_remision = $1,
-        usuario_id = $2,
-        origen_almacen_id = $3,
-        destino_sucursal_id = $4,
-        destino_almacen_id = $5,
-        tipo_remision = $6,
-        referencia_id = $7,
-        estado = $8,
-        observaciones = $9
-      WHERE remision_id = $10
-    `;
-
-    await pool.query(updateRemisionQuery, [
-      body.fecha_remision,
-      body.usuario_id,
-      body.origen_almacen_id,
-      body.destino_sucursal_id || null,
-      body.destino_almacen_id || null,
-      body.tipo_remision,
-      body.referencia_id || null,
-      body.estado || 'pendiente',
-      body.observaciones || null,
-      remisionId
-    ]);
-
-    // Actualizar detalles si se proporcionan
-    if (body.productos && body.productos.length > 0) {
-      // Eliminar detalles existentes
-      await pool.query('DELETE FROM nota_remision_detalle WHERE remision_id = $1', [remisionId]);
-
-      // Crear nuevos detalles
-      for (const producto of body.productos) {
-        await pool.query(
-          'INSERT INTO nota_remision_detalle (remision_id, producto_id, cantidad) VALUES ($1, $2, $3)',
-          [remisionId, producto.producto_id, producto.cantidad]
-        );
+    // Verificar que el usuario existe si se proporciona
+    if (usuario_id) {
+      const usuarioQuery = 'SELECT usuario_id FROM usuarios WHERE usuario_id = $1';
+      const usuarioResult = await pool.query(usuarioQuery, [usuario_id]);
+      
+      if (usuarioResult.rows.length === 0) {
+        const response = {
+          success: false,
+          message: 'El usuario especificado no existe',
+          error: 'Usuario inválido'
+        };
+        return NextResponse.json(response, { status: 400 });
       }
     }
 
-    const response: VentasApiResponse = {
-      success: true,
-      message: 'Remisión actualizada exitosamente'
-    };
+    // Verificar que el almacén de origen existe si se proporciona
+    if (origen_almacen_id) {
+      const origenQuery = 'SELECT almacen_id FROM almacenes WHERE almacen_id = $1';
+      const origenResult = await pool.query(origenQuery, [origen_almacen_id]);
+      
+      if (origenResult.rows.length === 0) {
+        const response = {
+          success: false,
+          message: 'El almacén de origen especificado no existe',
+          error: 'Almacén inválido'
+        };
+        return NextResponse.json(response, { status: 400 });
+      }
+    }
 
-    // Log de auditoría
-    console.log('Remisión actualizada:', sanitizeForLog({
-      remision_id: remisionId,
-      usuario_id: body.usuario_id,
-      origen_almacen_id: body.origen_almacen_id,
-      destino_sucursal_id: body.destino_sucursal_id,
-      destino_almacen_id: body.destino_almacen_id,
-      tipo_remision: body.tipo_remision,
-      estado: body.estado || 'pendiente',
-      timestamp: new Date().toISOString()
-    }));
+    // Verificar destino según el tipo
+    if (destino_sucursal_id) {
+      const destinoQuery = 'SELECT sucursal_id FROM sucursales WHERE sucursal_id = $1';
+      const destinoResult = await pool.query(destinoQuery, [destino_sucursal_id]);
+      
+      if (destinoResult.rows.length === 0) {
+        const response = {
+          success: false,
+          message: 'La sucursal de destino especificada no existe',
+          error: 'Sucursal inválida'
+        };
+        return NextResponse.json(response, { status: 400 });
+      }
+    }
 
-    return NextResponse.json(response);
+    if (destino_almacen_id) {
+      const destinoQuery = 'SELECT almacen_id FROM almacenes WHERE almacen_id = $1';
+      const destinoResult = await pool.query(destinoQuery, [destino_almacen_id]);
+      
+      if (destinoResult.rows.length === 0) {
+        const response = {
+          success: false,
+          message: 'El almacén de destino especificado no existe',
+          error: 'Almacén inválido'
+        };
+        return NextResponse.json(response, { status: 400 });
+      }
+    }
+
+    // Iniciar transacción
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Actualizar nota de remisión
+      const updateFields = [];
+      const updateValues = [];
+      let paramCount = 0;
+
+      if (fecha_remision !== undefined) {
+        paramCount++;
+        updateFields.push(`fecha_remision = $${paramCount}`);
+        updateValues.push(fecha_remision);
+      }
+
+      if (usuario_id !== undefined) {
+        paramCount++;
+        updateFields.push(`usuario_id = $${paramCount}`);
+        updateValues.push(usuario_id);
+      }
+
+      if (origen_almacen_id !== undefined) {
+        paramCount++;
+        updateFields.push(`origen_almacen_id = $${paramCount}`);
+        updateValues.push(origen_almacen_id);
+      }
+
+      if (destino_sucursal_id !== undefined) {
+        paramCount++;
+        updateFields.push(`destino_sucursal_id = $${paramCount}`);
+        updateValues.push(destino_sucursal_id);
+      }
+
+      if (destino_almacen_id !== undefined) {
+        paramCount++;
+        updateFields.push(`destino_almacen_id = $${paramCount}`);
+        updateValues.push(destino_almacen_id);
+      }
+
+      if (tipo_remision !== undefined) {
+        paramCount++;
+        updateFields.push(`tipo_remision = $${paramCount}`);
+        updateValues.push(tipo_remision);
+      }
+
+      if (referencia_id !== undefined) {
+        paramCount++;
+        updateFields.push(`referencia_id = $${paramCount}`);
+        updateValues.push(referencia_id);
+      }
+
+      if (estado !== undefined) {
+        paramCount++;
+        updateFields.push(`estado = $${paramCount}`);
+        updateValues.push(estado);
+      }
+
+      if (observaciones !== undefined) {
+        paramCount++;
+        updateFields.push(`observaciones = $${paramCount}`);
+        updateValues.push(observaciones);
+      }
+
+      if (updateFields.length === 0) {
+        const response = {
+          success: false,
+          message: 'No hay campos para actualizar',
+          error: 'Datos inválidos'
+        };
+        return NextResponse.json(response, { status: 400 });
+      }
+
+      paramCount++;
+      updateValues.push(remisionId);
+
+      const updateQuery = `
+        UPDATE nota_remision 
+        SET ${updateFields.join(', ')}
+        WHERE remision_id = $${paramCount}
+        RETURNING remision_id
+      `;
+
+      await client.query(updateQuery, updateValues);
+
+      // Actualizar detalles si se proporcionan
+      if (detalles && detalles.length > 0) {
+        // Eliminar detalles existentes
+        await client.query('DELETE FROM nota_remision_detalle WHERE remision_id = $1', [remisionId]);
+
+        // Crear nuevos detalles
+        for (const detalle of detalles) {
+          // Verificar que el producto existe
+          const productoQuery = 'SELECT producto_id FROM productos WHERE producto_id = $1';
+          const productoResult = await client.query(productoQuery, [detalle.producto_id]);
+          
+          if (productoResult.rows.length === 0) {
+            throw new Error(`El producto con ID ${detalle.producto_id} no existe`);
+          }
+
+          // Crear detalle
+          const createDetalleQuery = `
+            INSERT INTO nota_remision_detalle (remision_id, producto_id, cantidad)
+            VALUES ($1, $2, $3)
+          `;
+          
+          await client.query(createDetalleQuery, [
+            remisionId,
+            detalle.producto_id,
+            detalle.cantidad
+          ]);
+        }
+      }
+
+      await client.query('COMMIT');
+
+      // Obtener la nota actualizada
+      const getNotaQuery = `
+        SELECT 
+          nr.remision_id,
+          nr.fecha_remision,
+          nr.usuario_id,
+          nr.origen_almacen_id,
+          nr.destino_sucursal_id,
+          nr.destino_almacen_id,
+          nr.tipo_remision,
+          nr.referencia_id,
+          nr.estado,
+          nr.observaciones,
+          u.nombre as usuario_nombre,
+          oa.nombre as origen_almacen_nombre,
+          ds.nombre as destino_sucursal_nombre,
+          da.nombre as destino_almacen_nombre,
+          CONCAT('REM-', LPAD(nr.remision_id::text, 4, '0')) as codigo_remision,
+          COALESCE(detalle_stats.total_productos, 0) as total_productos,
+          COALESCE(detalle_stats.total_cantidad, 0) as total_cantidad
+        FROM nota_remision nr
+        LEFT JOIN usuarios u ON nr.usuario_id = u.usuario_id
+        LEFT JOIN almacenes oa ON nr.origen_almacen_id = oa.almacen_id
+        LEFT JOIN sucursales ds ON nr.destino_sucursal_id = ds.sucursal_id
+        LEFT JOIN almacenes da ON nr.destino_almacen_id = da.almacen_id
+        LEFT JOIN (
+          SELECT 
+            remision_id,
+            COUNT(*) as total_productos,
+            SUM(cantidad) as total_cantidad
+          FROM nota_remision_detalle
+          GROUP BY remision_id
+        ) detalle_stats ON nr.remision_id = detalle_stats.remision_id
+        WHERE nr.remision_id = $1
+      `;
+
+      const notaData = await pool.query(getNotaQuery, [remisionId]);
+
+      const response = {
+        success: true,
+        message: 'Nota de remisión actualizada exitosamente',
+        data: notaData.rows[0]
+      };
+
+      // Log de auditoría
+      console.log('Nota de remisión actualizada:', sanitizeForLog({
+        remision_id: remisionId,
+        campos_actualizados: updateFields,
+        total_detalles: detalles.length,
+        timestamp: new Date().toISOString()
+      }));
+
+      return NextResponse.json(response);
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
 
   } catch (error) {
-    console.error('Error al actualizar remisión:', error);
+    console.error('Error al actualizar nota de remisión:', error);
     
-    const response: VentasApiResponse = {
+    const response = {
       success: false,
       message: 'Error interno del servidor',
       error: 'Error interno'
@@ -252,67 +407,71 @@ export async function DELETE(
     const remisionId = parseInt(params.id);
 
     if (isNaN(remisionId)) {
-      const response: VentasApiResponse = {
+      const response = {
         success: false,
-        message: 'ID de remisión inválido',
+        message: 'ID de nota de remisión inválido',
         error: 'ID inválido'
       };
       return NextResponse.json(response, { status: 400 });
     }
 
     // Verificar permisos
-    const { authorized, error } = requirePermission('eliminar_notas_remision')(request);
+    const { authorized, error } = requirePermission('eliminar_ventas')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    // Verificar que la remisión existe
-    const existingRemisionQuery = 'SELECT remision_id, estado FROM nota_remision WHERE remision_id = $1';
-    const existingRemision = await pool.query(existingRemisionQuery, [remisionId]);
+    // Verificar que la nota de remisión existe
+    const existingNotaQuery = 'SELECT remision_id FROM nota_remision WHERE remision_id = $1';
+    const existingNota = await pool.query(existingNotaQuery, [remisionId]);
     
-    if (existingRemision.rows.length === 0) {
-      const response: VentasApiResponse = {
+    if (existingNota.rows.length === 0) {
+      const response = {
         success: false,
-        message: 'Remisión no encontrada',
-        error: 'Remisión no encontrada'
+        message: 'Nota de remisión no encontrada',
+        error: 'Nota de remisión no encontrada'
       };
       return NextResponse.json(response, { status: 404 });
     }
 
-    // Verificar si la remisión puede ser eliminada
-    if (existingRemision.rows[0].estado !== 'pendiente') {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'Solo se pueden eliminar remisiones pendientes',
-        error: 'Estado inválido'
+    // Iniciar transacción
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Eliminar detalles primero
+      await client.query('DELETE FROM nota_remision_detalle WHERE remision_id = $1', [remisionId]);
+
+      // Eliminar nota de remisión
+      await client.query('DELETE FROM nota_remision WHERE remision_id = $1', [remisionId]);
+
+      await client.query('COMMIT');
+
+      const response = {
+        success: true,
+        message: 'Nota de remisión eliminada exitosamente'
       };
-      return NextResponse.json(response, { status: 409 });
+
+      // Log de auditoría
+      console.log('Nota de remisión eliminada:', sanitizeForLog({
+        remision_id: remisionId,
+        timestamp: new Date().toISOString()
+      }));
+
+      return NextResponse.json(response);
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
 
-    // Eliminar detalles primero
-    await pool.query('DELETE FROM nota_remision_detalle WHERE remision_id = $1', [remisionId]);
-
-    // Eliminar remisión
-    await pool.query('DELETE FROM nota_remision WHERE remision_id = $1', [remisionId]);
-
-    const response: VentasApiResponse = {
-      success: true,
-      message: 'Remisión eliminada exitosamente'
-    };
-
-    // Log de auditoría
-    console.log('Remisión eliminada:', sanitizeForLog({
-      remision_id: remisionId,
-      timestamp: new Date().toISOString()
-    }));
-
-    return NextResponse.json(response);
-
   } catch (error) {
-    console.error('Error al eliminar remisión:', error);
+    console.error('Error al eliminar nota de remisión:', error);
     
-    const response: VentasApiResponse = {
+    const response = {
       success: false,
       message: 'Error interno del servidor',
       error: 'Error interno'

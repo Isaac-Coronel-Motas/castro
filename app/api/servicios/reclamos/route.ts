@@ -23,7 +23,7 @@ import {
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_reclamos')(request);
+    const { authorized, error } = requirePermission('servicios.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('crear_reclamos')(request);
+    const { authorized, error } = requirePermission('servicios.crear')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -358,7 +358,7 @@ export async function PUT(
     }
 
     // Verificar permisos
-    const { authorized, error } = requirePermission('resolver_reclamos')(request);
+    const { authorized, error } = requirePermission('servicios.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');

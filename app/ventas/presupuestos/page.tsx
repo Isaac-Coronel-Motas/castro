@@ -1,129 +1,97 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react";
 import {
   Search,
   Plus,
-  Eye,
   Edit,
   Trash2,
-  FileText,
-  Calendar,
   DollarSign,
-  Clock,
-  CheckCircle,
-  XCircle,
+  Calendar,
   AlertTriangle,
+  CheckCircle,
+  Clock,
+  Phone,
   TrendingUp,
-  Send,
-  Download,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+  Filter,
+  RefreshCw,
+  FileText,
+  User,
+  Building,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ModalNuevoPresupuestoServicio } from "@/components/modals/modal-nuevo-presupuesto-servicio";
+import { ModalEditarPresupuestoServicio } from "@/components/modals/modal-editar-presupuesto-servicio";
+import { LoadingSpinner } from "@/components/ui/loading";
+import { ErrorDisplay, EmptyState } from "@/components/ui/error-display";
+import { usePresupuestosServicios, usePresupuestosServiciosStats, useDeletePresupuestoServicio } from "@/hooks/use-presupuestos";
+import { PresupuestoServicio, PresupuestosServiciosStats } from "@/lib/types/presupuestos";
+import { useToast } from "@/hooks/use-toast";
 
-export default function PresupuestosVentasPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(["Ventas"])
+export default function PresupuestosServiciosPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
+  const [estado, setEstado] = useState("");
+  const [tipoPresu, setTipoPresu] = useState("");
+  const [sortBy, setSortBy] = useState("fecha_presupuesto");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [selectedPresupuesto, setSelectedPresupuesto] = useState<PresupuestoServicio | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["Ventas"]);
 
-  // Datos de ejemplo para presupuestos de ventas
-  const presupuestos = [
-    {
-      id: "PV-001",
-      cliente: "María González",
-      email: "maria@email.com",
-      telefono: "8812-3456",
-      fechaCreacion: "2024-01-15",
-      fechaVigencia: "2024-02-15",
-      diasVigencia: 15,
-      productos: 3,
-      subtotal: 105000,
-      descuento: 5000,
-      impuestos: 13000,
-      total: 113000,
-      estado: "pendiente",
-      prioridad: "media",
-      vendedor: "Juan Pérez",
-      observaciones: "Cliente interesado en descuento por volumen",
-    },
-    {
-      id: "PV-002",
-      cliente: "Carlos Rodríguez",
-      email: "carlos@email.com",
-      telefono: "8765-4321",
-      fechaCreacion: "2024-01-14",
-      fechaVigencia: "2024-02-14",
-      diasVigencia: 14,
-      productos: 5,
-      subtotal: 250000,
-      descuento: 15000,
-      impuestos: 30550,
-      total: 265550,
-      estado: "aprobado",
-      prioridad: "alta",
-      vendedor: "Ana Martínez",
-      observaciones: "Presupuesto aprobado, proceder con venta",
-    },
-    {
-      id: "PV-003",
-      cliente: "Ana Martínez",
-      email: "ana@email.com",
-      telefono: "8654-3210",
-      fechaCreacion: "2024-01-13",
-      fechaVigencia: "2024-01-28",
-      diasVigencia: -2,
-      productos: 2,
-      subtotal: 85000,
-      descuento: 0,
-      impuestos: 11050,
-      total: 96050,
-      estado: "vencido",
-      prioridad: "baja",
-      vendedor: "Juan Pérez",
-      observaciones: "Presupuesto vencido, contactar para renovar",
-    },
-    {
-      id: "PV-004",
-      cliente: "Luis Hernández",
-      email: "luis@email.com",
-      telefono: "8543-2109",
-      fechaCreacion: "2024-01-12",
-      fechaVigencia: "2024-02-12",
-      diasVigencia: 12,
-      productos: 4,
-      subtotal: 180000,
-      descuento: 10000,
-      impuestos: 22100,
-      total: 192100,
-      estado: "convertido",
-      prioridad: "alta",
-      vendedor: "Ana Martínez",
-      observaciones: "Convertido a venta V-004",
-    },
-    {
-      id: "PV-005",
-      cliente: "Carmen Jiménez",
-      email: "carmen@email.com",
-      telefono: "8432-1098",
-      fechaCreacion: "2024-01-11",
-      fechaVigencia: "2024-01-26",
-      diasVigencia: -4,
-      productos: 1,
-      subtotal: 120000,
-      descuento: 5000,
-      impuestos: 14950,
-      total: 129950,
-      estado: "rechazado",
-      prioridad: "media",
-      vendedor: "Juan Pérez",
-      observaciones: "Cliente decidió no proceder con la compra",
-    },
-  ]
+  const { toast } = useToast();
+
+  // Memoizar filtros para evitar llamadas infinitas
+  const filtros = useMemo(() => ({
+    search: searchTerm,
+    page,
+    limit,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+    fecha_desde: fechaDesde || undefined,
+    fecha_hasta: fechaHasta || undefined,
+    estado: estado && estado !== "all-estados" ? estado : undefined,
+    tipo_presu: tipoPresu && tipoPresu !== "all-tipos" ? tipoPresu : undefined,
+  }), [searchTerm, page, limit, sortBy, sortOrder, fechaDesde, fechaHasta, estado, tipoPresu]);
+
+  // Hooks para datos
+  const {
+    presupuestos,
+    loading,
+    error,
+    pagination,
+    fetchPresupuestos,
+    refetchPresupuestos
+  } = usePresupuestosServicios({
+    filtros,
+    autoFetch: true
+  });
+
+  const {
+    stats,
+    loading: statsLoading,
+    error: statsError,
+    fetchStats
+  } = usePresupuestosServiciosStats();
+
+  const {
+    deletePresupuesto,
+    loading: deletingPresupuesto,
+    error: deleteError
+  } = useDeletePresupuestoServicio();
+
+  // Cargar estadísticas al montar el componente
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const sidebarItems = [
     {
@@ -195,86 +163,126 @@ export default function PresupuestosVentasPage() {
         { label: "Configuración", href: "/administracion/configuracion" },
       ],
     },
-  ]
+  ];
 
   const toggleSubmenu = (label: string) => {
-    setExpandedMenus((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
-  }
+    setExpandedMenus((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]));
+  };
 
   const navigateTo = (href: string) => {
-    window.location.href = href
-  }
+    window.location.href = href;
+  };
 
-  const filteredPresupuestos = presupuestos.filter((presupuesto) => {
-    const matchesSearch =
-      presupuesto.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      presupuesto.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      presupuesto.vendedor.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || presupuesto.estado === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  // Manejar eliminación de presupuesto
+  const handleDeletePresupuesto = async (presupuesto: PresupuestoServicio) => {
+    if (window.confirm(`¿Estás seguro de que deseas eliminar el presupuesto ${presupuesto.codigo_presupuesto}?`)) {
+      const success = await deletePresupuesto(presupuesto.presu_serv_id);
+      if (success) {
+        toast({
+          title: "Presupuesto eliminado",
+          description: `El presupuesto ${presupuesto.codigo_presupuesto} ha sido eliminado exitosamente`,
+        });
+        refetchPresupuestos();
+        fetchStats();
+      } else {
+        toast({
+          title: "Error",
+          description: deleteError || "Error al eliminar el presupuesto",
+          variant: "destructive",
+        });
+      }
+    }
+  };
 
+  // Manejar edición de presupuesto
+  const handleEditPresupuesto = (presupuesto: PresupuestoServicio) => {
+    setSelectedPresupuesto(presupuesto);
+    setEditModalOpen(true);
+  };
+
+  // Manejar actualización exitosa
+  const handlePresupuestoUpdated = () => {
+    refetchPresupuestos();
+    fetchStats();
+  };
+
+  // Manejar creación exitosa
+  const handlePresupuestoCreated = () => {
+    refetchPresupuestos();
+    fetchStats();
+  };
+
+  // Resetear filtros
+  const resetFilters = () => {
+    setSearchTerm("");
+    setFechaDesde("");
+    setFechaHasta("");
+    setEstado("");
+    setTipoPresu("");
+    setPage(1);
+  };
+
+  // Cambiar página
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  // Cambiar límite de elementos por página
+  const handleLimitChange = (newLimit: string) => {
+    setLimit(parseInt(newLimit));
+    setPage(1);
+  };
+
+  // Cambiar ordenamiento
+  const handleSortChange = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("desc");
+    }
+  };
+
+  // Formatear fecha
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-ES');
+  };
+
+  // Formatear moneda
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-CR', {
+      style: 'currency',
+      currency: 'CRC'
+    }).format(amount);
+  };
+
+  // Obtener color del estado
   const getStatusColor = (estado: string) => {
     switch (estado) {
-      case "pendiente":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
       case "aprobado":
-        return "bg-green-100 text-green-800 border-green-200"
+        return "bg-green-100 text-green-800 border-green-200";
+      case "pendiente":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
       case "rechazado":
-        return "bg-red-100 text-red-800 border-red-200"
-      case "vencido":
-        return "bg-gray-100 text-gray-800 border-gray-200"
-      case "convertido":
-        return "bg-blue-100 text-blue-800 border-blue-200"
+        return "bg-red-100 text-red-800 border-red-200";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
-  }
+  };
 
-  const getPriorityColor = (prioridad: string) => {
-    switch (prioridad) {
-      case "alta":
-        return "bg-red-100 text-red-800 border-red-200"
-      case "media":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "baja":
-        return "bg-green-100 text-green-800 border-green-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
-    }
-  }
-
+  // Obtener icono del estado
   const getStatusIcon = (estado: string) => {
     switch (estado) {
-      case "pendiente":
-        return <Clock className="h-4 w-4" />
       case "aprobado":
-        return <CheckCircle className="h-4 w-4" />
+        return <CheckCircle className="h-4 w-4" />;
+      case "pendiente":
+        return <Clock className="h-4 w-4" />;
       case "rechazado":
-        return <XCircle className="h-4 w-4" />
-      case "vencido":
-        return <AlertTriangle className="h-4 w-4" />
-      case "convertido":
-        return <TrendingUp className="h-4 w-4" />
+        return <AlertTriangle className="h-4 w-4" />;
       default:
-        return <Clock className="h-4 w-4" />
+        return <Clock className="h-4 w-4" />;
     }
-  }
-
-  const getVigenciaColor = (dias: number) => {
-    if (dias < 0) return "text-red-600"
-    if (dias <= 3) return "text-orange-600"
-    if (dias <= 7) return "text-yellow-600"
-    return "text-green-600"
-  }
-
-  // Métricas calculadas
-  const totalPresupuestos = presupuestos.length
-  const presupuestosPendientes = presupuestos.filter((p) => p.estado === "pendiente").length
-  const presupuestosAprobados = presupuestos.filter((p) => p.estado === "aprobado").length
-  const valorTotalPendiente = presupuestos
-    .filter((p) => p.estado === "pendiente" || p.estado === "aprobado")
-    .reduce((sum, p) => sum + p.total, 0)
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -353,7 +361,7 @@ export default function PresupuestosVentasPage() {
               </button>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input placeholder="Buscar presupuestos, clientes..." className="pl-10 w-80" />
+                <Input placeholder="Buscar presupuestos, clientes, diagnósticos..." className="pl-10 w-80" />
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -367,7 +375,6 @@ export default function PresupuestosVentasPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder.svg" />
                   <AvatarFallback>JC</AvatarFallback>
                 </Avatar>
                 <div className="text-sm">
@@ -385,71 +392,111 @@ export default function PresupuestosVentasPage() {
             {/* Header de la página */}
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-foreground">Presupuestos de Ventas</h1>
-                <p className="text-muted-foreground">Gestión de cotizaciones y propuestas comerciales</p>
+                <h1 className="text-3xl font-bold text-foreground">Presupuestos de Servicios</h1>
+                <p className="text-muted-foreground">Gestión de presupuestos para servicios técnicos</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Presupuesto
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    refetchPresupuestos();
+                    fetchStats();
+                  }}
+                  disabled={loading || statsLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading || statsLoading ? 'animate-spin' : ''}`} />
+                  Actualizar
+                </Button>
+                <ModalNuevoPresupuestoServicio onPresupuestoCreated={handlePresupuestoCreated} />
+              </div>
             </div>
 
             {/* Métricas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Presupuestos</CardTitle>
-                  <FileText className="h-4 w-4 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-primary">{totalPresupuestos}</div>
-                  <p className="text-xs text-muted-foreground">Todas las cotizaciones</p>
+            {statsLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[...Array(4)].map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                      <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-8 w-24 bg-muted animate-pulse rounded mb-2" />
+                      <div className="h-3 w-16 bg-muted animate-pulse rounded" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : statsError ? (
+              <Card>
+                <CardContent className="p-6">
+                  <ErrorDisplay
+                    title="Error al cargar estadísticas"
+                    message={statsError}
+                    onRetry={fetchStats}
+                  />
                 </CardContent>
               </Card>
+            ) : stats ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Presupuestos</CardTitle>
+                    <FileText className="h-4 w-4 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-primary">{stats.general.total_presupuestos}</div>
+                    <p className="text-xs text-muted-foreground">Registros totales</p>
+                  </CardContent>
+                </Card>
 
-              <Card className="bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-                  <Clock className="h-4 w-4 text-secondary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-secondary">{presupuestosPendientes}</div>
-                  <p className="text-xs text-muted-foreground">Esperando respuesta</p>
-                </CardContent>
-              </Card>
+                <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Monto Total</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-green-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-500">{formatCurrency(stats.general.monto_total)}</div>
+                    <p className="text-xs text-muted-foreground">Presupuestos registrados</p>
+                  </CardContent>
+                </Card>
 
-              <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Aprobados</CardTitle>
-                  <CheckCircle className="h-4 w-4 text-accent" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-accent">{presupuestosAprobados}</div>
-                  <p className="text-xs text-muted-foreground">Listos para venta</p>
-                </CardContent>
-              </Card>
+                <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Presupuestos Hoy</CardTitle>
+                    <Calendar className="h-4 w-4 text-blue-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-500">{stats.hoy.presupuestos_hoy}</div>
+                    <p className="text-xs text-muted-foreground">{formatCurrency(stats.hoy.monto_hoy)}</p>
+                  </CardContent>
+                </Card>
 
-              <Card className="bg-gradient-to-br from-chart-4/10 to-chart-4/5 border-chart-4/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Valor Potencial</CardTitle>
-                  <DollarSign className="h-4 w-4 text-chart-4" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-chart-4">₡{valorTotalPendiente.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">Pendientes + Aprobados</p>
-                </CardContent>
-              </Card>
-            </div>
+                <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Promedio</CardTitle>
+                    <DollarSign className="h-4 w-4 text-purple-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-purple-500">{formatCurrency(stats.general.promedio_presupuesto)}</div>
+                    <p className="text-xs text-muted-foreground">Por presupuesto</p>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : null}
 
-            {/* Filtros y búsqueda */}
+            {/* Filtros */}
             <Card>
               <CardHeader>
-                <CardTitle>Lista de Presupuestos</CardTitle>
-                <CardDescription>Gestiona todas las cotizaciones y propuestas comerciales</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  Filtros y Búsqueda
+                </CardTitle>
+                <CardDescription>Busca y filtra los presupuestos según tus necesidades</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                  <div className="relative flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                  <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input
                       placeholder="Buscar presupuestos..."
@@ -458,135 +505,325 @@ export default function PresupuestosVentasPage() {
                       className="pl-10"
                     />
                   </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full sm:w-48">
-                      <SelectValue placeholder="Filtrar por estado" />
+                  
+                  <Input
+                    type="date"
+                    placeholder="Fecha desde"
+                    value={fechaDesde}
+                    onChange={(e) => setFechaDesde(e.target.value)}
+                  />
+                  
+                  <Input
+                    type="date"
+                    placeholder="Fecha hasta"
+                    value={fechaHasta}
+                    onChange={(e) => setFechaHasta(e.target.value)}
+                  />
+
+                  <Select value={estado} onValueChange={setEstado}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Estado" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos los estados</SelectItem>
+                      <SelectItem value="all-estados">Todos los estados</SelectItem>
                       <SelectItem value="pendiente">Pendiente</SelectItem>
                       <SelectItem value="aprobado">Aprobado</SelectItem>
                       <SelectItem value="rechazado">Rechazado</SelectItem>
-                      <SelectItem value="vencido">Vencido</SelectItem>
-                      <SelectItem value="convertido">Convertido</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={tipoPresu} onValueChange={setTipoPresu}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all-tipos">Todos los tipos</SelectItem>
+                      <SelectItem value="con_diagnostico">Con Diagnóstico</SelectItem>
+                      <SelectItem value="sin_diagnostico">Sin Diagnóstico</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Tabla de presupuestos */}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Presupuesto</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Cliente</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Fecha/Vigencia</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Productos</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Subtotal</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Descuento</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Total</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Estado</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Prioridad</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPresupuestos.map((presupuesto) => (
-                        <tr key={presupuesto.id} className="border-b border-border hover:bg-muted/50">
-                          <td className="py-3 px-4">
-                            <div className="font-medium">{presupuesto.id}</div>
-                            <div className="text-sm text-muted-foreground">Vendedor: {presupuesto.vendedor}</div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback>
-                                  {presupuesto.cliente
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="font-medium">{presupuesto.cliente}</div>
-                                <div className="text-sm text-muted-foreground">{presupuesto.telefono}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <div>
-                                <div className="text-sm font-medium">{presupuesto.fechaCreacion}</div>
-                                <div className="text-sm text-muted-foreground">Vence: {presupuesto.fechaVigencia}</div>
-                                <div className={`text-xs font-medium ${getVigenciaColor(presupuesto.diasVigencia)}`}>
-                                  {presupuesto.diasVigencia < 0
-                                    ? `Vencido hace ${Math.abs(presupuesto.diasVigencia)} días`
-                                    : presupuesto.diasVigencia === 0
-                                      ? "Vence hoy"
-                                      : `${presupuesto.diasVigencia} días restantes`}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-1">
-                              <FileText className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">{presupuesto.productos}</span>
-                              <span className="text-sm text-muted-foreground">items</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-medium">₡{presupuesto.subtotal.toLocaleString()}</div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-medium text-green-600">
-                              {presupuesto.descuento > 0 ? `-₡${presupuesto.descuento.toLocaleString()}` : "-"}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-bold text-primary text-lg">₡{presupuesto.total.toLocaleString()}</div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge className={`${getStatusColor(presupuesto.estado)} flex items-center gap-1`}>
-                              {getStatusIcon(presupuesto.estado)}
-                              {presupuesto.estado.charAt(0).toUpperCase() + presupuesto.estado.slice(1)}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge className={getPriorityColor(presupuesto.prioridad)}>
-                              {presupuesto.prioridad.charAt(0).toUpperCase() + presupuesto.prioridad.slice(1)}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" title="Ver detalles">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" title="Editar">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" title="Enviar por email">
-                                <Send className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" title="Descargar PDF">
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" title="Eliminar">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={resetFilters} className="flex-1">
+                    Limpiar Filtros
+                  </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Tabla de presupuestos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Lista de Presupuestos</CardTitle>
+                <CardDescription>
+                  {pagination ? `${pagination.total} presupuestos encontrados` : "Cargando..."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <LoadingSpinner />
+                  </div>
+                ) : error ? (
+                  <ErrorDisplay
+                    title="Error al cargar presupuestos"
+                    message={error}
+                    onRetry={refetchPresupuestos}
+                  />
+                ) : presupuestos.length === 0 ? (
+                  <EmptyState
+                    title="No se encontraron presupuestos"
+                    description="No hay presupuestos que coincidan con los filtros aplicados"
+                    action={{
+                      label: "Crear primer presupuesto",
+                      onClick: () => {
+                        // Abrir modal de nuevo presupuesto
+                      }
+                    }}
+                  />
+                ) : (
+                  <>
+                    {/* Tabla */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                              <button
+                                onClick={() => handleSortChange('codigo_presupuesto')}
+                                className="flex items-center gap-1 hover:text-foreground"
+                              >
+                                Código
+                                {sortBy === 'codigo_presupuesto' && (
+                                  <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                              <button
+                                onClick={() => handleSortChange('cliente_nombre')}
+                                className="flex items-center gap-1 hover:text-foreground"
+                              >
+                                Cliente
+                                {sortBy === 'cliente_nombre' && (
+                                  <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                              <button
+                                onClick={() => handleSortChange('fecha_presupuesto')}
+                                className="flex items-center gap-1 hover:text-foreground"
+                              >
+                                Fecha
+                                {sortBy === 'fecha_presupuesto' && (
+                                  <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-muted-foreground">
+                              <button
+                                onClick={() => handleSortChange('monto_presu_ser')}
+                                className="flex items-center gap-1 hover:text-foreground"
+                              >
+                                Monto
+                                {sortBy === 'monto_presu_ser' && (
+                                  <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-muted-foreground">Estado</th>
+                            <th className="text-left py-3 px-4 font-medium text-muted-foreground">Tipo</th>
+                            <th className="text-left py-3 px-4 font-medium text-muted-foreground">Usuario</th>
+                            <th className="text-left py-3 px-4 font-medium text-muted-foreground">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {presupuestos.map((presupuesto) => (
+                            <tr key={presupuesto.presu_serv_id} className="border-b border-border hover:bg-muted/50">
+                              <td className="py-3 px-4">
+                                <div className="font-medium">{presupuesto.codigo_presupuesto}</div>
+                                {presupuesto.nro_presupuesto && (
+                                  <div className="text-sm text-muted-foreground">
+                                    #{presupuesto.nro_presupuesto}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarFallback>
+                                      {presupuesto.cliente_nombre
+                                        ?.split(" ")
+                                        .map((n) => n[0])
+                                        .join("")
+                                        .toUpperCase() || "C"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="font-medium">{presupuesto.cliente_nombre || "Sin cliente"}</div>
+                                    {presupuesto.cliente_telefono && (
+                                      <div className="text-sm text-muted-foreground flex items-center gap-1">
+                                        <Phone className="h-3 w-3" />
+                                        {presupuesto.cliente_telefono}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-sm">{formatDate(presupuesto.fecha_presupuesto)}</span>
+                                </div>
+                                {(presupuesto.valido_desde || presupuesto.valido_hasta) && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Válido: {presupuesto.valido_desde ? formatDate(presupuesto.valido_desde) : 'N/A'} - {presupuesto.valido_hasta ? formatDate(presupuesto.valido_hasta) : 'N/A'}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="font-bold text-primary text-lg">
+                                  {formatCurrency(presupuesto.monto_presu_ser)}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(presupuesto.estado)}`}>
+                                  {getStatusIcon(presupuesto.estado)}
+                                  {presupuesto.estado}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="text-sm">
+                                  {presupuesto.tipo_presu === 'con_diagnostico' ? 'Con Diagnóstico' : 'Sin Diagnóstico'}
+                                </div>
+                                {presupuesto.diagnostico_descripcion && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {presupuesto.diagnostico_descripcion.substring(0, 30)}...
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <User className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-sm">
+                                    {presupuesto.usuario_nombre || "Sin asignar"}
+                                  </span>
+                                </div>
+                                {presupuesto.sucursal_nombre && (
+                                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <Building className="h-3 w-3" />
+                                    {presupuesto.sucursal_nombre}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleEditPresupuesto(presupuesto)}
+                                    title="Editar presupuesto"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeletePresupuesto(presupuesto)}
+                                    disabled={deletingPresupuesto}
+                                    title="Eliminar presupuesto"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Paginación */}
+                    {pagination && pagination.total_pages > 1 && (
+                      <div className="flex items-center justify-between mt-6">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            Mostrando {((pagination.page - 1) * pagination.limit) + 1} a{" "}
+                            {Math.min(pagination.page * pagination.limit, pagination.total)} de{" "}
+                            {pagination.total} resultados
+                          </span>
+                          <Select value={pagination.limit.toString()} onValueChange={handleLimitChange}>
+                            <SelectTrigger className="w-20">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="10">10</SelectItem>
+                              <SelectItem value="25">25</SelectItem>
+                              <SelectItem value="50">50</SelectItem>
+                              <SelectItem value="100">100</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(pagination.page - 1)}
+                            disabled={pagination.page === 1}
+                          >
+                            Anterior
+                          </Button>
+                          
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
+                              const pageNum = Math.max(1, pagination.page - 2) + i;
+                              if (pageNum > pagination.total_pages) return null;
+                              
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={pageNum === pagination.page ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => handlePageChange(pageNum)}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(pagination.page + 1)}
+                            disabled={pagination.page === pagination.total_pages}
+                          >
+                            Siguiente
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
         </main>
       </div>
+
+      {/* Modal de edición */}
+      {selectedPresupuesto && (
+        <ModalEditarPresupuestoServicio
+          presupuesto={selectedPresupuesto}
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
+          onPresupuestoUpdated={handlePresupuestoUpdated}
+        />
+      )}
     </div>
-  )
+  );
 }

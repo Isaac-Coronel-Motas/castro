@@ -5,24 +5,17 @@ import {
   createAuthzErrorResponse 
 } from '@/lib/middleware/auth';
 import { 
-  validateCobroData, 
   buildSearchWhereClause,
   buildOrderByClause,
   buildPaginationParams,
-  generateCobroNumber,
   sanitizeForLog 
 } from '@/lib/utils/ventas';
-import { 
-  CreateCobroRequest, 
-  VentasApiResponse, 
-  FiltrosCobros 
-} from '@/lib/types/ventas';
 
 // GET /api/ventas/cobros - Listar cobros
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_cobros')(request);
+    const { authorized, error } = requirePermission('ventas.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -35,21 +28,32 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const sort_by = searchParams.get('sort_by') || 'fecha_cobro';
     const sort_order = searchParams.get('sort_order') || 'desc';
+    const venta_id = searchParams.get('venta_id');
+    const caja_id = searchParams.get('caja_id');
     const fecha_desde = searchParams.get('fecha_desde');
     const fecha_hasta = searchParams.get('fecha_hasta');
-    const cliente_id = searchParams.get('cliente_id');
-    const caja_id = searchParams.get('caja_id');
-    const sucursal_id = searchParams.get('sucursal_id');
     const usuario_id = searchParams.get('usuario_id');
 
     const offset = (page - 1) * limit;
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['c.observacion', 'cl.nombre_cliente', 'u.nombre', 'caja.nro_caja'];
+    const searchFields = ['c.observacion', 'v.nro_factura', 'cl.nombre', 'u.nombre'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
+
+    if (venta_id) {
+      paramCount++;
+      additionalConditions.push(`c.venta_id = $${paramCount}`);
+      queryParams.push(parseInt(venta_id));
+    }
+
+    if (caja_id) {
+      paramCount++;
+      additionalConditions.push(`c.caja_id = $${paramCount}`);
+      queryParams.push(parseInt(caja_id));
+    }
 
     if (fecha_desde) {
       paramCount++;
@@ -61,24 +65,6 @@ export async function GET(request: NextRequest) {
       paramCount++;
       additionalConditions.push(`c.fecha_cobro <= $${paramCount}`);
       queryParams.push(fecha_hasta);
-    }
-
-    if (cliente_id) {
-      paramCount++;
-      additionalConditions.push(`v.cliente_id = $${paramCount}`);
-      queryParams.push(parseInt(cliente_id));
-    }
-
-    if (caja_id) {
-      paramCount++;
-      additionalConditions.push(`c.caja_id = $${paramCount}`);
-      queryParams.push(parseInt(caja_id));
-    }
-
-    if (sucursal_id) {
-      paramCount++;
-      additionalConditions.push(`caja.sucursal_id = $${paramCount}`);
-      queryParams.push(parseInt(sucursal_id));
     }
 
     if (usuario_id) {
@@ -100,14 +86,16 @@ export async function GET(request: NextRequest) {
         c.usuario_id,
         c.caja_id,
         c.observacion,
-        cl.nombre_cliente as cliente_nombre,
+        v.nro_factura,
+        v.monto_venta as venta_total,
+        v.fecha_venta,
+        cl.nombre as cliente_nombre,
         cl.telefono as cliente_telefono,
-        cl.email as cliente_email,
-        v.nro_factura as venta_nro_factura,
         u.nombre as usuario_nombre,
         caja.nro_caja as caja_nro,
         s.nombre as sucursal_nombre,
         fc.nombre as forma_cobro_nombre,
+        CONCAT('COB-', LPAD(c.cobro_id::text, 4, '0')) as codigo_cobro,
         COUNT(*) OVER() as total_count
       FROM cobros c
       LEFT JOIN ventas v ON c.venta_id = v.venta_id
@@ -126,7 +114,7 @@ export async function GET(request: NextRequest) {
     const cobros = result.rows;
     const total = cobros.length > 0 ? parseInt(cobros[0].total_count) : 0;
 
-    const response: VentasApiResponse = {
+    const response = {
       success: true,
       message: 'Cobros obtenidos exitosamente',
       data: cobros.map(c => {
@@ -146,7 +134,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error al obtener cobros:', error);
     
-    const response: VentasApiResponse = {
+    const response = {
       success: false,
       message: 'Error interno del servidor',
       error: 'Error interno'
@@ -160,32 +148,31 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('crear_cobros')(request);
+    const { authorized, error } = requirePermission('ventas.crear')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    const body: CreateCobroRequest = await request.json();
+    const body = await request.json();
+    const { venta_id, monto, caja_id, observacion, usuario_id } = body;
 
-    // Validar datos
-    const validation = validateCobroData(body);
-    if (!validation.valid) {
-      const response: VentasApiResponse = {
+    // Validar datos requeridos
+    if (!venta_id || !monto || !caja_id) {
+      const response = {
         success: false,
-        message: 'Datos de entrada inválidos',
-        error: 'Validación fallida',
-        data: validation.errors
+        message: 'Venta ID, monto y caja son requeridos',
+        error: 'Datos inválidos'
       };
       return NextResponse.json(response, { status: 400 });
     }
 
     // Verificar que la venta existe
-    const ventaQuery = 'SELECT venta_id, monto_venta, condicion_pago FROM ventas WHERE venta_id = $1';
-    const ventaResult = await pool.query(ventaQuery, [body.venta_id]);
+    const ventaQuery = 'SELECT venta_id, monto_venta, estado FROM ventas WHERE venta_id = $1';
+    const ventaResult = await pool.query(ventaQuery, [venta_id]);
     
     if (ventaResult.rows.length === 0) {
-      const response: VentasApiResponse = {
+      const response = {
         success: false,
         message: 'La venta especificada no existe',
         error: 'Venta inválida'
@@ -193,12 +180,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Verificar que la caja existe
+    // Verificar que la caja existe y está activa
     const cajaQuery = 'SELECT caja_id, activo FROM cajas WHERE caja_id = $1';
-    const cajaResult = await pool.query(cajaQuery, [body.caja_id]);
+    const cajaResult = await pool.query(cajaQuery, [caja_id]);
     
     if (cajaResult.rows.length === 0) {
-      const response: VentasApiResponse = {
+      const response = {
         success: false,
         message: 'La caja especificada no existe',
         error: 'Caja inválida'
@@ -206,8 +193,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 });
     }
 
-    if (!cajaResult.rows.length === 0) {
-      const response: VentasApiResponse = {
+    if (!cajaResult.rows[0].activo) {
+      const response = {
         success: false,
         message: 'La caja especificada está inactiva',
         error: 'Caja inactiva'
@@ -216,42 +203,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el usuario existe si se proporciona
-    if (body.usuario_id) {
+    if (usuario_id) {
       const usuarioQuery = 'SELECT usuario_id FROM usuarios WHERE usuario_id = $1';
-      const usuarioResult = await pool.query(usuarioQuery, [body.usuario_id]);
+      const usuarioResult = await pool.query(usuarioQuery, [usuario_id]);
       
       if (usuarioResult.rows.length === 0) {
-        const response: VentasApiResponse = {
+        const response = {
           success: false,
           message: 'El usuario especificado no existe',
           error: 'Usuario inválido'
-        };
-        return NextResponse.json(response, { status: 400 });
-      }
-    }
-
-    // Verificar que el monto del cobro no exceda el saldo pendiente
-    const saldoQuery = `
-      SELECT 
-        v.monto_venta,
-        COALESCE(SUM(c.monto), 0) as total_cobros
-      FROM ventas v
-      LEFT JOIN cobros c ON v.venta_id = c.venta_id
-      WHERE v.venta_id = $1
-      GROUP BY v.venta_id, v.monto_venta
-    `;
-    const saldoResult = await pool.query(saldoQuery, [body.venta_id]);
-    
-    if (saldoResult.rows.length > 0) {
-      const montoVenta = parseFloat(saldoResult.rows[0].monto_venta);
-      const totalCobros = parseFloat(saldoResult.rows[0].total_cobros);
-      const saldoPendiente = montoVenta - totalCobros;
-      
-      if (body.monto > saldoPendiente) {
-        const response: VentasApiResponse = {
-          success: false,
-          message: `El monto del cobro (${body.monto}) excede el saldo pendiente (${saldoPendiente})`,
-          error: 'Monto excedido'
         };
         return NextResponse.json(response, { status: 400 });
       }
@@ -266,37 +226,15 @@ export async function POST(request: NextRequest) {
     `;
 
     const cobroResult = await pool.query(createCobroQuery, [
-      body.venta_id,
+      venta_id,
       body.fecha_cobro || new Date().toISOString().split('T')[0],
-      body.monto,
-      body.usuario_id || null,
-      body.caja_id,
-      body.observacion || null
+      monto,
+      usuario_id || null,
+      caja_id,
+      observacion || null
     ]);
 
     const newCobroId = cobroResult.rows[0].cobro_id;
-
-    // Actualizar cuenta por cobrar si existe
-    const cuentaQuery = 'SELECT cuenta_cobrar_id, saldo_pendiente FROM cuentas_por_cobrar WHERE venta_id = $1';
-    const cuentaResult = await pool.query(cuentaQuery, [body.venta_id]);
-    
-    if (cuentaResult.rows.length > 0) {
-      const cuentaId = cuentaResult.rows[0].cuenta_cobrar_id;
-      const saldoActual = parseFloat(cuentaResult.rows[0].saldo_pendiente);
-      const nuevoSaldo = saldoActual - body.monto;
-      
-      let nuevoEstado = 'pendiente';
-      if (nuevoSaldo <= 0) {
-        nuevoEstado = 'pagada';
-      } else if (nuevoSaldo < saldoActual) {
-        nuevoEstado = 'parcial';
-      }
-      
-      await pool.query(
-        'UPDATE cuentas_por_cobrar SET saldo_pendiente = $1, estado = $2 WHERE cuenta_cobrar_id = $3',
-        [nuevoSaldo, nuevoEstado, cuentaId]
-      );
-    }
 
     // Obtener el cobro creado con información completa
     const getCobroQuery = `
@@ -308,14 +246,16 @@ export async function POST(request: NextRequest) {
         c.usuario_id,
         c.caja_id,
         c.observacion,
-        cl.nombre_cliente as cliente_nombre,
+        v.nro_factura,
+        v.monto_venta as venta_total,
+        v.fecha_venta,
+        cl.nombre as cliente_nombre,
         cl.telefono as cliente_telefono,
-        cl.email as cliente_email,
-        v.nro_factura as venta_nro_factura,
         u.nombre as usuario_nombre,
         caja.nro_caja as caja_nro,
         s.nombre as sucursal_nombre,
-        fc.nombre as forma_cobro_nombre
+        fc.nombre as forma_cobro_nombre,
+        CONCAT('COB-', LPAD(c.cobro_id::text, 4, '0')) as codigo_cobro
       FROM cobros c
       LEFT JOIN ventas v ON c.venta_id = v.venta_id
       LEFT JOIN clientes cl ON v.cliente_id = cl.cliente_id
@@ -328,7 +268,7 @@ export async function POST(request: NextRequest) {
 
     const cobroData = await pool.query(getCobroQuery, [newCobroId]);
 
-    const response: VentasApiResponse = {
+    const response = {
       success: true,
       message: 'Cobro creado exitosamente',
       data: cobroData.rows[0]
@@ -337,11 +277,10 @@ export async function POST(request: NextRequest) {
     // Log de auditoría
     console.log('Cobro creado:', sanitizeForLog({
       cobro_id: newCobroId,
-      nro_cobro: generateCobroNumber(newCobroId),
-      venta_id: body.venta_id,
-      monto: body.monto,
-      caja_id: body.caja_id,
-      usuario_id: body.usuario_id,
+      venta_id,
+      monto,
+      caja_id,
+      usuario_id,
       timestamp: new Date().toISOString()
     }));
 
@@ -350,7 +289,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error al crear cobro:', error);
     
-    const response: VentasApiResponse = {
+    const response = {
       success: false,
       message: 'Error interno del servidor',
       error: 'Error interno'

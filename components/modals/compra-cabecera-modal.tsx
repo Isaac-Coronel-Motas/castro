@@ -303,15 +303,15 @@ export function CompraCabeceraModal({ isOpen, onClose, onSave, compra, mode }: C
                   <div className="space-y-2">
                     <Label htmlFor="almacen_id">Almacén</Label>
                     <Select
-                      value={formData.almacen_id?.toString() || ''}
-                      onValueChange={(value) => handleInputChange('almacen_id', value ? parseInt(value) : undefined)}
+                      value={formData.almacen_id?.toString() || 'no-almacen'}
+                      onValueChange={(value) => handleInputChange('almacen_id', value && value !== 'no-almacen' ? parseInt(value) : undefined)}
                       disabled={mode === 'view'}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar almacén (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Sin almacén</SelectItem>
+                        <SelectItem value="no-almacen">Sin almacén</SelectItem>
                         {almacenes.map((almacen) => (
                           <SelectItem key={almacen.almacen_id} value={almacen.almacen_id.toString()}>
                             {almacen.nombre}
@@ -324,15 +324,15 @@ export function CompraCabeceraModal({ isOpen, onClose, onSave, compra, mode }: C
                   <div className="space-y-2">
                     <Label htmlFor="orden_compra_id">Orden de Compra</Label>
                     <Select
-                      value={formData.orden_compra_id?.toString() || ''}
-                      onValueChange={(value) => handleInputChange('orden_compra_id', value ? parseInt(value) : undefined)}
+                      value={formData.orden_compra_id?.toString() || 'no-orden'}
+                      onValueChange={(value) => handleInputChange('orden_compra_id', value && value !== 'no-orden' ? parseInt(value) : undefined)}
                       disabled={mode === 'view'}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar orden (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Sin orden</SelectItem>
+                        <SelectItem value="no-orden">Sin orden</SelectItem>
                         {ordenesCompra.map((orden) => (
                           <SelectItem key={orden.orden_compra_id} value={orden.orden_compra_id.toString()}>
                             {orden.nro_comprobante} - {orden.proveedor_nombre}

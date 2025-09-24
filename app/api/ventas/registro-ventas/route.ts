@@ -24,7 +24,7 @@ import {
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_ventas')(request);
+    const { authorized, error } = requirePermission('ventas.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['v.tipo_documento', 'v.observaciones', 'c.nombre_cliente', 'fc.nombre'];
+    const searchFields = ['v.tipo_documento', 'v.observaciones', 'c.nombre', 'fc.nombre'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
         v.monto_exenta,
         v.monto_iva,
         v.condicion_pago,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         c.telefono as cliente_telefono,
         c.email as cliente_email,
         caja.nro_caja as caja_nro,
@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
       GROUP BY v.venta_id, v.cliente_id, v.fecha_venta, v.estado, v.tipo_documento, 
                v.monto_venta, v.caja_id, v.tipo_doc_id, v.nro_factura, v.forma_cobro_id, 
                v.monto_gravada_5, v.monto_gravada_10, v.monto_exenta, v.monto_iva, 
-               v.condicion_pago, c.nombre_cliente, c.telefono, c.email, caja.nro_caja, 
+               v.condicion_pago, c.nombre, c.telefono, c.email, caja.nro_caja, 
                s.nombre, fc.nombre, td.descripcion
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('crear_ventas')(request);
+    const { authorized, error } = requirePermission('ventas.crear')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -402,7 +402,7 @@ export async function POST(request: NextRequest) {
         v.monto_exenta,
         v.monto_iva,
         v.condicion_pago,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         c.telefono as cliente_telefono,
         c.email as cliente_email,
         caja.nro_caja as caja_nro,
@@ -471,7 +471,7 @@ export async function PUT(
     }
 
     // Verificar permisos
-    const { authorized, error } = requirePermission('cerrar_ventas')(request);
+    const { authorized, error } = requirePermission('ventas.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');

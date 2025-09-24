@@ -5,24 +5,17 @@ import {
   createAuthzErrorResponse 
 } from '@/lib/middleware/auth';
 import { 
-  validateNotaRemisionData, 
   buildSearchWhereClause,
   buildOrderByClause,
   buildPaginationParams,
-  generateRemisionNumber,
   sanitizeForLog 
 } from '@/lib/utils/ventas';
-import { 
-  CreateNotaRemisionRequest, 
-  VentasApiResponse, 
-  FiltrosNotasRemision 
-} from '@/lib/types/ventas';
 
 // GET /api/ventas/notas-remision - Listar notas de remisión
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_notas_remision')(request);
+    const { authorized, error } = requirePermission('leer_ventas')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -36,19 +29,19 @@ export async function GET(request: NextRequest) {
     const sort_by = searchParams.get('sort_by') || 'fecha_remision';
     const sort_order = searchParams.get('sort_order') || 'desc';
     const estado = searchParams.get('estado');
-    const fecha_desde = searchParams.get('fecha_desde');
-    const fecha_hasta = searchParams.get('fecha_hasta');
+    const tipo_remision = searchParams.get('tipo_remision');
     const usuario_id = searchParams.get('usuario_id');
     const origen_almacen_id = searchParams.get('origen_almacen_id');
     const destino_sucursal_id = searchParams.get('destino_sucursal_id');
     const destino_almacen_id = searchParams.get('destino_almacen_id');
-    const tipo_remision = searchParams.get('tipo_remision');
+    const fecha_desde = searchParams.get('fecha_desde');
+    const fecha_hasta = searchParams.get('fecha_hasta');
 
     const offset = (page - 1) * limit;
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['nr.observaciones', 'u.nombre', 'oa.nombre', 'da.nombre'];
+    const searchFields = ['nr.observaciones', 'u.nombre', 'oa.nombre', 'ds.nombre', 'da.nombre'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -59,16 +52,10 @@ export async function GET(request: NextRequest) {
       queryParams.push(estado);
     }
 
-    if (fecha_desde) {
+    if (tipo_remision) {
       paramCount++;
-      additionalConditions.push(`nr.fecha_remision >= $${paramCount}`);
-      queryParams.push(fecha_desde);
-    }
-
-    if (fecha_hasta) {
-      paramCount++;
-      additionalConditions.push(`nr.fecha_remision <= $${paramCount}`);
-      queryParams.push(fecha_hasta);
+      additionalConditions.push(`nr.tipo_remision = $${paramCount}`);
+      queryParams.push(tipo_remision);
     }
 
     if (usuario_id) {
@@ -95,10 +82,16 @@ export async function GET(request: NextRequest) {
       queryParams.push(parseInt(destino_almacen_id));
     }
 
-    if (tipo_remision) {
+    if (fecha_desde) {
       paramCount++;
-      additionalConditions.push(`nr.tipo_remision = $${paramCount}`);
-      queryParams.push(tipo_remision);
+      additionalConditions.push(`nr.fecha_remision >= $${paramCount}`);
+      queryParams.push(fecha_desde);
+    }
+
+    if (fecha_hasta) {
+      paramCount++;
+      additionalConditions.push(`nr.fecha_remision <= $${paramCount}`);
+      queryParams.push(fecha_hasta);
     }
 
     const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
@@ -121,44 +114,39 @@ export async function GET(request: NextRequest) {
         oa.nombre as origen_almacen_nombre,
         ds.nombre as destino_sucursal_nombre,
         da.nombre as destino_almacen_nombre,
-        COUNT(nrd.detalle_id) as total_productos,
-        CASE 
-          WHEN nr.estado = 'pendiente' THEN 'Pendiente'
-          WHEN nr.estado = 'enviado' THEN 'Enviado'
-          WHEN nr.estado = 'anulado' THEN 'Anulado'
-        END as estado_display,
-        CASE 
-          WHEN nr.estado = 'pendiente' THEN 'Enviar'
-          WHEN nr.estado = 'enviado' THEN 'Ver'
-          ELSE 'Ver'
-        END as estado_accion,
+        CONCAT('REM-', LPAD(nr.remision_id::text, 4, '0')) as codigo_remision,
+        COALESCE(detalle_stats.total_productos, 0) as total_productos,
+        COALESCE(detalle_stats.total_cantidad, 0) as total_cantidad,
         COUNT(*) OVER() as total_count
       FROM nota_remision nr
       LEFT JOIN usuarios u ON nr.usuario_id = u.usuario_id
       LEFT JOIN almacenes oa ON nr.origen_almacen_id = oa.almacen_id
       LEFT JOIN sucursales ds ON nr.destino_sucursal_id = ds.sucursal_id
       LEFT JOIN almacenes da ON nr.destino_almacen_id = da.almacen_id
-      LEFT JOIN nota_remision_detalle nrd ON nr.remision_id = nrd.remision_id
+      LEFT JOIN (
+        SELECT 
+          remision_id,
+          COUNT(*) as total_productos,
+          SUM(cantidad) as total_cantidad
+        FROM nota_remision_detalle
+        GROUP BY remision_id
+      ) detalle_stats ON nr.remision_id = detalle_stats.remision_id
       ${whereClause}
-      GROUP BY nr.remision_id, nr.fecha_remision, nr.usuario_id, nr.origen_almacen_id, 
-               nr.destino_sucursal_id, nr.destino_almacen_id, nr.tipo_remision, 
-               nr.referencia_id, nr.estado, nr.observaciones, u.nombre, 
-               oa.nombre, ds.nombre, da.nombre
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
     const allParams = [...queryParams, ...params, limitParam, offsetParam];
     const result = await pool.query(query, allParams);
-    const remisiones = result.rows;
-    const total = remisiones.length > 0 ? parseInt(remisiones[0].total_count) : 0;
+    const notasRemision = result.rows;
+    const total = notasRemision.length > 0 ? parseInt(notasRemision[0].total_count) : 0;
 
-    const response: VentasApiResponse = {
+    const response = {
       success: true,
       message: 'Notas de remisión obtenidas exitosamente',
-      data: remisiones.map(r => {
-        const { total_count, ...remision } = r;
-        return remision;
+      data: notasRemision.map(nr => {
+        const { total_count, ...notaRemision } = nr;
+        return notaRemision;
       }),
       pagination: {
         page,
@@ -173,7 +161,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error al obtener notas de remisión:', error);
     
-    const response: VentasApiResponse = {
+    const response = {
       success: false,
       message: 'Error interno del servidor',
       error: 'Error interno'
@@ -187,32 +175,80 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('crear_notas_remision')(request);
+    const { authorized, error } = requirePermission('crear_ventas')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    const body: CreateNotaRemisionRequest = await request.json();
+    const body = await request.json();
+    const { 
+      fecha_remision, 
+      usuario_id, 
+      origen_almacen_id, 
+      destino_sucursal_id, 
+      destino_almacen_id, 
+      tipo_remision, 
+      referencia_id, 
+      observaciones,
+      detalles = []
+    } = body;
 
-    // Validar datos
-    const validation = validateNotaRemisionData(body);
-    if (!validation.valid) {
-      const response: VentasApiResponse = {
+    // Validar datos requeridos
+    if (!usuario_id) {
+      const response = {
         success: false,
-        message: 'Datos de entrada inválidos',
-        error: 'Validación fallida',
-        data: validation.errors
+        message: 'El usuario es requerido',
+        error: 'Datos inválidos'
       };
       return NextResponse.json(response, { status: 400 });
     }
 
+    if (!origen_almacen_id) {
+      const response = {
+        success: false,
+        message: 'El almacén de origen es requerido',
+        error: 'Datos inválidos'
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    if (!tipo_remision) {
+      const response = {
+        success: false,
+        message: 'El tipo de remisión es requerido',
+        error: 'Datos inválidos'
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    // Validar tipo de remisión y destino
+    if (tipo_remision === 'compra' || tipo_remision === 'venta') {
+      if (!destino_sucursal_id) {
+        const response = {
+          success: false,
+          message: 'La sucursal de destino es requerida para este tipo de remisión',
+          error: 'Datos inválidos'
+        };
+        return NextResponse.json(response, { status: 400 });
+      }
+    } else if (tipo_remision === 'transferencia') {
+      if (!destino_almacen_id) {
+        const response = {
+          success: false,
+          message: 'El almacén de destino es requerido para transferencias',
+          error: 'Datos inválidos'
+        };
+        return NextResponse.json(response, { status: 400 });
+      }
+    }
+
     // Verificar que el usuario existe
     const usuarioQuery = 'SELECT usuario_id FROM usuarios WHERE usuario_id = $1';
-    const usuarioResult = await pool.query(usuarioQuery, [body.usuario_id]);
+    const usuarioResult = await pool.query(usuarioQuery, [usuario_id]);
     
     if (usuarioResult.rows.length === 0) {
-      const response: VentasApiResponse = {
+      const response = {
         success: false,
         message: 'El usuario especificado no existe',
         error: 'Usuario inválido'
@@ -221,235 +257,171 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el almacén de origen existe
-    const origenAlmacenQuery = 'SELECT almacen_id FROM almacenes WHERE almacen_id = $1';
-    const origenAlmacenResult = await pool.query(origenAlmacenQuery, [body.origen_almacen_id]);
+    const origenQuery = 'SELECT almacen_id FROM almacenes WHERE almacen_id = $1';
+    const origenResult = await pool.query(origenQuery, [origen_almacen_id]);
     
-    if (origenAlmacenResult.rows.length === 0) {
-      const response: VentasApiResponse = {
+    if (origenResult.rows.length === 0) {
+      const response = {
         success: false,
         message: 'El almacén de origen especificado no existe',
-        error: 'Almacén de origen inválido'
+        error: 'Almacén inválido'
       };
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Verificar que la sucursal de destino existe si se proporciona
-    if (body.destino_sucursal_id) {
-      const destinoSucursalQuery = 'SELECT sucursal_id FROM sucursales WHERE sucursal_id = $1';
-      const destinoSucursalResult = await pool.query(destinoSucursalQuery, [body.destino_sucursal_id]);
+    // Verificar destino según el tipo
+    if (destino_sucursal_id) {
+      const destinoQuery = 'SELECT sucursal_id FROM sucursales WHERE sucursal_id = $1';
+      const destinoResult = await pool.query(destinoQuery, [destino_sucursal_id]);
       
-      if (destinoSucursalResult.rows.length === 0) {
-        const response: VentasApiResponse = {
+      if (destinoResult.rows.length === 0) {
+        const response = {
           success: false,
           message: 'La sucursal de destino especificada no existe',
-          error: 'Sucursal de destino inválida'
+          error: 'Sucursal inválida'
         };
         return NextResponse.json(response, { status: 400 });
       }
     }
 
-    // Verificar que el almacén de destino existe si se proporciona
-    if (body.destino_almacen_id) {
-      const destinoAlmacenQuery = 'SELECT almacen_id FROM almacenes WHERE almacen_id = $1';
-      const destinoAlmacenResult = await pool.query(destinoAlmacenQuery, [body.destino_almacen_id]);
+    if (destino_almacen_id) {
+      const destinoQuery = 'SELECT almacen_id FROM almacenes WHERE almacen_id = $1';
+      const destinoResult = await pool.query(destinoQuery, [destino_almacen_id]);
       
-      if (destinoAlmacenResult.rows.length === 0) {
-        const response: VentasApiResponse = {
+      if (destinoResult.rows.length === 0) {
+        const response = {
           success: false,
           message: 'El almacén de destino especificado no existe',
-          error: 'Almacén de destino inválido'
+          error: 'Almacén inválido'
         };
         return NextResponse.json(response, { status: 400 });
       }
     }
 
-    // Verificar que los productos existen
-    if (body.productos && body.productos.length > 0) {
-      for (const producto of body.productos) {
-        const productoQuery = 'SELECT producto_id FROM productos WHERE producto_id = $1 AND estado = true';
-        const productoResult = await pool.query(productoQuery, [producto.producto_id]);
-        
-        if (productoResult.rows.length === 0) {
-          const response: VentasApiResponse = {
-            success: false,
-            message: `El producto con ID ${producto.producto_id} no existe o está inactivo`,
-            error: 'Producto inválido'
-          };
-          return NextResponse.json(response, { status: 400 });
+    // Iniciar transacción
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Crear nota de remisión
+      const createNotaQuery = `
+        INSERT INTO nota_remision (
+          fecha_remision, usuario_id, origen_almacen_id, destino_sucursal_id, 
+          destino_almacen_id, tipo_remision, referencia_id, estado, observaciones
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING remision_id
+      `;
+
+      const notaResult = await client.query(createNotaQuery, [
+        fecha_remision || new Date().toISOString().split('T')[0],
+        usuario_id,
+        origen_almacen_id,
+        destino_sucursal_id || null,
+        destino_almacen_id || null,
+        tipo_remision,
+        referencia_id || null,
+        'activo',
+        observaciones || null
+      ]);
+
+      const newNotaId = notaResult.rows[0].remision_id;
+
+      // Crear detalles si existen
+      if (detalles && detalles.length > 0) {
+        for (const detalle of detalles) {
+          // Verificar que el producto existe
+          const productoQuery = 'SELECT producto_id FROM productos WHERE producto_id = $1';
+          const productoResult = await client.query(productoQuery, [detalle.producto_id]);
+          
+          if (productoResult.rows.length === 0) {
+            throw new Error(`El producto con ID ${detalle.producto_id} no existe`);
+          }
+
+          // Crear detalle
+          const createDetalleQuery = `
+            INSERT INTO nota_remision_detalle (remision_id, producto_id, cantidad)
+            VALUES ($1, $2, $3)
+          `;
+          
+          await client.query(createDetalleQuery, [
+            newNotaId,
+            detalle.producto_id,
+            detalle.cantidad
+          ]);
         }
       }
+
+      await client.query('COMMIT');
+
+      // Obtener la nota creada con información completa
+      const getNotaQuery = `
+        SELECT 
+          nr.remision_id,
+          nr.fecha_remision,
+          nr.usuario_id,
+          nr.origen_almacen_id,
+          nr.destino_sucursal_id,
+          nr.destino_almacen_id,
+          nr.tipo_remision,
+          nr.referencia_id,
+          nr.estado,
+          nr.observaciones,
+          u.nombre as usuario_nombre,
+          oa.nombre as origen_almacen_nombre,
+          ds.nombre as destino_sucursal_nombre,
+          da.nombre as destino_almacen_nombre,
+          CONCAT('REM-', LPAD(nr.remision_id::text, 4, '0')) as codigo_remision,
+          COALESCE(detalle_stats.total_productos, 0) as total_productos,
+          COALESCE(detalle_stats.total_cantidad, 0) as total_cantidad
+        FROM nota_remision nr
+        LEFT JOIN usuarios u ON nr.usuario_id = u.usuario_id
+        LEFT JOIN almacenes oa ON nr.origen_almacen_id = oa.almacen_id
+        LEFT JOIN sucursales ds ON nr.destino_sucursal_id = ds.sucursal_id
+        LEFT JOIN almacenes da ON nr.destino_almacen_id = da.almacen_id
+        LEFT JOIN (
+          SELECT 
+            remision_id,
+            COUNT(*) as total_productos,
+            SUM(cantidad) as total_cantidad
+          FROM nota_remision_detalle
+          GROUP BY remision_id
+        ) detalle_stats ON nr.remision_id = detalle_stats.remision_id
+        WHERE nr.remision_id = $1
+      `;
+
+      const notaData = await pool.query(getNotaQuery, [newNotaId]);
+
+      const response = {
+        success: true,
+        message: 'Nota de remisión creada exitosamente',
+        data: notaData.rows[0]
+      };
+
+      // Log de auditoría
+      console.log('Nota de remisión creada:', sanitizeForLog({
+        remision_id: newNotaId,
+        tipo_remision,
+        usuario_id,
+        origen_almacen_id,
+        destino_sucursal_id,
+        destino_almacen_id,
+        total_detalles: detalles.length,
+        timestamp: new Date().toISOString()
+      }));
+
+      return NextResponse.json(response, { status: 201 });
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    // Crear nota de remisión
-    const createRemisionQuery = `
-      INSERT INTO nota_remision (
-        fecha_remision, usuario_id, origen_almacen_id, destino_sucursal_id, 
-        destino_almacen_id, tipo_remision, referencia_id, estado, observaciones
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING remision_id
-    `;
-
-    const remisionResult = await pool.query(createRemisionQuery, [
-      body.fecha_remision || new Date().toISOString().split('T')[0],
-      body.usuario_id,
-      body.origen_almacen_id,
-      body.destino_sucursal_id || null,
-      body.destino_almacen_id || null,
-      body.tipo_remision,
-      body.referencia_id || null,
-      body.estado || 'pendiente',
-      body.observaciones || null
-    ]);
-
-    const newRemisionId = remisionResult.rows[0].remision_id;
-
-    // Crear detalles de la remisión
-    if (body.productos && body.productos.length > 0) {
-      for (const producto of body.productos) {
-        await pool.query(
-          'INSERT INTO nota_remision_detalle (remision_id, producto_id, cantidad) VALUES ($1, $2, $3)',
-          [
-            newRemisionId, 
-            producto.producto_id, 
-            producto.cantidad
-          ]
-        );
-      }
-    }
-
-    // Obtener la remisión creada con información completa
-    const getRemisionQuery = `
-      SELECT 
-        nr.remision_id,
-        nr.fecha_remision,
-        nr.usuario_id,
-        nr.origen_almacen_id,
-        nr.destino_sucursal_id,
-        nr.destino_almacen_id,
-        nr.tipo_remision,
-        nr.referencia_id,
-        nr.estado,
-        nr.observaciones,
-        u.nombre as usuario_nombre,
-        oa.nombre as origen_almacen_nombre,
-        ds.nombre as destino_sucursal_nombre,
-        da.nombre as destino_almacen_nombre
-      FROM nota_remision nr
-      LEFT JOIN usuarios u ON nr.usuario_id = u.usuario_id
-      LEFT JOIN almacenes oa ON nr.origen_almacen_id = oa.almacen_id
-      LEFT JOIN sucursales ds ON nr.destino_sucursal_id = ds.sucursal_id
-      LEFT JOIN almacenes da ON nr.destino_almacen_id = da.almacen_id
-      WHERE nr.remision_id = $1
-    `;
-
-    const remisionData = await pool.query(getRemisionQuery, [newRemisionId]);
-
-    const response: VentasApiResponse = {
-      success: true,
-      message: 'Nota de remisión creada exitosamente',
-      data: remisionData.rows[0]
-    };
-
-    // Log de auditoría
-    console.log('Nota de remisión creada:', sanitizeForLog({
-      remision_id: newRemisionId,
-      nro_remision: generateRemisionNumber(newRemisionId),
-      usuario_id: body.usuario_id,
-      origen_almacen_id: body.origen_almacen_id,
-      destino_sucursal_id: body.destino_sucursal_id,
-      destino_almacen_id: body.destino_almacen_id,
-      tipo_remision: body.tipo_remision,
-      total_productos: body.productos?.length || 0,
-      estado: body.estado || 'pendiente',
-      timestamp: new Date().toISOString()
-    }));
-
-    return NextResponse.json(response, { status: 201 });
 
   } catch (error) {
     console.error('Error al crear nota de remisión:', error);
     
-    const response: VentasApiResponse = {
-      success: false,
-      message: 'Error interno del servidor',
-      error: 'Error interno'
-    };
-    
-    return NextResponse.json(response, { status: 500 });
-  }
-}
-
-// PUT /api/ventas/notas-remision/[id]/enviar - Enviar remisión
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const remisionId = parseInt(params.id);
-
-    if (isNaN(remisionId)) {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'ID de remisión inválido',
-        error: 'ID inválido'
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
-    // Verificar permisos
-    const { authorized, error } = requirePermission('enviar_notas_remision')(request);
-    
-    if (!authorized) {
-      return createAuthzErrorResponse(error || 'No autorizado');
-    }
-
-    // Verificar que la remisión existe
-    const existingRemisionQuery = 'SELECT remision_id, estado FROM nota_remision WHERE remision_id = $1';
-    const existingRemision = await pool.query(existingRemisionQuery, [remisionId]);
-    
-    if (existingRemision.rows.length === 0) {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'Remisión no encontrada',
-        error: 'Remisión no encontrada'
-      };
-      return NextResponse.json(response, { status: 404 });
-    }
-
-    // Verificar si la remisión puede ser enviada
-    if (existingRemision.rows[0].estado !== 'pendiente') {
-      const response: VentasApiResponse = {
-        success: false,
-        message: 'Solo se pueden enviar remisiones pendientes',
-        error: 'Estado inválido'
-      };
-      return NextResponse.json(response, { status: 409 });
-    }
-
-    // Enviar remisión
-    await pool.query(
-      'UPDATE nota_remision SET estado = $1 WHERE remision_id = $2',
-      ['enviado', remisionId]
-    );
-
-    const response: VentasApiResponse = {
-      success: true,
-      message: 'Remisión enviada exitosamente'
-    };
-
-    // Log de auditoría
-    console.log('Remisión enviada:', sanitizeForLog({
-      remision_id: remisionId,
-      nro_remision: generateRemisionNumber(remisionId),
-      timestamp: new Date().toISOString()
-    }));
-
-    return NextResponse.json(response);
-
-  } catch (error) {
-    console.error('Error al enviar remisión:', error);
-    
-    const response: VentasApiResponse = {
+    const response = {
       success: false,
       message: 'Error interno del servidor',
       error: 'Error interno'

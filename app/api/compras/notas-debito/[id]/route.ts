@@ -20,7 +20,7 @@ export async function GET(
 ) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('leer_notas_debito')(request);
+    const { authorized, error } = requirePermission('compras.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -139,7 +139,7 @@ export async function PUT(
 ) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('actualizar_notas_debito')(request);
+    const { authorized, error } = requirePermission('compras.actualizar')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -310,7 +310,7 @@ export async function DELETE(
 ) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('eliminar_notas_debito')(request);
+    const { authorized, error } = requirePermission('compras.eliminar')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
