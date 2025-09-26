@@ -11,6 +11,7 @@ import { AperturaCajaModal } from "@/components/modals/apertura-caja-modal"
 import { CierreCajaModal } from "@/components/modals/cierre-caja-modal"
 import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
 import { useApi } from "@/hooks/use-api"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { AperturaCierreCaja } from "@/lib/types/ventas"
 import {
   DollarSign,
@@ -34,6 +35,7 @@ interface Caja {
 }
 
 export default function AperturaCierreCajaPage() {
+  const authenticatedFetch = useAuthenticatedFetch();
   const {
     data: aperturas,
     loading,
@@ -64,14 +66,8 @@ export default function AperturaCierreCajaPage() {
     const loadCajas = async () => {
       try {
         console.log('🔍 Cargando cajas desde /api/ventas/cajas...');
-        const token = localStorage.getItem('token');
-        console.log('🔍 Token para cajas:', token ? token.substring(0, 20) + '...' : 'No hay token');
         
-        const response = await fetch('/api/ventas/cajas', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await authenticatedFetch('/api/ventas/cajas');
         
         console.log('🔍 Respuesta de cajas:', response.status);
         
@@ -87,7 +83,7 @@ export default function AperturaCierreCajaPage() {
       }
     }
     loadCajas()
-  }, [])
+  }, [authenticatedFetch])
 
   const handleSearch = (term: string) => {
     setSearchTerm(term)

@@ -72,14 +72,7 @@ export default function LoginPage() {
             <Wrench className="h-6 w-6" />
             <span className="font-semibold">Taller de Electrónica & Informática Jaime Castro e Hijos</span>
           </Link>
-          <Link href="/register">
-            <Button
-              variant="outline"
-              className="text-white border-white hover:bg-white hover:text-slate-800 bg-transparent"
-            >
-              Registrarse
-            </Button>
-          </Link>
+          
         </div>
       </header>
 
@@ -105,13 +98,13 @@ export default function LoginPage() {
                 </AlertDescription>
               </Alert>
 
-              {/* Demo Credentials Alert */}
+              {/* Demo Credentials Alert 
               <Alert className="mb-6 border-green-200 bg-green-50">
                 <Info className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800">
                   <strong>Demo:</strong> Usuario: admin | Contraseña: admin.2025
                 </AlertDescription>
-              </Alert>
+              </Alert>} */}
 
               {/* Login Error */}
               {loginError && (
@@ -212,12 +205,7 @@ export default function LoginPage() {
                       ¿Olvidaste tu contraseña?
                     </Link>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    ¿No tienes cuenta?{" "}
-                    <Link href="/register" className="text-blue-600 hover:underline">
-                      Regístrate aquí
-                    </Link>
-                  </div>
+                  
                 </div>
               </form>
 
@@ -230,7 +218,6 @@ export default function LoginPage() {
                 <ul className="text-sm text-gray-600 space-y-1">
                   <li>• Nunca compartas tus credenciales</li>
                   <li>• Usa una contraseña única y segura</li>
-                  <li>• Habilita 2FA para mayor seguridad</li>
                   <li>• Cierra sesión en dispositivos compartidos</li>
                 </ul>
               </div>

@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         c.estado,
         ci.nombre as ciudad_nombre
       FROM clientes c
-      LEFT JOIN ciudades ci ON c.ciudad_id = ci.ciudad_id
+      LEFT JOIN ciudades ci ON c.ciudad_id = ci.id
       ${whereClause}
       ORDER BY c.nombre
       LIMIT $${paramCount + 1}

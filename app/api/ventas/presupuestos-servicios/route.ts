@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['ps.nro_presupuesto', 'ps.observaciones', 'u.nombre', 's.nombre', 'd.descripcion'];
+    const searchFields = ['ps.nro_presupuesto', 'ps.observaciones', 'u.nombre', 's.nombre', 'd.observacion'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
         ps.tipo_presu,
         u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
-        d.descripcion as diagnostico_descripcion,
+        d.observacion as diagnostico_descripcion,
         c.nombre as cliente_nombre,
         c.telefono as cliente_telefono,
         c.email as cliente_email,
@@ -111,8 +111,10 @@ export async function GET(request: NextRequest) {
       FROM presupuesto_servicios ps
       LEFT JOIN usuarios u ON ps.usuario_id = u.usuario_id
       LEFT JOIN sucursales s ON ps.sucursal_id = s.sucursal_id
-      LEFT JOIN diagnosticos d ON ps.diagnostico_id = d.diagnostico_id
-      LEFT JOIN clientes c ON d.cliente_id = c.cliente_id
+      LEFT JOIN diagnostico d ON ps.diagnostico_id = d.diagnostico_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
+      LEFT JOIN clientes c ON ss.cliente_id = c.cliente_id
       ${whereClause}
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -231,7 +233,7 @@ export async function POST(request: NextRequest) {
 
     // Verificar que el diagnóstico existe si se proporciona
     if (diagnostico_id) {
-      const diagnosticoQuery = 'SELECT diagnostico_id FROM diagnosticos WHERE diagnostico_id = $1';
+      const diagnosticoQuery = 'SELECT diagnostico_id FROM diagnostico WHERE diagnostico_id = $1';
       const diagnosticoResult = await pool.query(diagnosticoQuery, [diagnostico_id]);
       
       if (diagnosticoResult.rows.length === 0) {
@@ -291,7 +293,7 @@ export async function POST(request: NextRequest) {
         ps.tipo_presu,
         u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
-        d.descripcion as diagnostico_descripcion,
+        d.observacion as diagnostico_descripcion,
         c.nombre as cliente_nombre,
         c.telefono as cliente_telefono,
         c.email as cliente_email,
@@ -299,8 +301,10 @@ export async function POST(request: NextRequest) {
       FROM presupuesto_servicios ps
       LEFT JOIN usuarios u ON ps.usuario_id = u.usuario_id
       LEFT JOIN sucursales s ON ps.sucursal_id = s.sucursal_id
-      LEFT JOIN diagnosticos d ON ps.diagnostico_id = d.diagnostico_id
-      LEFT JOIN clientes c ON d.cliente_id = c.cliente_id
+      LEFT JOIN diagnostico d ON ps.diagnostico_id = d.diagnostico_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
+      LEFT JOIN clientes c ON ss.cliente_id = c.cliente_id
       WHERE ps.presu_serv_id = $1
     `;
 

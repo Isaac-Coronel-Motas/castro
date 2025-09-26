@@ -26,21 +26,38 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AppLayout } from "@/components/app-layout"
+import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
+import { NotaCreditoDebitoModal } from "@/components/modals/nota-credito-debito-modal"
 import { toast } from "sonner"
 
 export default function NotasCreditoDebitoPage() {
+  const { token } = useAuth()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [notas, setNotas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Estados del modal
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+  const [selectedNota, setSelectedNota] = useState<any>(null)
 
   // Cargar datos al montar el componente
   useEffect(() => {
-    fetchNotas()
-  }, [])
+    if (token) {
+      fetchNotas()
+    }
+  }, [token])
 
   const fetchNotas = async () => {
+    if (!token) {
+      setError('No hay token de autenticación')
+      return
+    }
+
     try {
       setLoading(true)
       const params = new URLSearchParams({
@@ -50,7 +67,7 @@ export default function NotasCreditoDebitoPage() {
         ...(typeFilter !== 'all' && { tipo_nota: typeFilter })
       })
 
-      const response = await fetch(`/api/ventas/notas-credito-debito?${params}`)
+      const response = await authenticatedFetch(`/api/ventas/notas-credito-debito?${params}`)
       const data = await response.json()
 
       if (data.success) {
@@ -117,6 +134,56 @@ export default function NotasCreditoDebitoPage() {
     return tipo === "credito" ? "bg-red-100 text-red-800 border-red-200" : "bg-blue-100 text-blue-800 border-blue-200"
   }
 
+  // Handlers del modal
+  const handleCreateNota = () => {
+    setModalMode('create')
+    setSelectedNota(null)
+    setIsModalOpen(true)
+  }
+
+  const handleEditNota = (nota: any) => {
+    setModalMode('edit')
+    setSelectedNota(nota)
+    setIsModalOpen(true)
+  }
+
+  const handleSaveNota = async (notaData: any): Promise<boolean> => {
+    try {
+      const response = await authenticatedFetch('/api/ventas/notas-credito-debito', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notaData),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast.success(
+          modalMode === 'create' 
+            ? 'Nota creada exitosamente' 
+            : 'Nota actualizada exitosamente'
+        )
+        // Recargar la lista de notas
+        await fetchNotas()
+        return true
+      } else {
+        toast.error(data.message || 'Error al guardar la nota')
+        return false
+      }
+    } catch (error) {
+      console.error('Error al guardar nota:', error)
+      toast.error('Error de conexión al guardar la nota')
+      return false
+    }
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedNota(null)
+  }
+
   // Métricas calculadas
   const totalNotas = notas.length
   const notasCredito = notas.filter((n) => n.tipo_nota === "credito").length
@@ -178,7 +245,10 @@ export default function NotasCreditoDebitoPage() {
             <h1 className="text-3xl font-bold text-foreground">Notas de Crédito/Débito</h1>
             <p className="text-muted-foreground">Gestión de ajustes contables y correcciones de ventas</p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Button 
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            onClick={handleCreateNota}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Nueva Nota
           </Button>
@@ -338,7 +408,12 @@ export default function NotasCreditoDebitoPage() {
                           <Button variant="ghost" size="sm" title="Ver detalles">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" title="Editar">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            title="Editar"
+                            onClick={() => handleEditNota(nota)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" title="Eliminar">
@@ -362,7 +437,10 @@ export default function NotasCreditoDebitoPage() {
                     : 'Aún no se han creado notas de crédito o débito.'
                   }
                 </p>
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Button 
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                  onClick={handleCreateNota}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Crear Primera Nota
                 </Button>
@@ -371,6 +449,15 @@ export default function NotasCreditoDebitoPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal para crear/editar notas */}
+      <NotaCreditoDebitoModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSaveNota}
+        nota={selectedNota}
+        mode={modalMode}
+      />
     </AppLayout>
   )
 }

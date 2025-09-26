@@ -88,8 +88,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_registro');
+    // Construir WHERE clause manualmente para evitar ambigüedades
+    let whereConditions: string[] = [];
+    let allParams: any[] = [...queryParams];
+    let searchParamCount = queryParams.length;
+
+    // Agregar condiciones adicionales
+    if (additionalConditions.length > 0) {
+      whereConditions.push(...additionalConditions);
+    }
+
+    // Agregar búsqueda si existe
+    if (search) {
+      const searchConditions = [
+        `motivo ILIKE $${++searchParamCount}`,
+        `cliente_nombre ILIKE $${++searchParamCount}`,
+        `usuario_nombre ILIKE $${++searchParamCount}`,
+        `nro_nota ILIKE $${++searchParamCount}`
+      ];
+      whereConditions.push(`(${searchConditions.join(' OR ')})`);
+      allParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+    const orderByClause = `ORDER BY ${sort_by} ${sort_order.toUpperCase()}`;
 
     // Consulta unificada que combina notas de crédito y débito
     const query = `
@@ -98,27 +120,27 @@ export async function GET(request: NextRequest) {
           nota_credito_id as id,
           'credito' as tipo_nota,
           tipo_operacion,
-          cliente_id,
-          sucursal_id,
-          almacen_id,
-          usuario_id,
-          fecha_registro,
-          nro_nota,
-          motivo,
-          estado,
-          referencia_id,
-          monto_nc as monto,
-          monto_gravada_5,
-          monto_gravada_10,
-          monto_exenta,
-          monto_iva,
+          nc.cliente_id,
+          nc.sucursal_id,
+          nc.almacen_id,
+          nc.usuario_id,
+          nc.fecha_registro,
+          nc.nro_nota,
+          nc.motivo,
+          nc.estado,
+          nc.referencia_id,
+          nc.monto_nc as monto,
+          nc.monto_gravada_5,
+          nc.monto_gravada_10,
+          nc.monto_exenta,
+          nc.monto_iva,
           c.nombre as cliente_nombre,
           u.nombre as usuario_nombre,
           s.nombre as sucursal_nombre,
           a.nombre as almacen_nombre,
           CASE 
-            WHEN estado = 'activo' THEN 'Activo'
-            WHEN estado = 'anulado' THEN 'Anulado'
+            WHEN nc.estado = 'activo' THEN 'Activo'
+            WHEN nc.estado = 'anulado' THEN 'Anulado'
           END as estado_display
         FROM nota_credito_cabecera nc
         LEFT JOIN clientes c ON nc.cliente_id = c.cliente_id
@@ -133,27 +155,27 @@ export async function GET(request: NextRequest) {
           nota_debito_id as id,
           'debito' as tipo_nota,
           tipo_operacion,
-          cliente_id,
-          sucursal_id,
-          almacen_id,
-          usuario_id,
-          fecha_registro,
-          nro_nota,
-          motivo,
-          estado,
-          referencia_id,
-          monto_nd as monto,
-          monto_gravada_5,
-          monto_gravada_10,
-          monto_exenta,
-          monto_iva,
+          nd.cliente_id,
+          nd.sucursal_id,
+          nd.almacen_id,
+          nd.usuario_id,
+          nd.fecha_registro,
+          nd.nro_nota,
+          nd.motivo,
+          nd.estado,
+          nd.referencia_id,
+          nd.monto_nd as monto,
+          nd.monto_gravada_5,
+          nd.monto_gravada_10,
+          nd.monto_exenta,
+          nd.monto_iva,
           c.nombre as cliente_nombre,
           u.nombre as usuario_nombre,
           s.nombre as sucursal_nombre,
           a.nombre as almacen_nombre,
           CASE 
-            WHEN estado = 'activo' THEN 'Activo'
-            WHEN estado = 'anulado' THEN 'Anulado'
+            WHEN nd.estado = 'activo' THEN 'Activo'
+            WHEN nd.estado = 'anulado' THEN 'Anulado'
           END as estado_display
         FROM nota_debito_cabecera nd
         LEFT JOIN clientes c ON nd.cliente_id = c.cliente_id
@@ -166,13 +188,13 @@ export async function GET(request: NextRequest) {
         *,
         COUNT(*) OVER() as total_count
       FROM notas_unificadas
-      ${whereClause.replace('motivo', 'motivo').replace('cliente_nombre', 'cliente_nombre').replace('usuario_nombre', 'usuario_nombre').replace('nro_nota', 'nro_nota')}
-      ${orderByClause.replace('fecha_registro', 'fecha_registro')}
-      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      ${whereClause}
+      ${orderByClause}
+      LIMIT $${searchParamCount + 1} OFFSET $${searchParamCount + 2}
     `;
 
-    const allParams = [...queryParams, ...params, limitParam, offsetParam];
-    const result = await pool.query(query, allParams);
+    const finalParams = [...allParams, limitParam, offsetParam];
+    const result = await pool.query(query, finalParams);
     const notas = result.rows;
     const total = notas.length > 0 ? parseInt(notas[0].total_count) : 0;
 

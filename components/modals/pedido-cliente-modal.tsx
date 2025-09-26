@@ -219,7 +219,7 @@ export function PedidoClienteModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {mode === 'create' && 'Nuevo Pedido de Cliente'}
@@ -228,9 +228,9 @@ export function PedidoClienteModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-full overflow-y-auto">
           {/* Información del Pedido */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="xl:col-span-1 space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Información del Pedido</CardTitle>
@@ -348,7 +348,7 @@ export function PedidoClienteModal({
           </div>
 
           {/* Productos */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="xl:col-span-2 space-y-4">
             {/* Lista de Productos Agregados */}
             <Card>
               <CardHeader>
@@ -358,71 +358,82 @@ export function PedidoClienteModal({
                 {formData.productos.length === 0 ? (
                   <p className="text-gray-500 text-center py-4">No hay productos agregados</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {formData.productos.map((producto, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium">{getProductoNombre(producto.producto_id)}</p>
-                          <div className="flex items-center gap-4 mt-1">
-                            <div className="flex items-center gap-2">
-                              <Label className="text-sm">Cantidad:</Label>
-                              {!isReadOnly ? (
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => updateProductoCantidad(index, Math.max(1, producto.cantidad - 1))}
-                                  >
-                                    <Minus className="h-3 w-3" />
-                                  </Button>
-                                  <Input
-                                    type="number"
-                                    value={producto.cantidad}
-                                    onChange={(e) => updateProductoCantidad(index, parseInt(e.target.value) || 1)}
-                                    className="w-16 text-center"
-                                    min="1"
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => updateProductoCantidad(index, producto.cantidad + 1)}
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <span className="text-sm">{producto.cantidad}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Label className="text-sm">Precio:</Label>
-                              {!isReadOnly ? (
+                      <div key={index} className="border rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">{getProductoNombre(producto.producto_id)}</h4>
+                          </div>
+                          {!isReadOnly && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => removeProducto(index)}
+                              className="ml-2"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium text-gray-700">Cantidad</Label>
+                            {!isReadOnly ? (
+                              <div className="flex items-center gap-2 mt-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateProductoCantidad(index, Math.max(1, producto.cantidad - 1))}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
                                 <Input
                                   type="number"
-                                  value={producto.precio_unitario}
-                                  onChange={(e) => updateProductoPrecio(index, parseFloat(e.target.value) || 0)}
-                                  className="w-24"
-                                  step="0.01"
-                                  min="0"
+                                  value={producto.cantidad}
+                                  onChange={(e) => updateProductoCantidad(index, parseInt(e.target.value) || 1)}
+                                  className="w-16 text-center h-8"
+                                  min="1"
                                 />
-                              ) : (
-                                <span className="text-sm">${producto.precio_unitario.toFixed(2)}</span>
-                              )}
-                            </div>
-                            <div className="text-sm font-medium">
-                              Subtotal: ${(producto.cantidad * producto.precio_unitario).toFixed(2)}
-                            </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateProductoCantidad(index, producto.cantidad + 1)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-600 mt-1">{producto.cantidad}</p>
+                            )}
+                          </div>
+                          
+                          <div>
+                            <Label className="text-sm font-medium text-gray-700">Precio Unitario</Label>
+                            {!isReadOnly ? (
+                              <Input
+                                type="number"
+                                value={producto.precio_unitario}
+                                onChange={(e) => updateProductoPrecio(index, parseFloat(e.target.value) || 0)}
+                                className="mt-1 h-8"
+                                step="0.01"
+                                min="0"
+                              />
+                            ) : (
+                              <p className="text-sm text-gray-600 mt-1">${producto.precio_unitario.toFixed(2)}</p>
+                            )}
+                          </div>
+                          
+                          <div>
+                            <Label className="text-sm font-medium text-gray-700">Subtotal</Label>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">
+                              ${(producto.cantidad * producto.precio_unitario).toFixed(2)}
+                            </p>
                           </div>
                         </div>
-                        {!isReadOnly && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => removeProducto(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -451,35 +462,53 @@ export function PedidoClienteModal({
                       />
                     </div>
 
-                    <ScrollArea className="h-64">
-                      <div className="space-y-2">
+                    <ScrollArea className="h-80">
+                      <div className="space-y-3">
                         {productosFiltrados.map((producto) => (
-                          <div key={producto.producto_id} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <Package className="h-4 w-4 text-gray-400" />
-                                <span className="font-medium">{producto.nombre}</span>
-                                <Badge variant={producto.estado_color as any}>
-                                  {producto.estado_stock}
-                                </Badge>
+                          <div key={producto.producto_id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Package className="h-4 w-4 text-gray-400" />
+                                  <span className="font-medium text-gray-900">{producto.nombre}</span>
+                                  <Badge variant={producto.estado_color as any} className="text-xs">
+                                    {producto.estado_stock}
+                                  </Badge>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-600">
+                                  <div>
+                                    <span className="font-medium">Código:</span>
+                                    <p>{producto.codigo || 'N/A'}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Categoría:</span>
+                                    <p>{producto.nombre_categoria}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Stock:</span>
+                                    <p className={producto.stock > 0 ? 'text-green-600' : 'text-red-600'}>
+                                      {producto.stock}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Precio:</span>
+                                    <p className="flex items-center gap-1 text-green-600 font-semibold">
+                                      <DollarSign className="h-3 w-3" />
+                                      {producto.precio_venta.toFixed(2)}
+                                    </p>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                                <span>Código: {producto.codigo || 'N/A'}</span>
-                                <span>Categoría: {producto.nombre_categoria}</span>
-                                <span>Stock: {producto.stock}</span>
-                                <span className="flex items-center gap-1">
-                                  <DollarSign className="h-3 w-3" />
-                                  {producto.precio_venta.toFixed(2)}
-                                </span>
-                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => addProducto(producto)}
+                                disabled={producto.stock === 0}
+                                className="ml-4"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Agregar
+                              </Button>
                             </div>
-                            <Button
-                              size="sm"
-                              onClick={() => addProducto(producto)}
-                              disabled={producto.stock === 0}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
                           </div>
                         ))}
                       </div>

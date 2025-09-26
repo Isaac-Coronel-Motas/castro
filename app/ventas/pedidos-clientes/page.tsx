@@ -149,8 +149,8 @@ export default function PedidosClientesPage() {
     abiertos: pedidos?.filter(p => p.estado === 'abierto').length || 0,
     cerrados: pedidos?.filter(p => p.estado === 'cerrado').length || 0,
     cancelados: pedidos?.filter(p => p.estado === 'cancelado').length || 0,
-    montoTotal: pedidos?.reduce((sum, p) => sum + p.monto_venta, 0) || 0,
-    montoPendiente: pedidos?.filter(p => p.estado === 'abierto').reduce((sum, p) => sum + p.monto_venta, 0) || 0
+    montoTotal: Number(pedidos?.reduce((sum, p) => sum + (Number(p.monto_venta) || 0), 0) || 0),
+    montoPendiente: Number(pedidos?.filter(p => p.estado === 'abierto').reduce((sum, p) => sum + (Number(p.monto_venta) || 0), 0) || 0)
   }
 
   const columns = [
@@ -212,7 +212,7 @@ export default function PedidosClientesPage() {
       render: (pedido: PedidoCliente) => (
         <div className="flex items-center gap-1">
           <DollarSign className="h-4 w-4 text-gray-400" />
-          <span className="font-medium">${pedido.monto_venta.toFixed(2)}</span>
+          <span className="font-medium">${(Number(pedido.monto_venta) || 0).toFixed(2)}</span>
         </div>
       ),
     },
@@ -288,7 +288,7 @@ export default function PedidosClientesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Monto Total</p>
-                  <p className="text-2xl font-bold text-gray-900">${stats.montoTotal.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-gray-900">${(stats.montoTotal || 0).toFixed(2)}</p>
                 </div>
                 <DollarSign className="h-8 w-8 text-green-500" />
               </div>
@@ -300,7 +300,7 @@ export default function PedidosClientesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Pendiente</p>
-                  <p className="text-2xl font-bold text-orange-600">${stats.montoPendiente.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-orange-600">${(stats.montoPendiente || 0).toFixed(2)}</p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-orange-500" />
               </div>

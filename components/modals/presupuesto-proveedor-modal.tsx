@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { PresupuestoProveedor, CreatePresupuestoProveedorRequest, UpdatePresupuestoProveedorRequest } from "@/lib/types/compras"
 import { FileCheck, Calendar, User, Building, Percent, DollarSign } from "lucide-react"
 
@@ -22,6 +23,7 @@ interface PresupuestoProveedorModalProps {
 
 export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto, mode }: PresupuestoProveedorModalProps) {
   const { user } = useAuth()
+  const authenticatedFetch = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreatePresupuestoProveedorRequest>({
     usuario_id: user?.usuario_id || 0,
     proveedor_id: 0,
@@ -56,7 +58,7 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
 
   const loadProveedores = async () => {
     try {
-      const response = await fetch('/api/referencias/proveedores')
+      const response = await authenticatedFetch('/api/referencias/proveedores')
       const data = await response.json()
       if (data.success) {
         setProveedores(data.data)

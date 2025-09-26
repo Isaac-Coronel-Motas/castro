@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -34,8 +34,10 @@ import { ModalEditarNotaRemision } from '@/components/modals/modal-editar-nota-r
 import { useNotasRemision, useNotasRemisionStats, useDeleteNotaRemision } from '@/hooks/use-notas-remision';
 import { NotaRemision, NotasRemisionStats } from '@/lib/types/notas-remision';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function NotasRemisionPage() {
+  const { token } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(["Ventas"]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -173,6 +175,13 @@ export default function NotasRemisionPage() {
     loading: deletingNotaRemision,
     error: deleteError
   } = useDeleteNotaRemision();
+
+  // Cargar estadísticas cuando haya token
+  useEffect(() => {
+    if (token) {
+      fetchStats();
+    }
+  }, [token, fetchStats]);
 
   // Resetear filtros
   const resetFilters = () => {

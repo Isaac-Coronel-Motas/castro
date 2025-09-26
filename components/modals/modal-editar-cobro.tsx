@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { useUpdateCobro } from '@/hooks/use-cobros';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { Cobro, CobroUpdate } from '@/lib/types/cobros';
 import { Edit, Search, X } from 'lucide-react';
 
@@ -60,6 +61,7 @@ export function ModalEditarCobro({
   
   const { updateCobro, loading: updatingCobro, error: updateError } = useUpdateCobro();
   const { toast } = useToast();
+  const authenticatedFetch = useAuthenticatedFetch();
 
   const [formData, setFormData] = useState<CobroUpdate>({
     monto: 0,
@@ -80,7 +82,7 @@ export function ModalEditarCobro({
   const loadCajas = async () => {
     setLoadingCajas(true);
     try {
-      const response = await fetch('/api/ventas/cajas');
+      const response = await authenticatedFetch('/api/ventas/cajas');
       if (response.ok) {
         const data = await response.json();
         setCajas(data.data || []);
@@ -96,7 +98,7 @@ export function ModalEditarCobro({
   const loadUsuarios = async () => {
     setLoadingUsuarios(true);
     try {
-      const response = await fetch('/api/usuarios');
+      const response = await authenticatedFetch('/api/usuarios');
       if (response.ok) {
         const data = await response.json();
         setUsuarios(data.data || []);

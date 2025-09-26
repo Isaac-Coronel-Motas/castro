@@ -19,10 +19,11 @@ export async function GET(request: NextRequest) {
       SELECT 
         a.almacen_id,
         a.nombre,
-        a.direccion,
+        a.descripcion,
+        a.almacen_principal,
         s.nombre as sucursal_nombre
       FROM almacenes a
-      LEFT JOIN sucursales s ON a.sucursal_id = s.sucursal_id
+      LEFT JOIN sucursales s ON a.id_sucursal = s.sucursal_id
       ORDER BY a.nombre
     `;
 

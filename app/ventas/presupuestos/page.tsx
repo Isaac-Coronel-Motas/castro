@@ -31,8 +31,10 @@ import { ErrorDisplay, EmptyState } from "@/components/ui/error-display";
 import { usePresupuestosServicios, usePresupuestosServiciosStats, useDeletePresupuestoServicio } from "@/hooks/use-presupuestos";
 import { PresupuestoServicio, PresupuestosServiciosStats } from "@/lib/types/presupuestos";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function PresupuestosServiciosPage() {
+  const { token } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
@@ -88,10 +90,21 @@ export default function PresupuestosServiciosPage() {
     error: deleteError
   } = useDeletePresupuestoServicio();
 
-  // Cargar estadísticas al montar el componente
+  // Cargar estadísticas cuando haya token
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    if (token) {
+      fetchStats();
+    }
+  }, [token, fetchStats]);
+
+  // Verificar que el token esté disponible antes de hacer peticiones
+  useEffect(() => {
+    if (!token) {
+      console.log('⚠️ PresupuestosServiciosPage: Token no disponible, esperando autenticación...');
+    } else {
+      console.log('✅ PresupuestosServiciosPage: Token disponible, peticiones habilitadas');
+    }
+  }, [token]);
 
   const sidebarItems = [
     {

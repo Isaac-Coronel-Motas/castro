@@ -97,10 +97,10 @@ export function useCobros(options: UseCobrosOptions = {}): UseCobrosReturn {
   }, [fetchCobros]);
 
   useEffect(() => {
-    if (autoFetch) {
+    if (autoFetch && token) {
       fetchCobros();
     }
-  }, [fetchCobros, autoFetch]);
+  }, [fetchCobros, autoFetch, token]);
 
   return {
     cobros,

@@ -153,8 +153,10 @@ export function useVentas(options: UseVentasOptions = {}): UseVentasReturn {
   }, [fetchVentas]);
 
   useEffect(() => {
-    fetchVentas();
-  }, [fetchVentas]);
+    if (token) {
+      fetchVentas();
+    }
+  }, [fetchVentas, token]);
 
   return {
     ventas,
@@ -246,8 +248,10 @@ export function useVentasStats(): UseVentasStatsReturn {
   }, [fetchStats]);
 
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    if (token) {
+      fetchStats();
+    }
+  }, [fetchStats, token]);
 
   return {
     stats,

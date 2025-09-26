@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { PresupuestoServicio, CreatePresupuestoServicioRequest, UpdatePresupuestoServicioRequest, PresupuestoServicioDetalle, PresupuestoServicioProductoDetalle } from "@/lib/types/servicios-tecnicos"
 import { FileText, Calendar, User, Building, Plus, Trash2, Wrench, Package, DollarSign } from "lucide-react"
 
@@ -23,6 +24,7 @@ interface PresupuestoServicioModalProps {
 
 export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto, mode }: PresupuestoServicioModalProps) {
   const { user } = useAuth()
+  const authenticatedFetch = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreatePresupuestoServicioRequest>({
     fecha_presupuesto: new Date().toISOString().split('T')[0],
     estado: 'pendiente',
@@ -85,49 +87,49 @@ export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto,
   const loadInitialData = async () => {
     try {
       // Cargar sucursales
-      const sucursalesRes = await fetch('/api/sucursales')
+      const sucursalesRes = await authenticatedFetch('/api/sucursales')
       const sucursalesData = await sucursalesRes.json()
       if (sucursalesData.success) {
         setSucursales(sucursalesData.data)
       }
 
       // Cargar servicios
-      const serviciosRes = await fetch('/api/referencias/servicios')
+      const serviciosRes = await authenticatedFetch('/api/referencias/servicios')
       const serviciosData = await serviciosRes.json()
       if (serviciosData.success) {
         setServicios(serviciosData.data)
       }
 
       // Cargar productos
-      const productosRes = await fetch('/api/referencias/productos')
+      const productosRes = await authenticatedFetch('/api/referencias/productos')
       const productosData = await productosRes.json()
       if (productosData.success) {
         setProductos(productosData.data)
       }
 
       // Cargar diagnósticos completados
-      const diagnosticosRes = await fetch('/api/servicios/diagnosticos?estado_diagnostico=Completado')
+      const diagnosticosRes = await authenticatedFetch('/api/servicios/diagnosticos?estado_diagnostico=Completado')
       const diagnosticosData = await diagnosticosRes.json()
       if (diagnosticosData.success) {
         setDiagnosticos(diagnosticosData.data)
       }
 
       // Cargar promociones
-      const promocionesRes = await fetch('/api/referencias/promociones')
+      const promocionesRes = await authenticatedFetch('/api/referencias/promociones')
       const promocionesData = await promocionesRes.json()
       if (promocionesData.success) {
         setPromociones(promocionesData.data)
       }
 
       // Cargar descuentos
-      const descuentosRes = await fetch('/api/referencias/descuentos')
+      const descuentosRes = await authenticatedFetch('/api/referencias/descuentos')
       const descuentosData = await descuentosRes.json()
       if (descuentosData.success) {
         setDescuentos(descuentosData.data)
       }
 
       // Cargar usuarios
-      const usuariosRes = await fetch('/api/usuarios')
+      const usuariosRes = await authenticatedFetch('/api/usuarios')
       const usuariosData = await usuariosRes.json()
       if (usuariosData.success) {
         setUsuarios(usuariosData.data)

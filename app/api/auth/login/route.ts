@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     const body: LoginRequest = await request.json();
     const { username, password, remember_me = false } = body;
+    const ip_origen = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
 
     // Validar datos de entrada
     if (!username || !password) {
@@ -51,47 +52,65 @@ export async function POST(request: NextRequest) {
 
     const user = userResult.rows[0];
 
-    // Verificar si el usuario está bloqueado
-    if (isUserLocked(user.failed_attempts, user.locked_until)) {
-      const response: ApiResponse = {
-        success: false,
-        message: 'Usuario bloqueado por intentos fallidos. Intente más tarde.',
-        error: 'Usuario bloqueado'
-      };
-      return NextResponse.json(response, { status: 423 });
+    // Verificar bloqueo por intentos fallidos en la última hora
+    const accesosQuery = `
+      SELECT 
+        COUNT(*) as intentos_fallidos,
+        MAX(fecha_acceso) as ultimo_intento
+      FROM accesos 
+      WHERE usuario_id = $1 
+        AND tipo_acceso = 'fallido'
+        AND fecha_acceso > NOW() - INTERVAL '1 hour'
+    `;
+
+    const accesosResult = await pool.query(accesosQuery, [user.usuario_id]);
+    const intentosFallidos = parseInt(accesosResult.rows[0].intentos_fallidos);
+    const ultimoIntento = accesosResult.rows[0].ultimo_intento;
+
+    // Si hay 3 o más intentos fallidos, verificar si han pasado 15 minutos
+    if (intentosFallidos >= 3 && ultimoIntento) {
+      const tiempoTranscurrido = Date.now() - new Date(ultimoIntento).getTime();
+      const quinceMinutos = 15 * 60 * 1000; // 15 minutos en milisegundos
+      
+      if (tiempoTranscurrido < quinceMinutos) {
+        const tiempoRestante = Math.ceil((quinceMinutos - tiempoTranscurrido) / 1000 / 60);
+        const response: ApiResponse = {
+          success: false,
+          message: `Usuario bloqueado por seguridad. Intente nuevamente en ${tiempoRestante} minutos.`,
+          error: 'Usuario bloqueado por seguridad'
+        };
+        return NextResponse.json(response, { status: 423 });
+      }
     }
 
     // Verificar contraseña
     const isValidPassword = await verifyPassword(password, user.password);
     
     if (!isValidPassword) {
-      // Incrementar intentos fallidos
-      const newFailedAttempts = user.failed_attempts + 1;
-      const shouldLock = newFailedAttempts >= 5;
-      
-      const updateQuery = `
-        UPDATE usuarios 
-        SET 
-          failed_attempts = $1,
-          last_login_attempt = CURRENT_TIMESTAMP,
-          locked_until = $2
-        WHERE usuario_id = $3
+      // Registrar intento fallido en la tabla accesos
+      const insertAccesoQuery = `
+        INSERT INTO accesos (usuario_id, tipo_acceso, ip_origen, info_extra)
+        VALUES ($1, 'fallido', $2, $3)
       `;
       
-      await pool.query(updateQuery, [
-        newFailedAttempts,
-        shouldLock ? calculateLockoutTime() : null,
-        user.usuario_id
-      ]);
+      const infoExtra = JSON.stringify({
+        user_agent: request.headers.get('user-agent') || 'unknown',
+        timestamp: new Date().toISOString()
+      });
+      
+      await pool.query(insertAccesoQuery, [user.usuario_id, ip_origen, infoExtra]);
 
+      // Verificar si ahora está bloqueado (3 intentos en la última hora)
+      const newIntentosFallidos = intentosFallidos + 1;
+      
       const response: ApiResponse = {
         success: false,
-        message: shouldLock 
-          ? 'Usuario bloqueado por intentos fallidos. Intente más tarde.'
-          : 'Credenciales inválidas',
-        error: shouldLock ? 'Usuario bloqueado' : 'Contraseña incorrecta'
+        message: newIntentosFallidos >= 3 
+          ? 'Usuario bloqueado por seguridad. Intente nuevamente en 15 minutos.'
+          : `Credenciales inválidas. Intentos restantes: ${3 - newIntentosFallidos}`,
+        error: newIntentosFallidos >= 3 ? 'Usuario bloqueado por seguridad' : 'Contraseña incorrecta'
       };
-      return NextResponse.json(response, { status: shouldLock ? 423 : 401 });
+      return NextResponse.json(response, { status: newIntentosFallidos >= 3 ? 423 : 401 });
     }
 
     // Obtener permisos del usuario
@@ -116,17 +135,19 @@ export async function POST(request: NextRequest) {
     const sucursalesResult = await pool.query(sucursalesQuery, [user.usuario_id]);
     const sucursales = sucursalesResult.rows;
 
-    // Resetear intentos fallidos y actualizar último login
-    const resetQuery = `
-      UPDATE usuarios 
-      SET 
-        failed_attempts = 0,
-        locked_until = NULL,
-        last_login_attempt = CURRENT_TIMESTAMP
-      WHERE usuario_id = $1
+    // Registrar acceso exitoso
+    const insertAccesoExitosoQuery = `
+      INSERT INTO accesos (usuario_id, tipo_acceso, ip_origen, info_extra)
+      VALUES ($1, 'exitoso', $2, $3)
     `;
     
-    await pool.query(resetQuery, [user.usuario_id]);
+    const infoExtraExitoso = JSON.stringify({
+      user_agent: request.headers.get('user-agent') || 'unknown',
+      timestamp: new Date().toISOString(),
+      remember_me: remember_me
+    });
+    
+    await pool.query(insertAccesoExitosoQuery, [user.usuario_id, ip_origen, infoExtraExitoso]);
 
     // Generar tokens
     const tokenPayload = {

@@ -107,10 +107,10 @@ export function usePresupuestosServicios(options: UsePresupuestosServiciosOption
   }, [fetchPresupuestos]);
 
   useEffect(() => {
-    if (autoFetch) {
+    if (autoFetch && token) {
       fetchPresupuestos();
     }
-  }, [fetchPresupuestos, autoFetch]);
+  }, [fetchPresupuestos, autoFetch, token]);
 
   return {
     presupuestos,

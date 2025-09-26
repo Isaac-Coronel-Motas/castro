@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { useCreateCobro } from '@/hooks/use-cobros';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { CobroCreate } from '@/lib/types/cobros';
 import { Plus, Search, X } from 'lucide-react';
 
@@ -67,6 +68,7 @@ export function ModalNuevoCobro({ onCobroCreated }: ModalNuevoCobroProps) {
   
   const { createCobro, loading: creatingCobro, error: createError } = useCreateCobro();
   const { toast } = useToast();
+  const authenticatedFetch = useAuthenticatedFetch();
 
   const [formData, setFormData] = useState<CobroCreate>({
     venta_id: 0,
@@ -95,7 +97,7 @@ export function ModalNuevoCobro({ onCobroCreated }: ModalNuevoCobroProps) {
   const loadVentas = async () => {
     setLoadingVentas(true);
     try {
-      const response = await fetch('/api/ventas/registro-ventas?limit=100&sort_by=fecha_venta&sort_order=desc');
+      const response = await authenticatedFetch('/api/ventas/registro-ventas?limit=100&sort_by=fecha_venta&sort_order=desc');
       if (response.ok) {
         const data = await response.json();
         setVentas(data.data || []);
@@ -111,7 +113,7 @@ export function ModalNuevoCobro({ onCobroCreated }: ModalNuevoCobroProps) {
   const loadCajas = async () => {
     setLoadingCajas(true);
     try {
-      const response = await fetch('/api/ventas/cajas');
+      const response = await authenticatedFetch('/api/ventas/cajas');
       if (response.ok) {
         const data = await response.json();
         setCajas(data.data || []);
@@ -127,7 +129,7 @@ export function ModalNuevoCobro({ onCobroCreated }: ModalNuevoCobroProps) {
   const loadUsuarios = async () => {
     setLoadingUsuarios(true);
     try {
-      const response = await fetch('/api/usuarios');
+      const response = await authenticatedFetch('/api/usuarios');
       if (response.ok) {
         const data = await response.json();
         setUsuarios(data.data || []);

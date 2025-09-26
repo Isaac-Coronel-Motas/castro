@@ -20,10 +20,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         fc.forma_cobro_id,
         fc.nombre,
-        fc.descripcion,
-        fc.activo,
-        fc.requiere_autorizacion,
-        fc.comision_porcentaje
+        fc.activo
       FROM formas_cobro fc
       ORDER BY fc.nombre
     `;

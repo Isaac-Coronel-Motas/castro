@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { useCreateNotaRemision } from '@/hooks/use-notas-remision';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { NotaRemisionCreate, DetalleRemisionCreate, ProductoRemision, AlmacenRemision, SucursalRemision } from '@/lib/types/notas-remision';
 import { Plus, Search, Calendar, Package, Trash2, Minus } from 'lucide-react';
 
@@ -51,6 +52,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
   
   const { createNotaRemision, loading: creatingNotaRemision, error: createError } = useCreateNotaRemision();
   const { toast } = useToast();
+  const authenticatedFetch = useAuthenticatedFetch();
 
   const [formData, setFormData] = useState<NotaRemisionCreate>({
     fecha_remision: new Date().toISOString().split('T')[0],
@@ -80,7 +82,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
   const loadUsuarios = async () => {
     setLoadingUsuarios(true);
     try {
-      const response = await fetch('/api/usuarios');
+      const response = await authenticatedFetch('/api/usuarios');
       if (response.ok) {
         const data = await response.json();
         setUsuarios(data.data || []);
@@ -96,7 +98,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
   const loadAlmacenes = async () => {
     setLoadingAlmacenes(true);
     try {
-      const response = await fetch('/api/referencias/almacenes');
+      const response = await authenticatedFetch('/api/referencias/almacenes');
       if (response.ok) {
         const data = await response.json();
         setAlmacenes(data.data || []);
@@ -112,7 +114,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
   const loadSucursales = async () => {
     setLoadingSucursales(true);
     try {
-      const response = await fetch('/api/referencias/sucursales');
+      const response = await authenticatedFetch('/api/referencias/sucursales');
       if (response.ok) {
         const data = await response.json();
         setSucursales(data.data || []);
@@ -128,7 +130,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
   const loadProductos = async () => {
     setLoadingProductos(true);
     try {
-      const response = await fetch('/api/referencias/productos?limit=200');
+      const response = await authenticatedFetch('/api/referencias/productos?limit=200');
       if (response.ok) {
         const data = await response.json();
         setProductos(data.data || []);

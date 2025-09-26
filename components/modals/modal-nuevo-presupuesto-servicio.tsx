@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { useCreatePresupuestoServicio } from '@/hooks/use-presupuestos';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { PresupuestoServicioCreate } from '@/lib/types/presupuestos';
 import { Plus, Search, Calendar, DollarSign } from 'lucide-react';
 
@@ -63,6 +64,7 @@ export function ModalNuevoPresupuestoServicio({ onPresupuestoCreated }: ModalNue
   
   const { createPresupuesto, loading: creatingPresupuesto, error: createError } = useCreatePresupuestoServicio();
   const { toast } = useToast();
+  const authenticatedFetch = useAuthenticatedFetch();
 
   const [formData, setFormData] = useState<PresupuestoServicioCreate>({
     fecha_presupuesto: new Date().toISOString().split('T')[0],
@@ -91,7 +93,7 @@ export function ModalNuevoPresupuestoServicio({ onPresupuestoCreated }: ModalNue
   const loadUsuarios = async () => {
     setLoadingUsuarios(true);
     try {
-      const response = await fetch('/api/usuarios');
+      const response = await authenticatedFetch('/api/usuarios');
       if (response.ok) {
         const data = await response.json();
         setUsuarios(data.data || []);
@@ -107,7 +109,7 @@ export function ModalNuevoPresupuestoServicio({ onPresupuestoCreated }: ModalNue
   const loadSucursales = async () => {
     setLoadingSucursales(true);
     try {
-      const response = await fetch('/api/referencias/sucursales');
+      const response = await authenticatedFetch('/api/referencias/sucursales');
       if (response.ok) {
         const data = await response.json();
         setSucursales(data.data || []);
@@ -123,7 +125,7 @@ export function ModalNuevoPresupuestoServicio({ onPresupuestoCreated }: ModalNue
   const loadDiagnosticos = async () => {
     setLoadingDiagnosticos(true);
     try {
-      const response = await fetch('/api/servicios/diagnosticos?limit=100');
+      const response = await authenticatedFetch('/api/servicios/diagnosticos?limit=100');
       if (response.ok) {
         const data = await response.json();
         setDiagnosticos(data.data || []);

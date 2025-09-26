@@ -28,8 +28,10 @@ import { ErrorDisplay, EmptyState } from "@/components/ui/error-display";
 import { useCobros, useCobrosStats, useDeleteCobro } from "@/hooks/use-cobros";
 import { Cobro, CobroStats } from "@/lib/types/cobros";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function CobrosPage() {
+  const { token } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
@@ -81,10 +83,21 @@ export default function CobrosPage() {
     error: deleteError
   } = useDeleteCobro();
 
-  // Cargar estadísticas al montar el componente
+  // Cargar estadísticas cuando haya token
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    if (token) {
+      fetchStats();
+    }
+  }, [token, fetchStats]);
+
+  // Verificar que el token esté disponible antes de hacer peticiones
+  useEffect(() => {
+    if (!token) {
+      console.log('⚠️ CobrosPage: Token no disponible, esperando autenticación...');
+    } else {
+      console.log('✅ CobrosPage: Token disponible, peticiones habilitadas');
+    }
+  }, [token]);
 
   const sidebarItems = [
     {

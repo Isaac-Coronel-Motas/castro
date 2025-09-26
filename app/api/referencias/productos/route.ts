@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const categoria_id = searchParams.get('categoria_id');
 
     // Construir consulta de búsqueda
-    const searchFields = ['p.nombre_producto', 'p.cod_product', 'p.descripcion'];
+    const searchFields = ['p.nombre_producto', 'p.cod_product', 'p.descripcion_producto'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -53,14 +53,14 @@ export async function GET(request: NextRequest) {
         p.producto_id,
         p.nombre_producto,
         p.cod_product,
-        p.descripcion,
+        p.descripcion_producto,
         p.precio_costo,
         p.precio_venta,
         p.stock,
         p.stock_minimo,
         p.estado,
-        c.nombre as categoria_nombre,
-        m.nombre as marca_nombre
+        c.nombre_categoria as categoria_nombre,
+        m.descripcion as marca_nombre
       FROM productos p
       LEFT JOIN categorias c ON p.categoria_id = c.categoria_id
       LEFT JOIN marcas m ON p.marca_id = m.marca_id
