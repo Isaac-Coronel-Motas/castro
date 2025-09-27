@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { Diagnostico, CreateDiagnosticoRequest, UpdateDiagnosticoRequest, DiagnosticoDetalle } from "@/lib/types/servicios-tecnicos"
 import { Stethoscope, Calendar, User, Plus, Trash2, Wrench, AlertCircle } from "lucide-react"
 
@@ -22,7 +22,7 @@ interface DiagnosticoModalProps {
 }
 
 export function DiagnosticoModal({ isOpen, onClose, onSave, diagnostico, mode }: DiagnosticoModalProps) {
-  const { user } = useAuth()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreateDiagnosticoRequest>({
     recepcion_id: 0,
     tecnico_id: 0,
@@ -67,35 +67,35 @@ export function DiagnosticoModal({ isOpen, onClose, onSave, diagnostico, mode }:
   const loadInitialData = async () => {
     try {
       // Cargar recepciones
-      const recepcionesRes = await fetch('/api/servicios/recepcion-equipos')
+      const recepcionesRes = await authenticatedFetch('/api/servicios/recepcion-equipos')
       const recepcionesData = await recepcionesRes.json()
       if (recepcionesData.success) {
         setRecepciones(recepcionesData.data)
       }
 
       // Cargar equipos
-      const equiposRes = await fetch('/api/referencias/equipos')
+      const equiposRes = await authenticatedFetch('/api/referencias/equipos')
       const equiposData = await equiposRes.json()
       if (equiposData.success) {
         setEquipos(equiposData.data)
       }
 
       // Cargar técnicos (usuarios con rol técnico)
-      const tecnicosRes = await fetch('/api/usuarios')
+      const tecnicosRes = await authenticatedFetch('/api/usuarios')
       const tecnicosData = await tecnicosRes.json()
       if (tecnicosData.success) {
         setTecnicos(tecnicosData.data)
       }
 
       // Cargar tipos de diagnóstico
-      const tiposRes = await fetch('/api/referencias/tipos-diagnostico')
+      const tiposRes = await authenticatedFetch('/api/referencias/tipos-diagnostico')
       const tiposData = await tiposRes.json()
       if (tiposData.success) {
         setTiposDiagnostico(tiposData.data)
       }
 
       // Cargar visitas técnicas
-      const visitasRes = await fetch('/api/servicios/visitas-tecnicas')
+      const visitasRes = await authenticatedFetch('/api/servicios/visitas-tecnicas')
       const visitasData = await visitasRes.json()
       if (visitasData.success) {
         setVisitasTecnicas(visitasData.data)

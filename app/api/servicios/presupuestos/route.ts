@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['ps.nro_presupuesto', 'ps.observaciones', 'c.nombre_cliente', 'u.nombre'];
+    const searchFields = ['ps.nro_presupuesto', 'ps.observaciones', 'c.nombre', 'u.nombre'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -96,8 +96,8 @@ export async function GET(request: NextRequest) {
       queryParams.push(parseInt(diagnostico_id));
     }
 
-    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_presupuesto');
+    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions, queryParams);
+    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'ps', 'fecha_presupuesto');
 
     // Consulta principal
     const query = `
@@ -118,15 +118,15 @@ export async function GET(request: NextRequest) {
         ps.tipo_presu,
         u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         d.diagnostico_id as diagnostico_existe,
         COUNT(psd.det_pres_serv_id) as total_servicios,
-        COUNT(pspd.det_pres_prod_id) as total_productos,
+        COUNT(pspd.det_pres_producto_id) as total_productos,
         COALESCE(SUM(psd.cantidad * psd.precio_unitario), 0) as monto_servicios,
         COALESCE(SUM(pspd.cantidad * pspd.precio_unitario), 0) as monto_productos,
         CASE 
           WHEN ps.valido_hasta IS NOT NULL THEN 
-            EXTRACT(DAYS FROM (ps.valido_hasta - CURRENT_DATE))
+            (ps.valido_hasta - CURRENT_DATE)
           ELSE NULL
         END as dias_validez,
         CASE 
@@ -162,12 +162,12 @@ export async function GET(request: NextRequest) {
       GROUP BY ps.presu_serv_id, ps.fecha_presupuesto, ps.estado, ps.monto_presu_ser, 
                ps.observaciones, ps.descuento_id, ps.usuario_id, ps.sucursal_id, 
                ps.promocion_id, ps.nro_presupuesto, ps.diagnostico_id, ps.valido_desde, 
-               ps.valido_hasta, ps.tipo_presu, u.nombre, s.nombre, c.nombre_cliente, d.diagnostico_id
+               ps.valido_hasta, ps.tipo_presu, u.nombre, s.nombre, c.nombre, d.diagnostico_id
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
-    const allParams = [...queryParams, ...params, limitParam, offsetParam];
+    const allParams = [...params, limitParam, offsetParam];
     const result = await pool.query(query, allParams);
     const presupuestos = result.rows;
     const total = presupuestos.length > 0 ? parseInt(presupuestos[0].total_count) : 0;

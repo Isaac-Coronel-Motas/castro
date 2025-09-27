@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['re.nro_recepcion', 're.observaciones', 'e.numero_serie', 'c.nombre_cliente'];
+    const searchFields = ['re.nro_recepcion', 're.observaciones', 'e.numero_serie', 'c.nombre'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_recepcion');
+    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 're', 'fecha_recepcion');
 
     // Consulta principal
     const query = `
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
         re.solicitud_id,
         u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         ss.nro_solicitud,
         COUNT(red.detalle_id) as total_equipos,
         CASE 
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       GROUP BY re.recepcion_id, re.fecha_recepcion, re.usuario_id, re.sucursal_id, 
                re.estado_recepcion, re.observaciones, re.nro_recepcion, re.solicitud_id, 
-               u.nombre, s.nombre, c.nombre_cliente, ss.nro_solicitud
+               u.nombre, s.nombre, c.nombre, ss.nro_solicitud
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
         re.solicitud_id,
         u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         ss.nro_solicitud
       FROM recepcion_equipo re
       LEFT JOIN usuarios u ON re.usuario_id = u.usuario_id

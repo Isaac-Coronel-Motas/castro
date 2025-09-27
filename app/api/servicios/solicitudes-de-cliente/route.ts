@@ -14,11 +14,12 @@ import {
 } from '@/lib/utils/servicios-tecnicos';
 import { 
   CreateSolicitudServicioRequest, 
+  UpdateSolicitudServicioRequest,
   ServiciosTecnicosApiResponse, 
   FiltrosSolicitudesServicio 
 } from '@/lib/types/servicios-tecnicos';
 
-// GET /api/servicios/solicitudes - Listar solicitudes de servicio
+// GET /api/servicios/solicitudes-de-cliente - Listar solicitudes de cliente
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
@@ -48,61 +49,54 @@ export async function GET(request: NextRequest) {
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['ss.nro_solicitud', 'ss.descripcion_problema', 'c.nombre', 'ss.observaciones'];
+    const searchFields = ['ss.nro_solicitud', 'c.nombre', 'ss.descripcion_problema'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
-    let paramCount = 0;
 
+    // Filtros adicionales
     if (estado_solicitud) {
-      paramCount++;
-      additionalConditions.push(`ss.estado_solicitud = $${paramCount}`);
+      additionalConditions.push('ss.estado_solicitud = $' + (queryParams.length + 1));
       queryParams.push(estado_solicitud);
     }
 
     if (fecha_desde) {
-      paramCount++;
-      additionalConditions.push(`DATE(ss.fecha_solicitud) >= $${paramCount}`);
+      additionalConditions.push('ss.fecha_solicitud >= $' + (queryParams.length + 1));
       queryParams.push(fecha_desde);
     }
 
     if (fecha_hasta) {
-      paramCount++;
-      additionalConditions.push(`DATE(ss.fecha_solicitud) <= $${paramCount}`);
+      additionalConditions.push('ss.fecha_solicitud <= $' + (queryParams.length + 1));
       queryParams.push(fecha_hasta);
     }
 
     if (cliente_id) {
-      paramCount++;
-      additionalConditions.push(`ss.cliente_id = $${paramCount}`);
-      queryParams.push(parseInt(cliente_id));
+      additionalConditions.push('ss.cliente_id = $' + (queryParams.length + 1));
+      queryParams.push(cliente_id);
     }
 
     if (sucursal_id) {
-      paramCount++;
-      additionalConditions.push(`ss.sucursal_id = $${paramCount}`);
-      queryParams.push(parseInt(sucursal_id));
-    }
-
-    if (tecnico_id) {
-      paramCount++;
-      additionalConditions.push(`vt.tecnico_id = $${paramCount}`);
-      queryParams.push(parseInt(tecnico_id));
+      additionalConditions.push('ss.sucursal_id = $' + (queryParams.length + 1));
+      queryParams.push(sucursal_id);
     }
 
     if (tipo_atencion) {
-      paramCount++;
-      additionalConditions.push(`ss.tipo_atencion = $${paramCount}`);
+      additionalConditions.push('ss.tipo_atencion = $' + (queryParams.length + 1));
       queryParams.push(tipo_atencion);
     }
 
     if (ciudad_id) {
-      paramCount++;
-      additionalConditions.push(`ss.ciudad_id = $${paramCount}`);
-      queryParams.push(parseInt(ciudad_id));
+      additionalConditions.push('ss.ciudad_id = $' + (queryParams.length + 1));
+      queryParams.push(ciudad_id);
     }
 
-    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions, queryParams);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'ss', 'fecha_solicitud');
+    const { whereClause, params } = buildSearchWhereClause(
+      searchFields, 
+      search, 
+      additionalConditions,
+      queryParams
+    );
+
+    const orderByClause = buildOrderByClause(sort_by, sort_order, 'ss');
 
     // Consulta principal
     const query = `
@@ -167,14 +161,19 @@ export async function GET(request: NextRequest) {
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
-    const allParams = [...params, limitParam, offsetParam];
+    const allParams = [...queryParams, ...params, limitParam, offsetParam];
     const result = await pool.query(query, allParams);
     const solicitudes = result.rows;
+    console.log('🔍 Solicitudes retornadas:', solicitudes.length);
+    if (solicitudes.length > 0) {
+      console.log('🔍 Primera solicitud:', solicitudes[0]);
+      console.log('🔍 cliente_telefono:', solicitudes[0].cliente_telefono);
+    }
     const total = solicitudes.length > 0 ? parseInt(solicitudes[0].total_count) : 0;
 
     const response: ServiciosTecnicosApiResponse = {
       success: true,
-      message: 'Solicitudes de servicio obtenidas exitosamente',
+      message: 'Solicitudes de cliente obtenidas exitosamente',
       data: solicitudes.map(s => {
         const { total_count, ...solicitud } = s;
         return solicitud;
@@ -190,7 +189,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('Error al obtener solicitudes de servicio:', error);
+    console.error('Error al obtener solicitudes de cliente:', error);
     
     const response: ServiciosTecnicosApiResponse = {
       success: false,
@@ -202,7 +201,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/servicios/solicitudes - Crear solicitud de servicio
+// POST /api/servicios/solicitudes-de-cliente - Crear solicitud de cliente
 export async function POST(request: NextRequest) {
   try {
     // Verificar permisos
@@ -265,49 +264,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Verificar que la ciudad existe si se proporciona
-    if (body.ciudad_id) {
-      const ciudadQuery = 'SELECT ciudad_id FROM ciudades WHERE ciudad_id = $1';
-      const ciudadResult = await pool.query(ciudadQuery, [body.ciudad_id]);
-      
-      if (ciudadResult.rows.length === 0) {
-        const response: ServiciosTecnicosApiResponse = {
-          success: false,
-          message: 'La ciudad especificada no existe',
-          error: 'Ciudad inválida'
-        };
-        return NextResponse.json(response, { status: 400 });
-      }
-    }
+    // Generar número de solicitud
+    const nroSolicitud = await generateSolicitudNumber();
 
-    // Verificar que los servicios existen
-    if (body.servicios && body.servicios.length > 0) {
-      for (const servicio of body.servicios) {
-        const servicioQuery = 'SELECT servicio_id FROM servicios WHERE servicio_id = $1';
-        const servicioResult = await pool.query(servicioQuery, [servicio.servicio_id]);
-        
-        if (servicioResult.rows.length === 0) {
-          const response: ServiciosTecnicosApiResponse = {
-            success: false,
-            message: `El servicio con ID ${servicio.servicio_id} no existe`,
-            error: 'Servicio inválido'
-          };
-          return NextResponse.json(response, { status: 400 });
-        }
-      }
-    }
-
-    // Crear solicitud de servicio
-    const createSolicitudQuery = `
+    // Insertar solicitud
+    const insertQuery = `
       INSERT INTO solicitud_servicio (
-        cliente_id, direccion, sucursal_id, descripcion_problema, 
-        recepcionado_por, fecha_programada, estado_solicitud, 
-        observaciones, ciudad_id, tipo_atencion
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING solicitud_id
+        fecha_solicitud, cliente_id, direccion, sucursal_id, 
+        descripcion_problema, recepcionado_por, fecha_programada, 
+        estado_solicitud, observaciones, ciudad_id, nro_solicitud, tipo_atencion
+      ) VALUES (
+        CURRENT_DATE, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+      ) RETURNING *
     `;
 
-    const solicitudResult = await pool.query(createSolicitudQuery, [
+    const insertParams = [
       body.cliente_id,
       body.direccion,
       body.sucursal_id,
@@ -317,50 +288,36 @@ export async function POST(request: NextRequest) {
       body.estado_solicitud || 'Pendiente',
       body.observaciones || null,
       body.ciudad_id || null,
+      nroSolicitud,
       body.tipo_atencion || 'Visita'
-    ]);
+    ];
 
-    const newSolicitudId = solicitudResult.rows[0].solicitud_id;
+    const insertResult = await pool.query(insertQuery, insertParams);
+    const nuevaSolicitud = insertResult.rows[0];
 
-    // Actualizar número de solicitud
-    const nroSolicitud = generateSolicitudNumber(newSolicitudId);
-    await pool.query(
-      'UPDATE solicitud_servicio SET nro_solicitud = $1 WHERE solicitud_id = $2',
-      [nroSolicitud, newSolicitudId]
-    );
-
-    // Crear detalles de servicios
+    // Insertar detalles de servicios si existen
     if (body.servicios && body.servicios.length > 0) {
       for (const servicio of body.servicios) {
-        await pool.query(
-          'INSERT INTO solicitud_servicio_det (solicitud_id, servicio_id, cantidad, precio_unitario, observaciones) VALUES ($1, $2, $3, $4, $5)',
-          [
-            newSolicitudId, 
-            servicio.servicio_id, 
-            servicio.cantidad || 1, 
-            servicio.precio_unitario || null,
-            servicio.observaciones || null
-          ]
-        );
+        const detalleQuery = `
+          INSERT INTO solicitud_servicio_det (
+            solicitud_id, servicio_id, cantidad, precio_unitario, observaciones
+          ) VALUES ($1, $2, $3, $4, $5)
+        `;
+        
+        await pool.query(detalleQuery, [
+          nuevaSolicitud.solicitud_id,
+          servicio.servicio_id,
+          servicio.cantidad,
+          servicio.precio_unitario || null,
+          servicio.observaciones || null
+        ]);
       }
     }
 
-    // Obtener la solicitud creada con información completa
-    const getSolicitudQuery = `
+    // Obtener la solicitud completa con joins
+    const selectQuery = `
       SELECT 
-        ss.solicitud_id,
-        ss.fecha_solicitud,
-        ss.cliente_id,
-        ss.direccion,
-        ss.sucursal_id,
-        ss.descripcion_problema,
-        ss.recepcionado_por,
-        ss.fecha_programada,
-        ss.estado_solicitud,
-        ss.observaciones,
-        ss.ciudad_id,
-        ss.nro_solicitud,
-        ss.tipo_atencion,
+        ss.*,
         c.nombre as cliente_nombre,
         c.telefono as cliente_telefono,
         c.email as cliente_email,
@@ -375,29 +332,19 @@ export async function POST(request: NextRequest) {
       WHERE ss.solicitud_id = $1
     `;
 
-    const solicitudData = await pool.query(getSolicitudQuery, [newSolicitudId]);
+    const selectResult = await pool.query(selectQuery, [nuevaSolicitud.solicitud_id]);
+    const solicitudCompleta = selectResult.rows[0];
 
     const response: ServiciosTecnicosApiResponse = {
       success: true,
-      message: 'Solicitud de servicio creada exitosamente',
-      data: solicitudData.rows[0]
+      message: 'Solicitud de cliente creada exitosamente',
+      data: solicitudCompleta
     };
-
-    // Log de auditoría
-    console.log('Solicitud de servicio creada:', sanitizeForLog({
-      solicitud_id: newSolicitudId,
-      nro_solicitud: nroSolicitud,
-      cliente_id: body.cliente_id,
-      sucursal_id: body.sucursal_id,
-      tipo_atencion: body.tipo_atencion || 'Visita',
-      total_servicios: body.servicios?.length || 0,
-      timestamp: new Date().toISOString()
-    }));
 
     return NextResponse.json(response, { status: 201 });
 
   } catch (error) {
-    console.error('Error al crear solicitud de servicio:', error);
+    console.error('Error al crear solicitud de cliente:', error);
     
     const response: ServiciosTecnicosApiResponse = {
       success: false,

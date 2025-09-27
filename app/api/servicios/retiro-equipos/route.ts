@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['se.retirado_por', 'se.documento_entrega', 'se.observaciones', 'c.nombre_cliente'];
+    const searchFields = ['se.retirado_por', 'se.documento_entrega', 'se.observaciones', 'c.nombre'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -71,8 +71,8 @@ export async function GET(request: NextRequest) {
       queryParams.push(parseInt(cliente_id));
     }
 
-    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_salida');
+    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions, queryParams);
+    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'se', 'fecha_salida');
 
     // Consulta principal
     const query = `
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
         se.documento_entrega,
         se.observaciones,
         u.nombre as entregado_por_nombre,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         re.nro_recepcion,
         ss.nro_solicitud,
         COUNT(red.detalle_id) as total_equipos,
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       GROUP BY se.salida_id, se.recepcion_id, se.fecha_salida, se.entregado_por, 
                se.retirado_por, se.documento_entrega, se.observaciones, u.nombre, 
-               c.nombre_cliente, re.nro_recepcion, ss.nro_solicitud
+               c.nombre, re.nro_recepcion, ss.nro_solicitud
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
@@ -241,7 +241,7 @@ export async function POST(request: NextRequest) {
         se.documento_entrega,
         se.observaciones,
         u.nombre as entregado_por_nombre,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         re.nro_recepcion,
         ss.nro_solicitud
       FROM salida_equipo se

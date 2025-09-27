@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { RecepcionEquipo, CreateRecepcionEquipoRequest, UpdateRecepcionEquipoRequest, RecepcionEquipoDetalle } from "@/lib/types/servicios-tecnicos"
 import { Package, Calendar, User, Building, Plus, Trash2, Wrench, CheckCircle } from "lucide-react"
 
@@ -23,6 +24,7 @@ interface RecepcionEquipoModalProps {
 
 export function RecepcionEquipoModal({ isOpen, onClose, onSave, recepcion, mode }: RecepcionEquipoModalProps) {
   const { user } = useAuth()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreateRecepcionEquipoRequest>({
     usuario_id: user?.usuario_id || 0,
     sucursal_id: 0,
@@ -62,28 +64,28 @@ export function RecepcionEquipoModal({ isOpen, onClose, onSave, recepcion, mode 
   const loadInitialData = async () => {
     try {
       // Cargar sucursales
-      const sucursalesRes = await fetch('/api/sucursales')
+      const sucursalesRes = await authenticatedFetch('/api/sucursales')
       const sucursalesData = await sucursalesRes.json()
       if (sucursalesData.success) {
         setSucursales(sucursalesData.data)
       }
 
       // Cargar equipos
-      const equiposRes = await fetch('/api/referencias/equipos')
+      const equiposRes = await authenticatedFetch('/api/referencias/equipos')
       const equiposData = await equiposRes.json()
       if (equiposData.success) {
         setEquipos(equiposData.data)
       }
 
       // Cargar solicitudes pendientes
-      const solicitudesRes = await fetch('/api/servicios/solicitudes?estado_solicitud=Pendiente')
+      const solicitudesRes = await authenticatedFetch('/api/servicios/solicitudes?estado_solicitud=Pendiente')
       const solicitudesData = await solicitudesRes.json()
       if (solicitudesData.success) {
         setSolicitudes(solicitudesData.data)
       }
 
       // Cargar usuarios
-      const usuariosRes = await fetch('/api/usuarios')
+      const usuariosRes = await authenticatedFetch('/api/usuarios')
       const usuariosData = await usuariosRes.json()
       if (usuariosData.success) {
         setUsuarios(usuariosData.data)

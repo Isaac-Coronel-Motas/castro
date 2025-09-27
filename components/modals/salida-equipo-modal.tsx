@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { SalidaEquipo, CreateSalidaEquipoRequest, UpdateSalidaEquipoRequest } from "@/lib/types/servicios-tecnicos"
 import { PackageCheck, Calendar, User, Building, Phone, MapPin, Truck, Clock, AlertCircle, CheckCircle } from "lucide-react"
 
@@ -23,6 +24,7 @@ interface SalidaEquipoModalProps {
 
 export function SalidaEquipoModal({ isOpen, onClose, onSave, salida, mode }: SalidaEquipoModalProps) {
   const { user } = useAuth()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreateSalidaEquipoRequest>({
     fecha_salida: new Date().toISOString().split('T')[0],
     estado: 'pendiente_notificacion',
@@ -67,21 +69,21 @@ export function SalidaEquipoModal({ isOpen, onClose, onSave, salida, mode }: Sal
   const loadInitialData = async () => {
     try {
       // Cargar sucursales
-      const sucursalesRes = await fetch('/api/sucursales')
+      const sucursalesRes = await authenticatedFetch('/api/referencias/sucursales')
       const sucursalesData = await sucursalesRes.json()
       if (sucursalesData.success) {
         setSucursales(sucursalesData.data)
       }
 
       // Cargar órdenes de servicio completadas
-      const ordenesRes = await fetch('/api/servicios/ordenes-servicio?estado=completada')
+      const ordenesRes = await authenticatedFetch('/api/servicios/ordenes-servicio?estado=completado')
       const ordenesData = await ordenesRes.json()
       if (ordenesData.success) {
         setOrdenesServicio(ordenesData.data)
       }
 
       // Cargar clientes
-      const clientesRes = await fetch('/api/referencias/clientes')
+      const clientesRes = await authenticatedFetch('/api/referencias/clientes')
       const clientesData = await clientesRes.json()
       if (clientesData.success) {
         setClientes(clientesData.data)

@@ -87,8 +87,8 @@ export async function GET(request: NextRequest) {
       queryParams.push(parseInt(recepcion_id));
     }
 
-    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_diagnostico');
+    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions, queryParams);
+    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'd', 'fecha_diagnostico');
 
     // Consulta principal
     const query = `
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
         td.nombre as tipo_diagnostico_nombre,
         td.descripcion as tipo_diagnostico_descripcion,
         re.nro_recepcion,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         COUNT(dd.detalle_id) as total_equipos,
         CASE 
           WHEN d.estado_diagnostico = 'Pendiente' THEN 'Pendiente'
@@ -131,12 +131,12 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       GROUP BY d.diagnostico_id, d.recepcion_id, d.fecha_diagnostico, d.tecnico_id, 
                d.observacion, d.estado_diagnostico, d.visita_tecnica_id, d.tipo_diag_id, 
-               d.motivo, t.nombre, td.nombre, td.descripcion, re.nro_recepcion, c.nombre_cliente
+               d.motivo, t.nombre, td.nombre, td.descripcion, re.nro_recepcion, c.nombre
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
-    const allParams = [...queryParams, ...params, limitParam, offsetParam];
+    const allParams = [...params, limitParam, offsetParam];
     const result = await pool.query(query, allParams);
     const diagnosticos = result.rows;
     const total = diagnosticos.length > 0 ? parseInt(diagnosticos[0].total_count) : 0;

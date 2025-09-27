@@ -24,39 +24,35 @@ export default function OrdenesServicioPage() {
     loading,
     error,
     pagination,
-    search,
-    sort,
-    page,
-    limit,
-    handleSearch,
-    handleSort,
-    handlePageChange,
-    handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
-    refresh
+    refetch,
+    create: createItem,
+    update: updateItem,
+    delete: deleteItem,
+    search: handleSearch,
+    setSorting: handleSort,
+    setPagination: handlePageChange,
+    setFilters
   } = useApi<OrdenServicio>('/api/servicios/ordenes-servicio')
 
   const columns = [
     {
-      key: 'nro_orden',
+      key: 'orden_servicio_id',
       label: 'Número',
       sortable: true,
       render: (orden: OrdenServicio) => (
         <div className="font-medium text-foreground">
-          {orden.nro_orden || `#${orden.orden_servicio_id}`}
+          #{orden.orden_servicio_id}
         </div>
       )
     },
     {
-      key: 'fecha_orden',
+      key: 'fecha_solicitud',
       label: 'Fecha',
       sortable: true,
       render: (orden: OrdenServicio) => (
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span>{new Date(orden.fecha_orden).toLocaleDateString('es-CR')}</span>
+          <span>{new Date(orden.fecha_solicitud).toLocaleDateString('es-CR')}</span>
         </div>
       )
     },
@@ -93,59 +89,13 @@ export default function OrdenesServicioPage() {
       )
     },
     {
-      key: 'sucursal_nombre',
-      label: 'Sucursal',
+      key: 'monto_servicio',
+      label: 'Monto',
       sortable: true,
       render: (orden: OrdenServicio) => (
-        <div className="flex items-center gap-2">
-          <Building className="h-4 w-4 text-muted-foreground" />
-          <span>{orden.sucursal_nombre}</span>
+        <div className="font-medium">
+          ${orden.monto_servicio?.toLocaleString() || '0'}
         </div>
-      )
-    },
-    {
-      key: 'progreso',
-      label: 'Progreso',
-      sortable: true,
-      render: (orden: OrdenServicio) => (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground">{orden.progreso}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all ${getProgresoColor(orden.progreso)}`}
-              style={{ width: `${orden.progreso}%` }}
-            ></div>
-          </div>
-        </div>
-      )
-    },
-    {
-      key: 'prioridad',
-      label: 'Prioridad',
-      sortable: true,
-      render: (orden: OrdenServicio) => (
-        <Badge className={getPrioridadColor(orden.prioridad)}>
-          {getPrioridadLabel(orden.prioridad)}
-        </Badge>
-      )
-    },
-    {
-      key: 'fecha_estimada',
-      label: 'Fecha Estimada',
-      sortable: true,
-      render: (orden: OrdenServicio) => (
-        orden.fecha_estimada ? (
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className={getVencimientoColor(orden.fecha_estimada)}>
-              {new Date(orden.fecha_estimada).toLocaleDateString('es-CR')}
-            </span>
-          </div>
-        ) : (
-          <span className="text-muted-foreground">Sin fecha</span>
-        )
       )
     },
     {
@@ -161,7 +111,7 @@ export default function OrdenesServicioPage() {
           >
             <Eye className="h-4 w-4" />
           </Button>
-          {orden.estado !== 'completada' && orden.estado !== 'cancelada' && (
+          {orden.estado !== 'completado' && (
             <Button
               variant="ghost"
               size="sm"
@@ -171,7 +121,7 @@ export default function OrdenesServicioPage() {
               <Edit className="h-4 w-4" />
             </Button>
           )}
-          {orden.estado === 'iniciada' && (
+          {orden.estado === 'pendiente' && (
             <Button
               variant="ghost"
               size="sm"
@@ -185,6 +135,14 @@ export default function OrdenesServicioPage() {
       )
     }
   ]
+
+  const handleLimitChange = (limit: number) => {
+    handlePageChange(1, limit)
+  }
+
+  const handlePageChangeWrapper = (page: number) => {
+    handlePageChange(page, pagination?.limit || 10)
+  }
 
   const handleCreate = () => {
     setSelectedOrden(null)
@@ -247,55 +205,20 @@ export default function OrdenesServicioPage() {
 
   const getEstadoColor = (estado: string) => {
     const colores: { [key: string]: string } = {
-      'iniciada': 'bg-blue-500 text-white',
+      'pendiente': 'bg-blue-500 text-white',
       'en_proceso': 'bg-yellow-500 text-white',
-      'pausada': 'bg-orange-500 text-white',
-      'completada': 'bg-green-500 text-white',
-      'cancelada': 'bg-destructive text-destructive-foreground'
+      'completado': 'bg-green-500 text-white'
     }
     return colores[estado] || 'bg-muted text-muted-foreground'
   }
 
   const getEstadoLabel = (estado: string) => {
     const labels: { [key: string]: string } = {
-      'iniciada': 'Iniciada',
+      'pendiente': 'Pendiente',
       'en_proceso': 'En Proceso',
-      'pausada': 'Pausada',
-      'completada': 'Completada',
-      'cancelada': 'Cancelada'
+      'completado': 'Completado'
     }
     return labels[estado] || estado
-  }
-
-  const getPrioridadColor = (prioridad: string) => {
-    const colores: { [key: string]: string } = {
-      'urgente': 'bg-red-500 text-white',
-      'alta': 'bg-orange-500 text-white',
-      'media': 'bg-yellow-500 text-white',
-      'baja': 'bg-green-500 text-white'
-    }
-    return colores[prioridad] || 'bg-muted text-muted-foreground'
-  }
-
-  const getPrioridadLabel = (prioridad: string) => {
-    return prioridad.charAt(0).toUpperCase() + prioridad.slice(1)
-  }
-
-  const getProgresoColor = (progreso: number) => {
-    if (progreso >= 80) return 'bg-green-500'
-    if (progreso >= 50) return 'bg-yellow-500'
-    if (progreso >= 25) return 'bg-orange-500'
-    return 'bg-red-500'
-  }
-
-  const getVencimientoColor = (fechaEstimada: string) => {
-    const hoy = new Date()
-    const estimada = new Date(fechaEstimada)
-    const diasRestantes = Math.ceil((estimada.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
-    
-    if (diasRestantes < 0) return 'text-red-500'
-    if (diasRestantes <= 3) return 'text-yellow-500'
-    return 'text-muted-foreground'
   }
 
   const metrics = [
@@ -308,24 +231,24 @@ export default function OrdenesServicioPage() {
       color: "bg-primary text-primary-foreground",
     },
     {
-      title: "Activas",
-      value: ordenes?.filter(o => o.estado === 'iniciada' || o.estado === 'en_proceso').length.toString() || "0",
+      title: "Pendientes",
+      value: ordenes?.filter(o => o.estado === 'pendiente').length.toString() || "0",
       change: "+12%",
       trend: "up" as const,
       icon: Play,
       color: "bg-secondary text-secondary-foreground",
     },
     {
-      title: "Completadas",
-      value: ordenes?.filter(o => o.estado === 'completada').length.toString() || "0",
+      title: "En Proceso",
+      value: ordenes?.filter(o => o.estado === 'en_proceso').length.toString() || "0",
       change: "+28%",
       trend: "up" as const,
       icon: CheckCircle,
       color: "bg-chart-1 text-white",
     },
     {
-      title: "Pausadas",
-      value: ordenes?.filter(o => o.estado === 'pausada').length.toString() || "0",
+      title: "Completadas",
+      value: ordenes?.filter(o => o.estado === 'completado').length.toString() || "0",
       change: "+5%",
       trend: "up" as const,
       icon: Pause,
@@ -378,11 +301,11 @@ export default function OrdenesServicioPage() {
               loading={loading}
               error={error}
               pagination={pagination}
-              search={search}
-              sort={sort}
+              search=""
+              sort={{ sortBy: 'created_at', sortOrder: 'desc' }}
               onSearch={handleSearch}
               onSort={handleSort}
-              onPageChange={handlePageChange}
+              onPageChange={handlePageChangeWrapper}
               onLimitChange={handleLimitChange}
               searchPlaceholder="Buscar órdenes..."
             />

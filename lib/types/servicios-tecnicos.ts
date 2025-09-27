@@ -3,11 +3,11 @@
 // ===== ENUMS =====
 export type EstadoSolicitud = 'Pendiente' | 'Asignada' | 'En proceso' | 'Finalizada' | 'Cancelada';
 export type EstadoRecepcion = 'En revisión' | 'Cancelada' | 'Recepcionada';
-export type EstadoDiagnostico = 'Pendiente' | 'En proceso' | 'Completado' | 'Rechazado' | 'Cancelado';
+export type EstadoDiagnostico = 'pendiente' | 'en_proceso' | 'completado' | 'rechazado' | 'cancelado';
 export type EstadoPresupuestoServicio = 'pendiente' | 'aprobado' | 'rechazado';
 export type EstadoOrdenServicio = 'pendiente' | 'en_proceso' | 'completado';
 export type EstadoReclamo = 'pendiente' | 'en_verificacion' | 'resuelto' | 'rechazado' | 'anulado';
-export type EstadoVisita = 'Pendiente' | 'En proceso' | 'Completada' | 'Cancelada';
+export type EstadoVisita = 'pendiente' | 'en_proceso' | 'completada' | 'cancelada';
 export type TipoAtencion = 'Visita' | 'Recepcion';
 export type TipoPresupuestoServicio = 'con_diagnostico' | 'sin_diagnostico';
 
@@ -174,6 +174,7 @@ export interface PresupuestoServicio {
   promocion_id?: number;
   nro_presupuesto?: string;
   diagnostico_id?: number;
+  cliente_id?: number;
   valido_desde?: string;
   valido_hasta?: string;
   tipo_presu: TipoPresupuestoServicio;
@@ -223,6 +224,7 @@ export interface CreatePresupuestoServicioRequest {
   sucursal_id?: number;
   promocion_id?: number;
   diagnostico_id?: number;
+  cliente_id?: number;
   valido_desde?: string;
   valido_hasta?: string;
   tipo_presu?: TipoPresupuestoServicio;
@@ -553,4 +555,15 @@ export interface InformeServiciosTecnicos {
       tendencia: 'up' | 'down' | 'stable';
     }>;
   };
+}
+
+export interface FiltrosInformeServicios {
+  fecha_inicio: string;
+  fecha_fin: string;
+  sucursal_id: number;
+  tecnico_id: number;
+  cliente_id: number;
+  tipo_servicio_id: number;
+  estado: string;
+  tipo_periodo?: string;
 }

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['r.descripcion', 'r.resolucion', 'r.observaciones', 'c.nombre_cliente'];
+    const searchFields = ['r.descripcion', 'r.resolucion', 'r.observaciones', 'c.nombre'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -88,8 +88,8 @@ export async function GET(request: NextRequest) {
       queryParams.push(parseInt(gestionado_por));
     }
 
-    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_reclamo');
+    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions, queryParams);
+    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'r', 'fecha_reclamo');
 
     // Consulta principal
     const query = `
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
         r.fecha_resolucion,
         r.observaciones,
         r.estado,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         c.telefono as cliente_telefono,
         c.email as cliente_email,
         u1.nombre as recibido_por_nombre,
@@ -113,9 +113,9 @@ export async function GET(request: NextRequest) {
         os.orden_servicio_id as orden_servicio_existe,
         CASE 
           WHEN r.fecha_resolucion IS NOT NULL THEN 
-            EXTRACT(DAYS FROM (r.fecha_resolucion - r.fecha_reclamo))
+            (r.fecha_resolucion - r.fecha_reclamo)
           ELSE 
-            EXTRACT(DAYS FROM (CURRENT_DATE - r.fecha_reclamo))
+            (CURRENT_DATE - r.fecha_reclamo)
         END as dias_resolucion,
         CASE 
           WHEN r.estado = 'pendiente' THEN 'Pendiente'
@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
         r.fecha_resolucion,
         r.observaciones,
         r.estado,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         c.telefono as cliente_telefono,
         c.email as cliente_email,
         u1.nombre as recibido_por_nombre,

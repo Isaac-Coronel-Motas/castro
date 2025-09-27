@@ -676,9 +676,14 @@ export function calculateReclamoResolutionDays(fechaReclamo: string, fechaResolu
 /**
  * Genera número de solicitud
  */
-export function generateSolicitudNumber(id: number): string {
+export async function generateSolicitudNumber(): Promise<string> {
+  // Obtener el siguiente ID de la secuencia
+  const { pool } = await import('@/lib/db');
+  const result = await pool.query('SELECT nextval(\'solicitud_servicio_solicitud_id_seq\') as next_id');
+  const nextId = result.rows[0].next_id;
+  
   const year = new Date().getFullYear();
-  const paddedId = id.toString().padStart(4, '0');
+  const paddedId = nextId.toString().padStart(4, '0');
   return `SOL-${paddedId}-${year}`;
 }
 
@@ -808,13 +813,14 @@ export function sanitizeForLog(data: any): any {
 export function buildSearchWhereClause(
   searchFields: string[], 
   searchTerm: string, 
-  additionalConditions: string[] = []
+  additionalConditions: string[] = [],
+  existingParams: any[] = []
 ): { whereClause: string; params: any[] } {
   const conditions: string[] = [...additionalConditions];
-  const params: any[] = [];
-  let paramCount = 0;
+  const params: any[] = [...existingParams];
+  let paramCount = existingParams.length;
 
-  if (searchTerm) {
+  if (searchTerm && searchFields.length > 0) {
     const searchConditions = searchFields.map(field => {
       paramCount++;
       params.push(`%${searchTerm}%`);
@@ -834,21 +840,27 @@ export function buildSearchWhereClause(
 export function buildOrderByClause(
   sortBy: string, 
   sortOrder: 'asc' | 'desc', 
-  defaultSort: string = 'fecha_creacion'
+  tablePrefix: string = '',
+  defaultSort: string = 'fecha_solicitud'
 ): string {
   const validSortFields = [
     'fecha_solicitud', 'fecha_recepcion', 'fecha_diagnostico', 'fecha_presupuesto',
     'fecha_salida', 'fecha_reclamo', 'fecha_visita',
-    'estado', 'monto_servicio', 'monto_presu_ser',
+    'estado_solicitud', 'estado_recepcion', 'estado_diagnostico', 'estado_presupuesto',
+    'estado_orden', 'estado_reclamo', 'estado_visita',
+    'monto_servicio', 'monto_presu_ser',
     'cliente_nombre', 'tecnico_nombre', 'usuario_nombre',
     'nro_solicitud', 'nro_recepcion', 'nro_presupuesto',
-    'created_at', 'updated_at'
+    'nro_orden', 'nro_reclamo', 'nro_visita'
   ];
   
   const field = validSortFields.includes(sortBy) ? sortBy : defaultSort;
   const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   
-  return `ORDER BY ${field} ${order}`;
+  // Agregar prefijo de tabla si se proporciona
+  const prefixedField = tablePrefix ? `${tablePrefix}.${field}` : field;
+  
+  return `ORDER BY ${prefixedField} ${order}`;
 }
 
 /**

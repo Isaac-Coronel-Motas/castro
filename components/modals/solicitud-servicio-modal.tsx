@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { SolicitudServicio, CreateSolicitudServicioRequest, UpdateSolicitudServicioRequest, SolicitudServicioDetalle } from "@/lib/types/servicios-tecnicos"
 import { FileText, Calendar, User, Building, MapPin, Plus, Trash2, Wrench, Clock } from "lucide-react"
 
@@ -23,6 +24,7 @@ interface SolicitudServicioModalProps {
 
 export function SolicitudServicioModal({ isOpen, onClose, onSave, solicitud, mode }: SolicitudServicioModalProps) {
   const { user } = useAuth()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreateSolicitudServicioRequest>({
     cliente_id: 0,
     direccion: '',
@@ -74,35 +76,35 @@ export function SolicitudServicioModal({ isOpen, onClose, onSave, solicitud, mod
   const loadInitialData = async () => {
     try {
       // Cargar clientes
-      const clientesRes = await fetch('/api/referencias/clientes')
+      const clientesRes = await authenticatedFetch('/api/referencias/clientes')
       const clientesData = await clientesRes.json()
       if (clientesData.success) {
         setClientes(clientesData.data)
       }
 
       // Cargar sucursales
-      const sucursalesRes = await fetch('/api/sucursales')
+      const sucursalesRes = await authenticatedFetch('/api/sucursales')
       const sucursalesData = await sucursalesRes.json()
       if (sucursalesData.success) {
         setSucursales(sucursalesData.data)
       }
 
       // Cargar ciudades
-      const ciudadesRes = await fetch('/api/referencias/ciudades')
+      const ciudadesRes = await authenticatedFetch('/api/referencias/ciudades')
       const ciudadesData = await ciudadesRes.json()
       if (ciudadesData.success) {
         setCiudades(ciudadesData.data)
       }
 
       // Cargar servicios
-      const serviciosRes = await fetch('/api/referencias/servicios')
+      const serviciosRes = await authenticatedFetch('/api/referencias/servicios')
       const serviciosData = await serviciosRes.json()
       if (serviciosData.success) {
         setServicios(serviciosData.data)
       }
 
       // Cargar usuarios
-      const usuariosRes = await fetch('/api/usuarios')
+      const usuariosRes = await authenticatedFetch('/api/usuarios')
       const usuariosData = await usuariosRes.json()
       if (usuariosData.success) {
         setUsuarios(usuariosData.data)
@@ -159,6 +161,12 @@ export function SolicitudServicioModal({ isOpen, onClose, onSave, solicitud, mod
   }
 
   const validateForm = (): boolean => {
+    console.log('🔍 Validando formulario...')
+    console.log('🔍 formData.cliente_id:', formData.cliente_id)
+    console.log('🔍 formData.direccion:', formData.direccion)
+    console.log('🔍 formData.sucursal_id:', formData.sucursal_id)
+    console.log('🔍 formData.recepcionado_por:', formData.recepcionado_por)
+    
     const newErrors: { [key: string]: string } = {}
 
     if (!formData.cliente_id) {
@@ -191,13 +199,22 @@ export function SolicitudServicioModal({ isOpen, onClose, onSave, solicitud, mod
     })
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    const isValid = Object.keys(newErrors).length === 0
+    console.log('🔍 Errores encontrados:', newErrors)
+    console.log('🔍 Formulario válido:', isValid)
+    return isValid
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('🔍 Modal handleSubmit llamado')
+    console.log('🔍 formData:', formData)
+    console.log('🔍 mode:', mode)
+    console.log('🔍 onSave function:', typeof onSave)
+    
     if (!validateForm()) {
+      console.log('🔍 Validación falló')
       return
     }
 
@@ -207,7 +224,10 @@ export function SolicitudServicioModal({ isOpen, onClose, onSave, solicitud, mod
         ? formData 
         : { ...formData, solicitud_id: solicitud?.solicitud_id }
       
+      console.log('🔍 dataToSave:', dataToSave)
+      console.log('🔍 Llamando onSave...')
       await onSave(dataToSave)
+      console.log('🔍 onSave completado')
       onClose()
     } catch (error) {
       console.error('Error guardando solicitud:', error)
@@ -229,11 +249,11 @@ export function SolicitudServicioModal({ isOpen, onClose, onSave, solicitud, mod
 
   const getEstadoColor = (estado: string) => {
     const colores: { [key: string]: string } = {
-      'Pendiente': 'bg-secondary text-secondary-foreground',
-      'Asignada': 'bg-chart-1 text-white',
-      'En proceso': 'bg-chart-2 text-white',
-      'Finalizada': 'bg-green-500 text-white',
-      'Cancelada': 'bg-destructive text-destructive-foreground'
+      'Pendiente': 'bg-yellow-100 text-yellow-800',
+      'Asignada': 'bg-blue-100 text-blue-800',
+      'En proceso': 'bg-blue-100 text-blue-800',
+      'Finalizada': 'bg-green-100 text-green-800',
+      'Cancelada': 'bg-red-100 text-red-800'
     }
     return colores[estado] || 'bg-muted text-muted-foreground'
   }
@@ -283,7 +303,7 @@ export function SolicitudServicioModal({ isOpen, onClose, onSave, solicitud, mod
                       <SelectContent>
                         {clientes.map((cliente) => (
                           <SelectItem key={cliente.cliente_id} value={cliente.cliente_id.toString()}>
-                            {cliente.nombre_cliente}
+                            {cliente.nombre}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -328,7 +348,7 @@ export function SolicitudServicioModal({ isOpen, onClose, onSave, solicitud, mod
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Visita">Visita</SelectItem>
-                        <SelectItem value="Recepcion">Recepción</SelectItem>
+                        <SelectItem value="Recepcion">Recepcion</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -380,8 +400,8 @@ export function SolicitudServicioModal({ isOpen, onClose, onSave, solicitud, mod
                       </SelectTrigger>
                       <SelectContent>
                         {ciudades.map((ciudad) => (
-                          <SelectItem key={ciudad.ciudad_id} value={ciudad.ciudad_id.toString()}>
-                            {ciudad.nombre_ciudad}
+                          <SelectItem key={ciudad.id} value={ciudad.id.toString()}>
+                            {ciudad.nombre}
                           </SelectItem>
                         ))}
                       </SelectContent>

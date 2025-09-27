@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['os.observaciones', 't.nombre', 'u.nombre', 'c.nombre_cliente'];
+    const searchFields = ['os.observaciones', 't.nombre', 'u.nombre', 'c.nombre'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -95,8 +95,8 @@ export async function GET(request: NextRequest) {
       queryParams.push(parseInt(sucursal_id));
     }
 
-    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_solicitud');
+    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions, queryParams);
+    const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'os', 'fecha_solicitud');
 
     // Consulta principal
     const query = `
@@ -115,10 +115,10 @@ export async function GET(request: NextRequest) {
         os.impresa,
         u.nombre as usuario_nombre,
         t.nombre as tecnico_nombre,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         ss.nro_solicitud,
         ps.nro_presupuesto,
-        fc.descripcion as forma_cobro_nombre,
+        fc.nombre as forma_cobro_nombre,
         COUNT(osd.serv_deta_id) as total_servicios,
         COUNT(osp.or_ser_prod_id) as total_productos,
         COALESCE(SUM(osd.cantidad * COALESCE(osd.precio_unitario, 0)), 0) as monto_servicios,
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
         END as progreso,
         CASE 
           WHEN os.fecha_ejecucion IS NOT NULL THEN 
-            EXTRACT(DAYS FROM (os.fecha_ejecucion - CURRENT_DATE))
+            (os.fecha_ejecucion - CURRENT_DATE)
           ELSE NULL
         END as dias_restantes,
         COUNT(*) OVER() as total_count
@@ -159,13 +159,13 @@ export async function GET(request: NextRequest) {
       GROUP BY os.orden_servicio_id, os.fecha_solicitud, os.usuario_id, os.estado, 
                os.monto_servicio, os.observaciones, os.monto_final, os.tecnico_id, 
                os.presu_serv_id, os.forma_cobro_id, os.fecha_ejecucion, os.impresa, 
-               u.nombre, t.nombre, c.nombre_cliente, ss.nro_solicitud, ps.nro_presupuesto, 
-               fc.descripcion
+               u.nombre, t.nombre, c.nombre, ss.nro_solicitud, ps.nro_presupuesto, 
+               fc.nombre
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
-    const allParams = [...queryParams, ...params, limitParam, offsetParam];
+    const allParams = [...params, limitParam, offsetParam];
     const result = await pool.query(query, allParams);
     const ordenes = result.rows;
     const total = ordenes.length > 0 ? parseInt(ordenes[0].total_count) : 0;
@@ -398,7 +398,7 @@ export async function POST(request: NextRequest) {
         u.nombre as usuario_nombre,
         t.nombre as tecnico_nombre,
         ps.nro_presupuesto,
-        fc.descripcion as forma_cobro_nombre
+        fc.nombre as forma_cobro_nombre
       FROM orden_servicio os
       LEFT JOIN usuarios u ON os.usuario_id = u.usuario_id
       LEFT JOIN usuarios t ON os.tecnico_id = t.usuario_id

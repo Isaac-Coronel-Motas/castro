@@ -24,28 +24,23 @@ export default function ReclamosPage() {
     loading,
     error,
     pagination,
+    create,
+    update,
+    delete: deleteItem,
+    refetch,
     search,
-    sort,
-    page,
-    limit,
-    handleSearch,
-    handleSort,
-    handlePageChange,
-    handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
-    refresh
+    setSorting,
+    setPagination
   } = useApi<Reclamo>('/api/servicios/reclamos')
 
   const columns = [
     {
-      key: 'nro_reclamo',
+      key: 'reclamo_id',
       label: 'Número',
       sortable: true,
       render: (reclamo: Reclamo) => (
         <div className="font-medium text-foreground">
-          {reclamo.nro_reclamo || `#${reclamo.reclamo_id}`}
+          #{reclamo.reclamo_id}
         </div>
       )
     },
@@ -72,16 +67,6 @@ export default function ReclamosPage() {
       )
     },
     {
-      key: 'tipo_reclamo',
-      label: 'Tipo',
-      sortable: true,
-      render: (reclamo: Reclamo) => (
-        <Badge className={getTipoColor(reclamo.tipo_reclamo)}>
-          {getTipoLabel(reclamo.tipo_reclamo)}
-        </Badge>
-      )
-    },
-    {
       key: 'descripcion',
       label: 'Descripción',
       sortable: false,
@@ -103,38 +88,13 @@ export default function ReclamosPage() {
       )
     },
     {
-      key: 'prioridad',
-      label: 'Prioridad',
-      sortable: true,
-      render: (reclamo: Reclamo) => (
-        <Badge className={getPrioridadColor(reclamo.prioridad)}>
-          {getPrioridadLabel(reclamo.prioridad)}
-        </Badge>
-      )
-    },
-    {
-      key: 'tecnico_nombre',
-      label: 'Técnico',
+      key: 'recibido_por_nombre',
+      label: 'Recibido por',
       sortable: true,
       render: (reclamo: Reclamo) => (
         <div>
-          <div className="text-sm font-medium text-foreground">{reclamo.tecnico_nombre || 'Sin asignar'}</div>
-          {reclamo.tiempo_respuesta && (
-            <div className="text-xs text-muted-foreground">Resp: {reclamo.tiempo_respuesta}</div>
-          )}
+          <div className="text-sm font-medium text-foreground">{reclamo.recibido_por_nombre || 'N/A'}</div>
         </div>
-      )
-    },
-    {
-      key: 'satisfaccion_cliente',
-      label: 'Satisfacción',
-      sortable: true,
-      render: (reclamo: Reclamo) => (
-        reclamo.satisfaccion_cliente && reclamo.satisfaccion_cliente > 0 ? (
-          renderStars(reclamo.satisfaccion_cliente)
-        ) : (
-          <span className="text-muted-foreground">Sin calificar</span>
-        )
       )
     },
     {
@@ -150,7 +110,7 @@ export default function ReclamosPage() {
           >
             <Eye className="h-4 w-4" />
           </Button>
-          {reclamo.estado !== 'cerrado' && (
+          {reclamo.estado !== 'anulado' && (
             <Button
               variant="ghost"
               size="sm"
@@ -160,7 +120,7 @@ export default function ReclamosPage() {
               <Edit className="h-4 w-4" />
             </Button>
           )}
-          {reclamo.estado === 'abierto' && (
+          {reclamo.estado === 'pendiente' && (
             <Button
               variant="ghost"
               size="sm"
@@ -198,12 +158,12 @@ export default function ReclamosPage() {
     setIsDeleteModalOpen(true)
   }
 
-  const handleSave = async (data: CreateReclamoRequest | UpdateReclamoRequest) => {
+  const handleSave = async (data: CreateReclamoRequest & { reclamo_id?: number }) => {
     try {
       if (modalMode === 'create') {
-        await createItem(data as CreateReclamoRequest)
+        await create(data as CreateReclamoRequest)
       } else {
-        await updateItem((data as UpdateReclamoRequest).reclamo_id!, data as UpdateReclamoRequest)
+        await update(data.reclamo_id!, data as CreateReclamoRequest)
       }
       setIsModalOpen(false)
       setSelectedReclamo(null)
@@ -234,87 +194,62 @@ export default function ReclamosPage() {
     setReclamoToDelete(null)
   }
 
+  // Wrapper functions for DataTable
+  const handleSearch = (searchTerm: string) => {
+    search(searchTerm)
+  }
+
+  const handleSort = (field: string, order: 'asc' | 'desc') => {
+    setSorting({ field, order })
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setPagination({ page: newPage, limit: pagination?.limit || 10 })
+  }
+
+  const handleLimitChange = (newLimit: number) => {
+    setPagination({ page: 1, limit: newLimit })
+  }
+
   const getEstadoColor = (estado: string) => {
     const colores: { [key: string]: string } = {
-      'abierto': 'bg-red-500 text-white',
-      'en_proceso': 'bg-blue-500 text-white',
+      'pendiente': 'bg-yellow-500 text-white',
+      'en_verificacion': 'bg-blue-500 text-white',
       'resuelto': 'bg-green-500 text-white',
-      'cerrado': 'bg-gray-500 text-white'
+      'rechazado': 'bg-red-500 text-white',
+      'anulado': 'bg-gray-500 text-white'
     }
     return colores[estado] || 'bg-muted text-muted-foreground'
   }
 
   const getEstadoLabel = (estado: string) => {
     const labels: { [key: string]: string } = {
-      'abierto': 'Abierto',
-      'en_proceso': 'En Proceso',
+      'pendiente': 'Pendiente',
+      'en_verificacion': 'En Verificación',
       'resuelto': 'Resuelto',
-      'cerrado': 'Cerrado'
+      'rechazado': 'Rechazado',
+      'anulado': 'Anulado'
     }
     return labels[estado] || estado
   }
 
   const getEstadoIcon = (estado: string) => {
     switch (estado) {
-      case 'abierto':
+      case 'pendiente':
         return <AlertTriangle className="h-4 w-4" />
-      case 'en_proceso':
+      case 'en_verificacion':
         return <Clock className="h-4 w-4" />
       case 'resuelto':
         return <CheckCircle className="h-4 w-4" />
-      case 'cerrado':
+      case 'rechazado':
+        return <XCircle className="h-4 w-4" />
+      case 'anulado':
         return <XCircle className="h-4 w-4" />
       default:
         return <AlertTriangle className="h-4 w-4" />
     }
   }
 
-  const getPrioridadColor = (prioridad: string) => {
-    const colores: { [key: string]: string } = {
-      'alta': 'bg-red-500 text-white',
-      'media': 'bg-yellow-500 text-white',
-      'baja': 'bg-green-500 text-white'
-    }
-    return colores[prioridad] || 'bg-muted text-muted-foreground'
-  }
-
-  const getPrioridadLabel = (prioridad: string) => {
-    return prioridad.charAt(0).toUpperCase() + prioridad.slice(1)
-  }
-
-  const getTipoColor = (tipo: string) => {
-    const colores: { [key: string]: string } = {
-      'garantia': 'bg-purple-500 text-white',
-      'calidad_servicio': 'bg-blue-500 text-white',
-      'tiempo_entrega': 'bg-orange-500 text-white',
-      'atencion_cliente': 'bg-pink-500 text-white'
-    }
-    return colores[tipo] || 'bg-muted text-muted-foreground'
-  }
-
-  const getTipoLabel = (tipo: string) => {
-    const labels: { [key: string]: string } = {
-      'garantia': 'Garantía',
-      'calidad_servicio': 'Calidad Servicio',
-      'tiempo_entrega': 'Tiempo Entrega',
-      'atencion_cliente': 'Atención Cliente'
-    }
-    return labels[tipo] || tipo
-  }
-
-  const renderStars = (rating: number) => {
-    return (
-      <div className="flex items-center gap-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`h-4 w-4 ${star <= rating ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
-          />
-        ))}
-        <span className="text-sm text-gray-600 ml-1">({rating})</span>
-      </div>
-    )
-  }
 
   const metrics = [
     {
@@ -326,16 +261,16 @@ export default function ReclamosPage() {
       color: "bg-primary text-primary-foreground",
     },
     {
-      title: "Reclamos Abiertos",
-      value: reclamos?.filter(r => r.estado === 'abierto').length.toString() || "0",
+      title: "Pendientes",
+      value: reclamos?.filter(r => r.estado === 'pendiente').length.toString() || "0",
       change: "+8%",
       trend: "up" as const,
       icon: AlertTriangle,
       color: "bg-secondary text-secondary-foreground",
     },
     {
-      title: "En Proceso",
-      value: reclamos?.filter(r => r.estado === 'en_proceso').length.toString() || "0",
+      title: "En Verificación",
+      value: reclamos?.filter(r => r.estado === 'en_verificacion').length.toString() || "0",
       change: "+15%",
       trend: "up" as const,
       icon: Clock,
@@ -343,7 +278,7 @@ export default function ReclamosPage() {
     },
     {
       title: "Resueltos",
-      value: reclamos?.filter(r => r.estado === 'resuelto' || r.estado === 'cerrado').length.toString() || "0",
+      value: reclamos?.filter(r => r.estado === 'resuelto').length.toString() || "0",
       change: "+22%",
       trend: "up" as const,
       icon: CheckCircle,
@@ -396,8 +331,8 @@ export default function ReclamosPage() {
               loading={loading}
               error={error}
               pagination={pagination}
-              search={search}
-              sort={sort}
+              search=""
+              sort={{ field: 'fecha_reclamo', order: 'desc' }}
               onSearch={handleSearch}
               onSort={handleSort}
               onPageChange={handlePageChange}
@@ -421,8 +356,8 @@ export default function ReclamosPage() {
         onClose={handleCloseDeleteModal}
         onConfirm={handleConfirmDelete}
         title="Eliminar Reclamo"
-        message={`¿Estás seguro de que deseas eliminar el reclamo "${reclamoToDelete?.nro_reclamo || `#${reclamoToDelete?.reclamo_id}`}"?`}
-        itemName={reclamoToDelete?.nro_reclamo || `Reclamo #${reclamoToDelete?.reclamo_id}`}
+        message={`¿Estás seguro de que deseas eliminar el reclamo #${reclamoToDelete?.reclamo_id}?`}
+        itemName={`Reclamo #${reclamoToDelete?.reclamo_id}`}
       />
     </AppLayout>
   )

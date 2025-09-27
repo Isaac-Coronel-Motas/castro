@@ -24,7 +24,7 @@ interface PresupuestoServicioModalProps {
 
 export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto, mode }: PresupuestoServicioModalProps) {
   const { user } = useAuth()
-  const authenticatedFetch = useAuthenticatedFetch()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreatePresupuestoServicioRequest>({
     fecha_presupuesto: new Date().toISOString().split('T')[0],
     estado: 'pendiente',
@@ -35,6 +35,7 @@ export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto,
     sucursal_id: 0,
     promocion_id: 0,
     diagnostico_id: 0,
+    cliente_id: 0,
     valido_desde: new Date().toISOString().split('T')[0],
     valido_hasta: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     tipo_presu: 'con_diagnostico',
@@ -50,6 +51,7 @@ export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto,
   const [promociones, setPromociones] = useState<any[]>([])
   const [descuentos, setDescuentos] = useState<any[]>([])
   const [usuarios, setUsuarios] = useState<any[]>([])
+  const [clientes, setClientes] = useState<any[]>([])
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -66,6 +68,7 @@ export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto,
           sucursal_id: presupuesto.sucursal_id || 0,
           promocion_id: presupuesto.promocion_id || 0,
           diagnostico_id: presupuesto.diagnostico_id || 0,
+          cliente_id: presupuesto.cliente_id || 0,
           valido_desde: presupuesto.valido_desde || '',
           valido_hasta: presupuesto.valido_hasta || '',
           tipo_presu: presupuesto.tipo_presu,
@@ -114,25 +117,24 @@ export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto,
         setDiagnosticos(diagnosticosData.data)
       }
 
-      // Cargar promociones
-      const promocionesRes = await authenticatedFetch('/api/referencias/promociones')
-      const promocionesData = await promocionesRes.json()
-      if (promocionesData.success) {
-        setPromociones(promocionesData.data)
-      }
+      // Cargar promociones (API no disponible por ahora)
+      setPromociones([])
 
-      // Cargar descuentos
-      const descuentosRes = await authenticatedFetch('/api/referencias/descuentos')
-      const descuentosData = await descuentosRes.json()
-      if (descuentosData.success) {
-        setDescuentos(descuentosData.data)
-      }
+      // Cargar descuentos (API no disponible por ahora)
+      setDescuentos([])
 
       // Cargar usuarios
       const usuariosRes = await authenticatedFetch('/api/usuarios')
       const usuariosData = await usuariosRes.json()
       if (usuariosData.success) {
         setUsuarios(usuariosData.data)
+      }
+
+      // Cargar clientes
+      const clientesRes = await authenticatedFetch('/api/referencias/clientes')
+      const clientesData = await clientesRes.json()
+      if (clientesData.success) {
+        setClientes(clientesData.data)
       }
     } catch (error) {
       console.error('Error cargando datos iniciales:', error)
@@ -223,6 +225,10 @@ export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto,
 
     if (!formData.usuario_id) {
       newErrors.usuario_id = 'El usuario es requerido'
+    }
+
+    if (!formData.cliente_id) {
+      newErrors.cliente_id = 'El cliente es requerido'
     }
 
     if (formData.tipo_presu === 'con_diagnostico' && !formData.diagnostico_id) {
@@ -424,6 +430,29 @@ export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto,
                     </Select>
                     {errors.usuario_id && (
                       <p className="text-sm text-red-500">{errors.usuario_id}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cliente_id">Cliente</Label>
+                    <Select
+                      value={formData.cliente_id?.toString()}
+                      onValueChange={(value) => handleInputChange('cliente_id', parseInt(value))}
+                      disabled={mode === 'view'}
+                    >
+                      <SelectTrigger className={errors.cliente_id ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Seleccionar cliente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clientes.map((cliente) => (
+                          <SelectItem key={cliente.cliente_id} value={cliente.cliente_id.toString()}>
+                            {cliente.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.cliente_id && (
+                      <p className="text-sm text-red-500">{errors.cliente_id}</p>
                     )}
                   </div>
 
@@ -686,7 +715,7 @@ export function PresupuestoServicioModal({ isOpen, onClose, onSave, presupuesto,
                               <SelectContent>
                                 {productos.map((prod) => (
                                   <SelectItem key={prod.producto_id} value={prod.producto_id.toString()}>
-                                    {prod.nombre}
+                                    {prod.nombre_producto}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
