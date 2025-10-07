@@ -26,6 +26,12 @@ export interface CreatePedidoCompraRequest {
   sucursal_id: number;
   almacen_id: number;
   detalles?: PedidoCompraDetalle[];
+  proveedores?: PedidoProveedor[];
+}
+
+export interface PedidoProveedor {
+  proveedor_id: number;
+  fecha_envio?: string;
 }
 
 export interface UpdatePedidoCompraRequest extends CreatePedidoCompraRequest {
@@ -49,7 +55,7 @@ export interface PresupuestoProveedor {
   presu_prov_id: number;
   usuario_id: number;
   fecha_presupuesto: string;
-  estado: 'nuevo' | 'enviado' | 'recibido' | 'aprobado' | 'rechazado' | 'vencido';
+  estado: 'nuevo' | 'pendiente' | 'aprobado' | 'rechazado';
   observaciones?: string;
   monto_presu_prov: number;
   nro_comprobante: string;
@@ -58,20 +64,30 @@ export interface PresupuestoProveedor {
   usuario_nombre?: string;
   proveedor_nombre?: string;
   proveedor_id?: number;
-  valido_hasta?: string;
-  descuento?: number;
+  total_detalles?: number;
+}
+
+export interface DetallePresupuesto {
+  detalle_presup_id: number;
+  presu_prov_id: number;
+  producto_id: number;
+  cantidad: number;
+  precio_unitario: number;
+  nombre_producto?: string;
+  cod_product?: string;
+  descripcion_producto?: string;
+  subtotal?: number;
 }
 
 export interface CreatePresupuestoProveedorRequest {
   usuario_id: number;
   fecha_presupuesto?: string;
-  estado?: 'nuevo' | 'enviado' | 'recibido' | 'aprobado' | 'rechazado' | 'vencido';
+  estado?: 'nuevo' | 'pendiente' | 'aprobado' | 'rechazado';
   observaciones?: string;
   monto_presu_prov?: number;
   pedido_prov_id?: number;
-  proveedor_id: number;
-  valido_hasta?: string;
-  descuento?: number;
+  proveedor_id?: number; // Agregado para selección directa de proveedor
+  detalles?: DetallePresupuesto[];
 }
 
 export interface UpdatePresupuestoProveedorRequest extends CreatePresupuestoProveedorRequest {
@@ -85,7 +101,7 @@ export interface OrdenCompra {
   usuario_id: number;
   presu_prov_id?: number;
   fecha_orden: string;
-  estado: 'pendiente' | 'confirmada' | 'enviada' | 'entregada' | 'cancelada';
+  estado: 'pendiente' | 'aprobada' | 'rechazada' | 'cancelada';
   monto_oc: number;
   observaciones?: string;
   almacen_id?: number;
@@ -106,7 +122,7 @@ export interface CreateOrdenCompraRequest {
   usuario_id: number;
   presu_prov_id?: number;
   fecha_orden?: string;
-  estado?: 'pendiente' | 'confirmada' | 'enviada' | 'entregada' | 'cancelada';
+  estado?: 'pendiente' | 'aprobada' | 'rechazada' | 'cancelada';
   monto_oc?: number;
   observaciones?: string;
   almacen_id?: number;
@@ -125,7 +141,7 @@ export interface CompraCabecera {
   usuario_id: number;
   fecha_compra: string;
   monto_compra: number;
-  estado: 'pendiente' | 'confirmada' | 'anulada';
+  estado: 'pendiente' | 'en_progreso' | 'completada' | 'cancelada';
   observaciones?: string;
   almacen_id?: number;
   orden_compra_id?: number;
@@ -148,7 +164,7 @@ export interface CreateCompraCabeceraRequest {
   usuario_id: number;
   fecha_compra?: string;
   monto_compra: number;
-  estado?: 'pendiente' | 'confirmada' | 'anulada';
+  estado?: 'pendiente' | 'en_progreso' | 'completada' | 'cancelada';
   observaciones?: string;
   almacen_id?: number;
   orden_compra_id?: number;

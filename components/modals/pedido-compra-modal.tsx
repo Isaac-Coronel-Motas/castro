@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { PedidoCompra, CreatePedidoCompraRequest, UpdatePedidoCompraRequest, PedidoCompraDetalle } from "@/lib/types/compras"
+import { validatePedidoCompraDataClient } from "@/lib/utils/compras-client"
 import { Plus, Trash2, Package, Calendar, User, Building, Warehouse } from "lucide-react"
 
 interface PedidoCompraModalProps {
@@ -23,59 +25,130 @@ interface PedidoCompraModalProps {
 
 export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: PedidoCompraModalProps) {
   const { user } = useAuth()
+  const { authenticatedFetch, token } = useAuthenticatedFetch()
+  
+  // Debug: verificar token
+  console.log('🔍 PedidoCompraModal: Token disponible:', token ? 'SÍ' : 'NO')
+  if (token) {
+    console.log('🔍 PedidoCompraModal: Token preview:', token.substring(0, 20) + '...')
+  }
   const [formData, setFormData] = useState<CreatePedidoCompraRequest>({
     usuario_id: user?.usuario_id || 0,
     sucursal_id: 1,
     almacen_id: 1,
     estado: 'pendiente',
     comentario: '',
-    detalles: []
+    detalles: [],
+    proveedores: []
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [sucursales, setSucursales] = useState<any[]>([])
   const [almacenes, setAlmacenes] = useState<any[]>([])
   const [productos, setProductos] = useState<any[]>([])
+  const [proveedores, setProveedores] = useState<any[]>([])
 
   // Cargar datos iniciales
   useEffect(() => {
     if (isOpen) {
       loadInitialData()
       if (pedido && mode !== 'create') {
+        // Cargar datos completos del pedido incluyendo proveedores e items
+        loadPedidoData(pedido.pedido_compra_id)
+      } else if (mode === 'create') {
+        // Resetear formulario para nuevo pedido
         setFormData({
-          usuario_id: pedido.usuario_id,
-          sucursal_id: pedido.sucursal_id,
-          almacen_id: pedido.almacen_id,
-          estado: pedido.estado,
-          comentario: pedido.comentario || '',
-          fecha_pedido: pedido.fecha_pedido,
-          detalles: []
+          usuario_id: user?.usuario_id || 0,
+          sucursal_id: 1,
+          almacen_id: 1,
+          estado: 'pendiente',
+          comentario: '',
+          detalles: [],
+          proveedores: []
         })
       }
     }
   }, [isOpen, pedido, mode])
 
+  const loadPedidoData = async (pedidoId: number) => {
+    try {
+      console.log('🔍 loadPedidoData: Cargando datos del pedido:', pedidoId)
+      const response = await authenticatedFetch(`/api/compras/pedidos/${pedidoId}`)
+      const data = await response.json()
+      
+      console.log('🔍 loadPedidoData: Respuesta de la API:', data)
+      
+      if (data.success && data.data) {
+        const pedidoData = data.data
+        console.log('🔍 loadPedidoData: Datos del pedido:', pedidoData)
+        console.log('🔍 loadPedidoData: Proveedores:', pedidoData.proveedores)
+        
+        setFormData({
+          usuario_id: pedidoData.usuario_id,
+          sucursal_id: pedidoData.sucursal_id,
+          almacen_id: pedidoData.almacen_id,
+          estado: pedidoData.estado,
+          comentario: pedidoData.comentario || '',
+          fecha_pedido: pedidoData.fecha_pedido,
+          detalles: pedidoData.items?.map((item: any) => ({
+            producto_id: item.producto_id,
+            cantidad: item.cantidad,
+            precio_unitario: item.precio_unitario,
+            subtotal: item.subtotal
+          })) || [],
+          proveedores: pedidoData.proveedores?.map((prov: any) => {
+            console.log('🔍 loadPedidoData: Procesando proveedor:', prov)
+            return {
+              proveedor_id: prov.proveedor_id,
+              fecha_envio: prov.fecha_envio
+            }
+          }) || []
+        })
+      }
+    } catch (error) {
+      console.error('Error cargando datos del pedido:', error)
+    }
+  }
+
   const loadInitialData = async () => {
     try {
+      console.log('🔍 loadInitialData: Iniciando carga de datos...')
+      console.log('🔍 loadInitialData: Token disponible:', token ? 'SÍ' : 'NO')
+      
       // Cargar sucursales
-      const sucursalesRes = await fetch('/api/sucursales')
+      console.log('🔍 loadInitialData: Cargando sucursales...')
+      const sucursalesRes = await authenticatedFetch('/api/sucursales')
+      console.log('🔍 loadInitialData: Respuesta sucursales:', sucursalesRes.status)
       const sucursalesData = await sucursalesRes.json()
       if (sucursalesData.success) {
         setSucursales(sucursalesData.data)
       }
 
       // Cargar almacenes
-      const almacenesRes = await fetch('/api/almacenes')
+      console.log('🔍 loadInitialData: Cargando almacenes...')
+      const almacenesRes = await authenticatedFetch('/api/referencias/almacenes')
+      console.log('🔍 loadInitialData: Respuesta almacenes:', almacenesRes.status)
       const almacenesData = await almacenesRes.json()
       if (almacenesData.success) {
         setAlmacenes(almacenesData.data)
       }
 
       // Cargar productos
-      const productosRes = await fetch('/api/referencias/productos')
+      console.log('🔍 loadInitialData: Cargando productos...')
+      const productosRes = await authenticatedFetch('/api/referencias/productos')
+      console.log('🔍 loadInitialData: Respuesta productos:', productosRes.status)
       const productosData = await productosRes.json()
       if (productosData.success) {
         setProductos(productosData.data)
+      }
+
+      // Cargar proveedores
+      console.log('🔍 loadInitialData: Cargando proveedores...')
+      const proveedoresRes = await authenticatedFetch('/api/referencias/proveedores')
+      console.log('🔍 loadInitialData: Respuesta proveedores:', proveedoresRes.status)
+      const proveedoresData = await proveedoresRes.json()
+      if (proveedoresData.success) {
+        setProveedores(proveedoresData.data)
       }
     } catch (error) {
       console.error('Error cargando datos iniciales:', error)
@@ -128,6 +201,35 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
     }))
   }
 
+  const addProveedor = () => {
+    setFormData(prev => ({
+      ...prev,
+      proveedores: [
+        ...(prev.proveedores || []),
+        {
+          proveedor_id: 0,
+          fecha_envio: new Date().toISOString().split('T')[0] // Solo fecha, sin hora
+        }
+      ]
+    }))
+  }
+
+  const removeProveedor = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      proveedores: prev.proveedores?.filter((_, i) => i !== index) || []
+    }))
+  }
+
+  const handleProveedorChange = (index: number, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      proveedores: prev.proveedores?.map((proveedor, i) => 
+        i === index ? { ...proveedor, [field]: value } : proveedor
+      ) || []
+    }))
+  }
+
   const calculateSubtotal = (cantidad: number, precio: number) => {
     return cantidad * precio
   }
@@ -137,54 +239,45 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
   }
 
   const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {}
-
-    if (!formData.usuario_id) {
-      newErrors.usuario_id = 'El usuario es requerido'
-    }
-
-    if (!formData.sucursal_id) {
-      newErrors.sucursal_id = 'La sucursal es requerida'
-    }
-
-    if (!formData.almacen_id) {
-      newErrors.almacen_id = 'El almacén es requerido'
-    }
-
-    if (!formData.detalles || formData.detalles.length === 0) {
-      newErrors.detalles = 'Debe agregar al menos un producto'
-    }
-
-    formData.detalles?.forEach((detalle, index) => {
-      if (!detalle.producto_id) {
-        newErrors[`detalle_${index}_producto`] = 'El producto es requerido'
-      }
-      if (!detalle.cantidad || detalle.cantidad <= 0) {
-        newErrors[`detalle_${index}_cantidad`] = 'La cantidad debe ser mayor a 0'
-      }
-    })
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    const validation = validatePedidoCompraDataClient(formData);
+    setErrors(validation.errors || {});
+    return validation.valid;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('🔍 handleSubmit: Iniciando envío del formulario...')
+    console.log('🔍 handleSubmit: Datos del formulario:', formData)
+    
     if (!validateForm()) {
+      console.log('❌ handleSubmit: Validación falló')
       return
     }
+    
+    console.log('✅ handleSubmit: Validación exitosa, preparando datos...')
 
     setLoading(true)
     try {
-      const dataToSave = mode === 'create' 
-        ? formData 
-        : { ...formData, pedido_compra_id: pedido?.pedido_compra_id }
+      // Preparar datos para enviar a la API
+      const dataToSave = {
+        ...formData,
+        items: formData.detalles?.map(detalle => ({
+          producto_id: detalle.producto_id,
+          cantidad: detalle.cantidad,
+          precio_unitario: parseFloat(detalle.precio_unitario?.toString() || '0')
+        })) || [],
+        ...(mode === 'edit' && { pedido_compra_id: pedido?.pedido_compra_id })
+      }
+      
+      console.log('🔍 handleSubmit: Datos preparados para guardar:', dataToSave)
+      console.log('🔍 handleSubmit: Llamando a onSave...')
       
       await onSave(dataToSave)
+      console.log('✅ handleSubmit: onSave completado exitosamente')
       onClose()
     } catch (error) {
-      console.error('Error guardando pedido:', error)
+      console.error('❌ handleSubmit: Error guardando pedido:', error)
     } finally {
       setLoading(false)
     }
@@ -223,7 +316,24 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
                     <Input
                       id="fecha_pedido"
                       type="date"
-                      value={formData.fecha_pedido || ''}
+                      value={(() => {
+                        console.log('🔍 fecha_pedido raw:', formData.fecha_pedido, typeof formData.fecha_pedido)
+                        if (!formData.fecha_pedido) return ''
+                        
+                        try {
+                          const date = new Date(formData.fecha_pedido)
+                          if (isNaN(date.getTime())) {
+                            console.error('❌ Fecha inválida:', formData.fecha_pedido)
+                            return ''
+                          }
+                          const formatted = date.toISOString().split('T')[0]
+                          console.log('🔍 fecha_pedido formateada:', formatted)
+                          return formatted
+                        } catch (error) {
+                          console.error('❌ Error formateando fecha_pedido:', error)
+                          return ''
+                        }
+                      })()}
                       onChange={(e) => handleInputChange('fecha_pedido', e.target.value)}
                       disabled={mode === 'view'}
                       className={errors.fecha_pedido ? 'border-red-500' : ''}
@@ -245,8 +355,8 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pendiente">Pendiente</SelectItem>
+                        <SelectItem value="procesado">Procesado</SelectItem>
                         <SelectItem value="aprobado">Aprobado</SelectItem>
-                        <SelectItem value="rechazado">Rechazado</SelectItem>
                         <SelectItem value="cancelado">Cancelado</SelectItem>
                       </SelectContent>
                     </Select>
@@ -313,6 +423,110 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
                     rows={3}
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Proveedores */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Building className="h-5 w-5" />
+                    Proveedores
+                  </CardTitle>
+                  {mode !== 'view' && (
+                    <Button type="button" onClick={addProveedor} size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar Proveedor
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {formData.proveedores && formData.proveedores.length > 0 ? (
+                  <div className="space-y-4">
+                    {formData.proveedores.map((proveedor, index) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium">Proveedor {index + 1}</h4>
+                          {mode !== 'view' && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeProveedor(index)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Proveedor</Label>
+                            <Select
+                              value={proveedor.proveedor_id?.toString()}
+                              onValueChange={(value) => handleProveedorChange(index, 'proveedor_id', parseInt(value))}
+                              disabled={mode === 'view'}
+                            >
+                              <SelectTrigger className={errors[`proveedor_${index}_proveedor`] ? 'border-red-500' : ''}>
+                                <SelectValue placeholder="Seleccionar proveedor" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {proveedores.map((prov) => (
+                                  <SelectItem key={prov.proveedor_id} value={prov.proveedor_id.toString()}>
+                                    {prov.nombre_proveedor}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {errors[`proveedor_${index}_proveedor`] && (
+                              <p className="text-sm text-red-500">{errors[`proveedor_${index}_proveedor`]}</p>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Fecha de Envío</Label>
+                            <Input
+                              type="date"
+                              value={(() => {
+                                if (!proveedor.fecha_envio) return ''
+                                
+                                try {
+                                  const date = new Date(proveedor.fecha_envio)
+                                  if (isNaN(date.getTime())) {
+                                    return ''
+                                  }
+                                  return date.toISOString().split('T')[0]
+                                } catch (error) {
+                                  return ''
+                                }
+                              })()}
+                              onChange={(e) => handleProveedorChange(index, 'fecha_envio', e.target.value)}
+                              disabled={mode === 'view'}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Building className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay proveedores agregados</p>
+                    {mode !== 'view' && (
+                      <Button type="button" onClick={addProveedor} className="mt-4">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Agregar Primer Proveedor
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {errors.proveedores && (
+                  <p className="text-sm text-red-500 mt-2">{errors.proveedores}</p>
+                )}
               </CardContent>
             </Card>
 

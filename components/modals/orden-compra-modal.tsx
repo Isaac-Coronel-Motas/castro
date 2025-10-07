@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { OrdenCompra, CreateOrdenCompraRequest, UpdateOrdenCompraRequest } from "@/lib/types/compras"
 import { ShoppingBag, Calendar, User, Building, Warehouse, DollarSign, Truck, Package } from "lucide-react"
 
@@ -23,6 +24,7 @@ interface OrdenCompraModalProps {
 
 export function OrdenCompraModal({ isOpen, onClose, onSave, orden, mode }: OrdenCompraModalProps) {
   const { user } = useAuth()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreateOrdenCompraRequest>({
     proveedor_id: 0,
     usuario_id: user?.usuario_id || 0,
@@ -62,21 +64,21 @@ export function OrdenCompraModal({ isOpen, onClose, onSave, orden, mode }: Orden
   const loadInitialData = async () => {
     try {
       // Cargar proveedores
-      const proveedoresRes = await fetch('/api/referencias/proveedores')
+      const proveedoresRes = await authenticatedFetch('/api/referencias/proveedores')
       const proveedoresData = await proveedoresRes.json()
       if (proveedoresData.success) {
         setProveedores(proveedoresData.data)
       }
 
       // Cargar presupuestos
-      const presupuestosRes = await fetch('/api/compras/presupuestos')
+      const presupuestosRes = await authenticatedFetch('/api/compras/presupuestos')
       const presupuestosData = await presupuestosRes.json()
       if (presupuestosData.success) {
         setPresupuestos(presupuestosData.data)
       }
 
       // Cargar almacenes
-      const almacenesRes = await fetch('/api/almacenes')
+      const almacenesRes = await authenticatedFetch('/api/referencias/almacenes')
       const almacenesData = await almacenesRes.json()
       if (almacenesData.success) {
         setAlmacenes(almacenesData.data)
@@ -251,9 +253,8 @@ export function OrdenCompraModal({ isOpen, onClose, onSave, orden, mode }: Orden
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pendiente">Pendiente</SelectItem>
-                        <SelectItem value="confirmada">Confirmada</SelectItem>
-                        <SelectItem value="enviada">Enviada</SelectItem>
-                        <SelectItem value="entregada">Entregada</SelectItem>
+                        <SelectItem value="aprobada">Aprobada</SelectItem>
+                        <SelectItem value="rechazada">Rechazada</SelectItem>
                         <SelectItem value="cancelada">Cancelada</SelectItem>
                       </SelectContent>
                     </Select>

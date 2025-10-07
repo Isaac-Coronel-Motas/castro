@@ -1,5 +1,44 @@
 // Tipos adicionales para APIs de compras
 
+// ===== TIPOS PARA REGISTRO DE COMPRAS =====
+export interface CreateRegistroCompraRequest {
+  proveedor_id: number;
+  usuario_id: number;
+  sucursal_id: number;
+  tipo_doc_id: number;
+  fecha_compra?: string;
+  monto_compra: number;
+  estado?: 'pendiente' | 'en_progreso' | 'completada' | 'cancelada';
+  observaciones?: string;
+  almacen_id?: number;
+  orden_compra_id?: number;
+  condicion_pago?: 'contado' | 'credito_15' | 'credito_30' | 'credito_45' | 'credito_60';
+  timbrado?: string;
+  nro_factura?: string;
+  fecha_comprobante?: string;
+  monto_gravada_5?: number;
+  monto_gravada_10?: number;
+  monto_exenta?: number;
+  monto_iva?: number;
+  fecha_vencimiento?: string;
+  items?: {
+    producto_id: number;
+    cantidad: number;
+    precio_unitario: number;
+  }[];
+}
+
+export interface FiltrosRegistroCompras {
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  estado?: string;
+  proveedor_id?: number;
+  sucursal_id?: number;
+  almacen_id?: number;
+  tipo_documento_id?: number;
+  estado_vencimiento?: string;
+}
+
 // ===== TIPOS PARA COMPRAS ADICIONALES =====
 export interface ComprasAdicionalesApiResponse<T = any> {
   success: boolean;
@@ -108,7 +147,7 @@ export interface InformeCompras {
 }
 
 // ===== TIPOS PARA ESTADOS =====
-export type EstadoPedidoCompra = 'pendiente' | 'aprobado' | 'rechazado' | 'cancelado';
+export type EstadoPedidoCompra = 'pendiente' | 'procesado' | 'cancelado' | 'aprobado';
 export type EstadoPresupuestoProveedor = 'nuevo' | 'enviado' | 'recibido' | 'aprobado' | 'rechazado' | 'vencido';
 export type EstadoOrdenCompra = 'pendiente' | 'confirmada' | 'enviada' | 'entregada' | 'cancelada';
 export type EstadoCompra = 'pendiente' | 'confirmada' | 'anulada';
@@ -233,4 +272,232 @@ export interface PermisosCompras {
   actualizar_transferencias: boolean;
   eliminar_transferencias: boolean;
   leer_informes_compras: boolean;
+}
+
+// ===== INTERFACES PARA AJUSTES DE INVENTARIO =====
+
+export interface AjusteInventario {
+  ajuste_id: number;
+  fecha: string;
+  usuario_id: number;
+  motivo_id: number;
+  observaciones?: string;
+  almacen_id: number;
+  estado: EstadoAjusteInventario;
+  // Campos adicionales para la vista
+  usuario_nombre?: string;
+  motivo_descripcion?: string;
+  almacen_nombre?: string;
+  codigo_ajuste?: string;
+  total_productos?: number;
+  valor_total?: number;
+  detalles?: AjusteInventarioDetalle[];
+}
+
+export interface AjusteInventarioDetalle {
+  detalle_id: number;
+  ajuste_id: number;
+  producto_id: number;
+  cantidad_ajustada: number;
+  comentario?: string;
+  // Campos adicionales para la vista
+  producto_nombre?: string;
+  producto_codigo?: string;
+  precio_costo?: number;
+  stock_anterior?: number;
+  stock_nuevo?: number;
+  tipo_movimiento?: 'entrada' | 'salida' | 'correccion';
+}
+
+export interface CreateAjusteInventarioRequest {
+  usuario_id: number;
+  motivo_id: number;
+  observaciones?: string;
+  almacen_id: number;
+  estado?: EstadoAjusteInventario;
+  items?: {
+    producto_id: number;
+    cantidad_ajustada: number;
+    comentario?: string;
+  }[];
+}
+
+export interface UpdateAjusteInventarioRequest {
+  motivo_id?: number;
+  observaciones?: string;
+  almacen_id?: number;
+  estado?: EstadoAjusteInventario;
+  items?: {
+    producto_id: number;
+    cantidad_ajustada: number;
+    comentario?: string;
+  }[];
+}
+
+export interface MotivoAjuste {
+  motivo_id: number;
+  descripcion: string;
+}
+
+export interface FiltrosAjustesInventario {
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  estado?: EstadoAjusteInventario;
+  motivo_id?: number;
+  almacen_id?: number;
+  usuario_id?: number;
+  tipo_movimiento?: 'entrada' | 'salida' | 'correccion';
+}
+
+// ===== INTERFACES PARA NOTAS DE CRÉDITO/DÉBITO =====
+
+export interface NotaCreditoDebito {
+  nota_credito_id: number;
+  tipo_operacion: 'compra' | 'venta';
+  proveedor_id?: number;
+  cliente_id?: number;
+  sucursal_id: number;
+  almacen_id: number;
+  usuario_id: number;
+  fecha_registro: string;
+  nro_nota: string;
+  motivo?: string;
+  estado: EstadoNotaCredito;
+  referencia_id: number;
+  monto_nc?: number;
+  monto_gravada_5?: number;
+  monto_gravada_10?: number;
+  monto_exenta?: number;
+  monto_iva?: number;
+  // Campos adicionales para la vista
+  proveedor_nombre?: string;
+  cliente_nombre?: string;
+  usuario_nombre?: string;
+  sucursal_nombre?: string;
+  almacen_nombre?: string;
+  total_items?: number;
+  monto_total_items?: number;
+  tipo_operacion_display?: string;
+  estado_display?: string;
+  detalles?: NotaCreditoDebitoDetalle[];
+}
+
+export interface NotaCreditoDebitoDetalle {
+  nota_credito_detalle_id: number;
+  nota_credito_id: number;
+  producto_id: number;
+  cantidad: number;
+  precio_unitario: number;
+  // Campos adicionales para la vista
+  producto_nombre?: string;
+  producto_codigo?: string;
+  subtotal?: number;
+}
+
+export interface CreateNotaCreditoDebitoRequest {
+  tipo_operacion: 'compra' | 'venta';
+  proveedor_id?: number;
+  cliente_id?: number;
+  sucursal_id: number;
+  almacen_id: number;
+  usuario_id: number;
+  fecha_registro?: string;
+  motivo?: string;
+  estado?: EstadoNotaCredito;
+  referencia_id: number;
+  monto_nc?: number;
+  monto_gravada_5?: number;
+  monto_gravada_10?: number;
+  monto_exenta?: number;
+  monto_iva?: number;
+  items?: {
+    producto_id: number;
+    cantidad: number;
+    precio_unitario: number;
+  }[];
+}
+
+export interface UpdateNotaCreditoDebitoRequest {
+  tipo_operacion?: 'compra' | 'venta';
+  proveedor_id?: number;
+  cliente_id?: number;
+  sucursal_id?: number;
+  almacen_id?: number;
+  motivo?: string;
+  estado?: EstadoNotaCredito;
+  referencia_id?: number;
+  monto_nc?: number;
+  monto_gravada_5?: number;
+  monto_gravada_10?: number;
+  monto_exenta?: number;
+  monto_iva?: number;
+  items?: {
+    producto_id: number;
+    cantidad: number;
+    precio_unitario: number;
+  }[];
+}
+
+export interface FiltrosNotasCreditoDebito {
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  tipo_operacion?: 'compra' | 'venta';
+  estado?: EstadoNotaCredito;
+  proveedor_id?: number;
+  cliente_id?: number;
+  sucursal_id?: number;
+  almacen_id?: number;
+  usuario_id?: number;
+}
+
+// ===== TRANSFERENCIAS DE STOCK =====
+
+export interface TransferenciaStockDetalle {
+  transferencia_detalle_id?: number;
+  transferencia_id?: number;
+  producto_id: number;
+  cantidad: number;
+  observaciones?: string;
+}
+
+export interface TransferenciaStock {
+  transferencia_id: number;
+  fecha: string;
+  usuario_id: number;
+  almacen_origen_id: number;
+  almacen_destino_id: number;
+  estado: 'pendiente' | 'en_transito' | 'completada' | 'cancelada';
+  motivo?: string;
+  // Campos adicionales para la vista
+  usuario_nombre?: string;
+  almacen_origen_nombre?: string;
+  almacen_destino_nombre?: string;
+  total_productos?: number;
+  valor_total?: number;
+  codigo_transferencia?: string;
+  estado_display?: string;
+  detalles?: TransferenciaStockDetalle[];
+}
+
+export interface CreateTransferenciaStockRequest {
+  usuario_id: number;
+  almacen_origen_id: number;
+  almacen_destino_id: number;
+  fecha?: string;
+  estado?: 'pendiente' | 'en_transito' | 'completada' | 'cancelada';
+  motivo?: string;
+  items: TransferenciaStockDetalle[];
+}
+
+export interface UpdateTransferenciaStockRequest extends CreateTransferenciaStockRequest {
+  transferencia_id: number;
+}
+
+export interface FiltrosTransferencias {
+  estado?: 'pendiente' | 'en_transito' | 'completada' | 'cancelada';
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  almacen_origen_id?: number;
+  almacen_destino_id?: number;
+  usuario_id?: number;
 }

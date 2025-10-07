@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { CompraCabecera, CreateCompraCabeceraRequest, UpdateCompraCabeceraRequest } from "@/lib/types/compras"
 import { Receipt, Calendar, User, Building, Warehouse, DollarSign, FileText, CreditCard } from "lucide-react"
 
@@ -23,6 +24,7 @@ interface CompraCabeceraModalProps {
 
 export function CompraCabeceraModal({ isOpen, onClose, onSave, compra, mode }: CompraCabeceraModalProps) {
   const { user } = useAuth()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreateCompraCabeceraRequest>({
     proveedor_id: 0,
     usuario_id: user?.usuario_id || 0,
@@ -69,35 +71,35 @@ export function CompraCabeceraModal({ isOpen, onClose, onSave, compra, mode }: C
   const loadInitialData = async () => {
     try {
       // Cargar proveedores
-      const proveedoresRes = await fetch('/api/referencias/proveedores')
+      const proveedoresRes = await authenticatedFetch('/api/referencias/proveedores')
       const proveedoresData = await proveedoresRes.json()
       if (proveedoresData.success) {
         setProveedores(proveedoresData.data)
       }
 
       // Cargar sucursales
-      const sucursalesRes = await fetch('/api/sucursales')
+      const sucursalesRes = await authenticatedFetch('/api/sucursales')
       const sucursalesData = await sucursalesRes.json()
       if (sucursalesData.success) {
         setSucursales(sucursalesData.data)
       }
 
       // Cargar almacenes
-      const almacenesRes = await fetch('/api/almacenes')
+      const almacenesRes = await authenticatedFetch('/api/referencias/almacenes')
       const almacenesData = await almacenesRes.json()
       if (almacenesData.success) {
         setAlmacenes(almacenesData.data)
       }
 
       // Cargar tipos de documento
-      const tiposDocRes = await fetch('/api/tipos-documento')
+      const tiposDocRes = await authenticatedFetch('/api/referencias/tipos-documento')
       const tiposDocData = await tiposDocRes.json()
       if (tiposDocData.success) {
         setTiposDocumento(tiposDocData.data)
       }
 
       // Cargar órdenes de compra
-      const ordenesRes = await fetch('/api/compras/ordenes')
+      const ordenesRes = await authenticatedFetch('/api/compras/ordenes')
       const ordenesData = await ordenesRes.json()
       if (ordenesData.success) {
         setOrdenesCompra(ordenesData.data)
@@ -245,8 +247,9 @@ export function CompraCabeceraModal({ isOpen, onClose, onSave, compra, mode }: C
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pendiente">Pendiente</SelectItem>
-                        <SelectItem value="confirmada">Confirmada</SelectItem>
-                        <SelectItem value="anulada">Anulada</SelectItem>
+                        <SelectItem value="en_progreso">En Progreso</SelectItem>
+                        <SelectItem value="completada">Completada</SelectItem>
+                        <SelectItem value="cancelada">Cancelada</SelectItem>
                       </SelectContent>
                     </Select>
                     {errors.estado && (
@@ -430,7 +433,7 @@ export function CompraCabeceraModal({ isOpen, onClose, onSave, compra, mode }: C
                       <SelectContent>
                         {tiposDocumento.map((tipo) => (
                           <SelectItem key={tipo.tipo_doc_id} value={tipo.tipo_doc_id.toString()}>
-                            {tipo.nombre}
+                            {tipo.descripcion}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -6,9 +6,13 @@ import {
 } from '@/lib/middleware/auth';
 import { 
   validatePedidoCompraData, 
-  canProcessPedido,
-  sanitizeForLog 
+  canProcessPedido
 } from '@/lib/utils/compras';
+import { 
+  mapEstadoForDatabase,
+  mapEstadoForFrontend,
+  sanitizeForLog 
+} from '@/lib/utils/compras-server';
 import { 
   UpdatePedidoCompraRequest, 
   ComprasApiResponse 
@@ -112,6 +116,7 @@ export async function GET(
 
     const pedido = {
       ...pedidoResult.rows[0],
+      estado: mapEstadoForFrontend(pedidoResult.rows[0].estado),
       proveedores: proveedoresResult.rows,
       items: itemsResult.rows,
       total_items: totalItems,
@@ -246,7 +251,7 @@ export async function PUT(
     if (body.estado !== undefined) {
       paramCount++;
       updateFields.push(`estado = $${paramCount}`);
-      updateValues.push(body.estado);
+      updateValues.push(mapEstadoForDatabase(body.estado));
     }
 
     if (body.comentario !== undefined) {
@@ -353,7 +358,10 @@ export async function PUT(
     const response: ComprasApiResponse = {
       success: true,
       message: 'Pedido de compra actualizado exitosamente',
-      data: pedidoData.rows[0]
+      data: {
+        ...pedidoData.rows[0],
+        estado: mapEstadoForFrontend(pedidoData.rows[0].estado)
+      }
     };
 
     // Log de auditoría

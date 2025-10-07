@@ -7,7 +7,7 @@ import {
 import { 
   validateTransferenciaStockData, 
   buildAdvancedSearchWhereClause,
-  buildAdvancedOrderByClause,
+  buildTransferenciaOrderByClause,
   buildPaginationParams,
   generateTransferCode,
   canCompleteTransfer,
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { whereClause, params } = buildAdvancedSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildAdvancedOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha');
+    const orderByClause = buildTransferenciaOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha');
 
     // Consulta principal
     const query = `

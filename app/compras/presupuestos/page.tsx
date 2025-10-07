@@ -11,7 +11,7 @@ import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
 import { useApi } from "@/hooks/use-api"
 import { PresupuestoProveedor, CreatePresupuestoProveedorRequest, UpdatePresupuestoProveedorRequest } from "@/lib/types/compras"
 import { getEstadoColor, getEstadoLabel } from "@/lib/utils/compras"
-import { Plus, FileCheck, Calendar, User, Building, DollarSign, Eye, Edit, Trash2, Percent } from "lucide-react"
+import { Plus, FileCheck, Calendar, User, Building, DollarSign, Eye, Edit, Trash2, Percent, Package } from "lucide-react"
 
 export default function PresupuestosProveedorPage() {
   const [selectedPresupuesto, setSelectedPresupuesto] = useState<PresupuestoProveedor | null>(null)
@@ -21,24 +21,22 @@ export default function PresupuestosProveedorPage() {
   const [presupuestoToDelete, setPresupuestoToDelete] = useState<PresupuestoProveedor | null>(null)
 
   // Hook para manejar la API
+  const apiResult = useApi<PresupuestoProveedor>('/api/compras/presupuestos')
+  
   const {
     data: presupuestos,
     loading,
     error,
     pagination,
+    refetch,
+    create: createItem,
+    update: updateItem,
+    delete: deleteItem,
     search,
-    sort,
-    page,
-    limit,
-    handleSearch,
-    handleSort,
-    handlePageChange,
-    handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
-    refresh
-  } = useApi<PresupuestoProveedor>('/api/compras/presupuestos')
+    setFilters,
+    setSorting,
+    setPagination
+  } = apiResult
 
   // Columnas para la tabla
   const columns = [
@@ -80,7 +78,7 @@ export default function PresupuestosProveedorPage() {
       render: (presupuesto: PresupuestoProveedor) => (
         <div className="flex items-center gap-2">
           <Building className="h-4 w-4 text-muted-foreground" />
-          <span>{presupuesto.proveedor_nombre || 'N/A'}</span>
+          <span>{presupuesto.proveedor_nombre || 'Sin proveedor'}</span>
         </div>
       )
     },
@@ -96,26 +94,15 @@ export default function PresupuestosProveedorPage() {
       )
     },
     {
-      key: 'valido_hasta',
-      label: 'Válido Hasta',
+      key: 'total_detalles',
+      label: 'Detalles',
       sortable: true,
-      render: (presupuesto: PresupuestoProveedor) => {
-        const isVencido = presupuesto.valido_hasta && new Date(presupuesto.valido_hasta) < new Date()
-        const porVencer = presupuesto.valido_hasta && 
-          new Date(presupuesto.valido_hasta) > new Date() && 
-          new Date(presupuesto.valido_hasta).getTime() - new Date().getTime() <= 7 * 24 * 60 * 60 * 1000
-        
-        return (
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className={isVencido ? 'text-red-600' : porVencer ? 'text-orange-600' : ''}>
-              {presupuesto.valido_hasta ? new Date(presupuesto.valido_hasta).toLocaleDateString('es-CR') : 'N/A'}
-            </span>
-            {isVencido && <Badge variant="destructive" className="text-xs">Vencido</Badge>}
-            {porVencer && <Badge variant="outline" className="text-xs text-orange-600">Por vencer</Badge>}
-          </div>
-        )
-      }
+      render: (presupuesto: PresupuestoProveedor) => (
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-muted-foreground" />
+          <span>{presupuesto.total_detalles || 0} productos</span>
+        </div>
+      )
     },
     {
       key: 'monto_presu_prov',
@@ -260,7 +247,7 @@ export default function PresupuestosProveedorPage() {
     },
     {
       title: "Valor Estimado",
-      value: `₡${(presupuestos?.reduce((total, p) => total + (p.monto_presu_prov || 0), 0) || 0).toLocaleString()}`,
+      value: `₡${(presupuestos?.reduce((total, p) => total + parseFloat(p.monto_presu_prov?.toString() || '0'), 0) || 0).toLocaleString()}`,
       change: "+18%",
       trend: "up" as const,
       icon: DollarSign,
@@ -317,11 +304,11 @@ export default function PresupuestosProveedorPage() {
               error={error}
               pagination={pagination}
               search={search}
-              sort={sort}
-              onSearch={handleSearch}
-              onSort={handleSort}
-              onPageChange={handlePageChange}
-              onLimitChange={handleLimitChange}
+              sort={search}
+              onSearch={search}
+              onSort={setSorting}
+              onPageChange={setPagination}
+              onLimitChange={setPagination}
               searchPlaceholder="Buscar presupuestos, proveedores..."
             />
           </CardContent>

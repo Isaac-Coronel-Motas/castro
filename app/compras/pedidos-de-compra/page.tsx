@@ -11,7 +11,7 @@ import { PedidoCompraModal } from "@/components/modals/pedido-compra-modal"
 import { ConfirmDeleteModal } from "@/components/modals/confirm-delete-modal"
 import { useApi } from "@/hooks/use-api"
 import { PedidoCompra, CreatePedidoCompraRequest, UpdatePedidoCompraRequest } from "@/lib/types/compras"
-import { getEstadoColor, getEstadoLabel } from "@/lib/utils/compras"
+import { getEstadoColor, getEstadoLabel } from "@/lib/utils/compras-client"
 import { Plus, Package, Calendar, User, Building, Warehouse, Eye, Edit, Trash2 } from "lucide-react"
 
 export default function PedidosDeCompraPage() {
@@ -22,24 +22,26 @@ export default function PedidosDeCompraPage() {
   const [pedidoToDelete, setPedidoToDelete] = useState<PedidoCompra | null>(null)
 
   // Hook para manejar la API
+  const apiResult = useApi<PedidoCompra>('/api/compras/pedidos')
+  console.log('🔍 API Result:', apiResult)
+  console.log('🔍 create function:', typeof apiResult.create)
+  console.log('🔍 update function:', typeof apiResult.update)
+  console.log('🔍 delete function:', typeof apiResult.delete)
+  
   const {
     data: pedidos,
     loading,
     error,
     pagination,
+    refetch,
+    create: createItem,
+    update: updateItem,
+    delete: deleteItem,
     search,
-    sort,
-    page,
-    limit,
-    handleSearch,
-    handleSort,
-    handlePageChange,
-    handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
-    refresh
-  } = useApi<PedidoCompra>('/api/compras/pedidos')
+    setFilters,
+    setSorting,
+    setPagination
+  } = apiResult
 
   // Columnas para la tabla
   const columns = [
@@ -188,15 +190,23 @@ export default function PedidosDeCompraPage() {
 
   const handleSave = async (data: CreatePedidoCompraRequest | UpdatePedidoCompraRequest) => {
     try {
+      console.log('🔍 handleSave: Iniciando guardado...')
+      console.log('🔍 handleSave: Modo:', modalMode)
+      console.log('🔍 handleSave: Datos a guardar:', data)
+      
       if (modalMode === 'create') {
+        console.log('🔍 handleSave: Creando nuevo pedido...')
         await createItem(data as CreatePedidoCompraRequest)
+        console.log('✅ handleSave: Pedido creado exitosamente')
       } else {
+        console.log('🔍 handleSave: Actualizando pedido...')
         await updateItem((data as UpdatePedidoCompraRequest).pedido_compra_id!, data as UpdatePedidoCompraRequest)
+        console.log('✅ handleSave: Pedido actualizado exitosamente')
       }
       setIsModalOpen(false)
       setSelectedPedido(null)
     } catch (error) {
-      console.error('Error guardando pedido:', error)
+      console.error('❌ handleSave: Error guardando pedido:', error)
     }
   }
 
@@ -250,7 +260,7 @@ export default function PedidosDeCompraPage() {
     },
     {
       title: "Valor Total",
-      value: `₡${(pedidos?.reduce((total, p) => total + (p.monto_total || 0), 0) || 0).toLocaleString()}`,
+      value: `₡${(pedidos?.reduce((total, p) => total + parseFloat(p.monto_total?.toString() || '0'), 0) || 0).toLocaleString()}`,
       change: "+15%",
       trend: "up" as const,
       icon: Package,
@@ -307,11 +317,10 @@ export default function PedidosDeCompraPage() {
               error={error}
               pagination={pagination}
               search={search}
-              sort={sort}
-              onSearch={handleSearch}
-              onSort={handleSort}
-              onPageChange={handlePageChange}
-              onLimitChange={handleLimitChange}
+              onSearch={search}
+              onSort={setSorting}
+              onPageChange={setPagination}
+              onLimitChange={setPagination}
               searchPlaceholder="Buscar pedidos, usuarios, sucursales..."
             />
           </CardContent>

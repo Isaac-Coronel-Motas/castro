@@ -4,8 +4,8 @@ import { requirePermission, createAuthzErrorResponse } from '@/lib/middleware/au
 
 export async function GET(request: NextRequest) {
   try {
-    // Verificar permisos básicos (cualquier usuario autenticado puede ver sucursales)
-    const { authorized, error } = requirePermission('dashboard.ver')(request);
+    // Verificar permisos básicos - usar un permiso más general
+    const { authorized, error } = requirePermission('administracion.leer')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');

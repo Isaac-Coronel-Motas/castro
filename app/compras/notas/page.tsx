@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,6 +8,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
+import { useApi } from "@/hooks/use-api"
+import { DataTable } from "@/components/data-table"
+import { NotaCreditoDebitoModal } from "@/components/modals/nota-credito-debito-modal"
+import { 
+  getTipoOperacionColor, 
+  getTipoOperacionLabel, 
+  getNotaEstadoColor, 
+  getNotaEstadoLabel 
+} from "@/lib/utils/compras-client"
+import { NotaCreditoDebito } from "@/lib/types/compras-adicionales"
 import {
   Wrench,
   LayoutDashboard,
@@ -121,12 +131,57 @@ export default function NotasCreditoDebitoPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalTipoOperacion, setModalTipoOperacion] = useState<'compra' | 'venta'>('compra')
+  const [selectedNota, setSelectedNota] = useState<NotaCreditoDebito | null>(null)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
   const router = useRouter()
 
+  // Hook para manejar las APIs
+  const { 
+    data: notasCredito, 
+    loading: loadingCredito, 
+    error: errorCredito,
+    search: searchCredito,
+    create: createCredito,
+    update: updateCredito,
+    delete: deleteCredito
+  } = useApi<NotaCreditoDebito>('/api/compras/notas-credito')
+
+  const { 
+    data: notasDebito, 
+    loading: loadingDebito, 
+    error: errorDebito,
+    search: searchDebito,
+    create: createDebito,
+    update: updateDebito,
+    delete: deleteDebito
+  } = useApi<NotaCreditoDebito>('/api/compras/notas-debito')
+
+  // Combinar notas de crédito y débito
+  const allNotas = [...(notasCredito || []), ...(notasDebito || [])]
+  const loading = loadingCredito || loadingDebito
+  const error = errorCredito || errorDebito
+
+  // Filtrar notas
+  const filteredNotas = allNotas.filter((nota) => {
+    const matchesSearch = 
+      nota.nro_nota?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      nota.motivo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      nota.proveedor_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      nota.cliente_nombre?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesType = filterType === "all" || nota.tipo_operacion === filterType
+    const matchesStatus = filterStatus === "all" || nota.estado === filterStatus
+    
+    return matchesSearch && matchesType && matchesStatus
+  })
+
+  // Métricas calculadas
   const metrics = [
     {
       title: "Total Notas",
-      value: "24",
+      value: allNotas.length.toString(),
       change: "+8%",
       trend: "up",
       icon: FileCheck,
@@ -134,7 +189,7 @@ export default function NotasCreditoDebitoPage() {
     },
     {
       title: "Notas de Crédito",
-      value: "16",
+      value: notasCredito?.length.toString() || "0",
       change: "+12%",
       trend: "up",
       icon: TrendingDown,
@@ -142,7 +197,7 @@ export default function NotasCreditoDebitoPage() {
     },
     {
       title: "Notas de Débito",
-      value: "8",
+      value: notasDebito?.length.toString() || "0",
       change: "-5%",
       trend: "down",
       icon: TrendingUp,
@@ -150,7 +205,7 @@ export default function NotasCreditoDebitoPage() {
     },
     {
       title: "Valor Neto",
-      value: "₡1.2M",
+      value: `₡${allNotas.reduce((sum, nota) => sum + (nota.monto_nc || 0), 0).toLocaleString()}`,
       change: "+18%",
       trend: "up",
       icon: DollarSign,
@@ -158,172 +213,114 @@ export default function NotasCreditoDebitoPage() {
     },
   ]
 
-  const creditDebitNotes = [
+  const handleSearch = (term: string) => {
+    setSearchTerm(term)
+    searchCredito(term)
+    searchDebito(term)
+  }
+
+  const handleCreateCredito = () => {
+    setModalTipoOperacion('compra')
+    setModalMode('create')
+    setSelectedNota(null)
+    setModalOpen(true)
+  }
+
+  const handleCreateDebito = () => {
+    setModalTipoOperacion('venta')
+    setModalMode('create')
+    setSelectedNota(null)
+    setModalOpen(true)
+  }
+
+  const handleView = (nota: NotaCreditoDebito) => {
+    setModalTipoOperacion(nota.tipo_operacion)
+    setModalMode('view')
+    setSelectedNota(nota)
+    setModalOpen(true)
+  }
+
+  const handleEdit = (nota: NotaCreditoDebito) => {
+    setModalTipoOperacion(nota.tipo_operacion)
+    setModalMode('edit')
+    setSelectedNota(nota)
+    setModalOpen(true)
+  }
+
+  const handleDelete = async (nota: NotaCreditoDebito) => {
+    if (confirm('¿Está seguro de que desea eliminar esta nota?')) {
+      try {
+        if (nota.tipo_operacion === 'compra') {
+          await deleteCredito(nota.nota_credito_id)
+        } else {
+          await deleteDebito(nota.nota_credito_id)
+        }
+      } catch (error) {
+        console.error('Error eliminando nota:', error)
+      }
+    }
+  }
+
+  const handleSave = async (data: any) => {
+    try {
+      if (modalMode === 'create') {
+        if (modalTipoOperacion === 'compra') {
+          await createCredito(data)
+        } else {
+          await createDebito(data)
+        }
+      } else if (modalMode === 'edit') {
+        if (modalTipoOperacion === 'compra') {
+          await updateCredito(selectedNota?.nota_credito_id || 0, data)
+        } else {
+          await updateDebito(selectedNota?.nota_credito_id || 0, data)
+        }
+      }
+    } catch (error) {
+      console.error('Error guardando nota:', error)
+      throw error
+    }
+  }
+
+  const columns = [
+    { key: 'nro_nota', label: 'Número', sortable: true },
+    { key: 'fecha_registro', label: 'Fecha', sortable: true, render: (item: any) => new Date(item.fecha_registro).toLocaleDateString('es-CR') },
+    { key: 'tipo_operacion', label: 'Tipo', sortable: true, render: (item: any) => (
+      <Badge className={getTipoOperacionColor(item.tipo_operacion)}>
+        {getTipoOperacionLabel(item.tipo_operacion)}
+      </Badge>
+    )},
+    { key: 'proveedor_nombre', label: 'Proveedor/Cliente', sortable: true, render: (item: any) => item.proveedor_nombre || item.cliente_nombre },
+    { key: 'motivo', label: 'Motivo', sortable: true },
+    { key: 'monto_nc', label: 'Monto', sortable: true, render: (item: any) => `₡${(item.monto_nc || 0).toLocaleString()}` },
+    { key: 'estado', label: 'Estado', sortable: true, render: (item: any) => (
+      <Badge className={getNotaEstadoColor(item.estado)}>
+        {getNotaEstadoLabel(item.estado)}
+      </Badge>
+    )},
+    { key: 'usuario_nombre', label: 'Usuario', sortable: true },
     {
-      id: "NC-001",
-      type: "credit",
-      supplier: "Distribuidora Tech SA",
-      issueDate: "2024-01-15",
-      originalInvoice: "FAC-2024-001",
-      reason: "Devolución productos defectuosos",
-      status: "approved",
-      subtotal: "₡450,000",
-      tax: "₡58,500",
-      total: "₡508,500",
-      description: "Pantallas Samsung con defectos de fábrica",
-      approvedBy: "Juan Pérez",
-      items: 3,
-      reference: "DEV-001",
-    },
-    {
-      id: "ND-001",
-      type: "debit",
-      supplier: "Electrónica Central",
-      issueDate: "2024-01-14",
-      originalInvoice: "FAC-2024-002",
-      reason: "Gastos de envío adicionales",
-      status: "pending",
-      subtotal: "₡75,000",
-      tax: "₡9,750",
-      total: "₡84,750",
-      description: "Costo de envío express no incluido",
-      approvedBy: null,
-      items: 1,
-      reference: "ENV-002",
-    },
-    {
-      id: "NC-002",
-      type: "credit",
-      supplier: "Componentes del Este",
-      issueDate: "2024-01-13",
-      originalInvoice: "FAC-2024-003",
-      reason: "Descuento por volumen aplicado",
-      status: "approved",
-      subtotal: "₡120,000",
-      tax: "₡15,600",
-      total: "₡135,600",
-      description: "Descuento 8% por compra mayor a ₡1.5M",
-      approvedBy: "María González",
-      items: 1,
-      reference: "DESC-001",
-    },
-    {
-      id: "ND-002",
-      type: "debit",
-      supplier: "TechParts Solutions",
-      issueDate: "2024-01-12",
-      originalInvoice: "FAC-2024-004",
-      reason: "Intereses por pago tardío",
-      status: "rejected",
-      subtotal: "₡95,000",
-      tax: "₡12,350",
-      total: "₡107,350",
-      description: "Interés 2% mensual por pago fuera de término",
-      approvedBy: null,
-      items: 1,
-      reference: "INT-001",
-    },
-    {
-      id: "NC-003",
-      type: "credit",
-      supplier: "Suministros Electrónicos",
-      issueDate: "2024-01-11",
-      originalInvoice: "FAC-2024-005",
-      reason: "Error en facturación - precio incorrecto",
-      status: "approved",
-      subtotal: "₡200,000",
-      tax: "₡26,000",
-      total: "₡226,000",
-      description: "Corrección precio unitario procesadores",
-      approvedBy: "Carlos Rodríguez",
-      items: 2,
-      reference: "COR-001",
-    },
+      key: 'actions',
+      label: 'Acciones',
+      render: (item: any) => (
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => handleView(item)} className="h-8 w-8 p-0">
+            <Eye className="h-4 w-4" />
+          </Button>
+          {item.estado === 'activo' && (
+            <>
+              <Button size="sm" variant="outline" onClick={() => handleEdit(item)} className="h-8 w-8 p-0">
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => handleDelete(item)} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      )
+    }
   ]
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "credit":
-        return "bg-green-500 text-white"
-      case "debit":
-        return "bg-red-500 text-white"
-      default:
-        return "bg-muted text-muted-foreground"
-    }
-  }
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case "credit":
-        return "Crédito"
-      case "debit":
-        return "Débito"
-      default:
-        return type
-    }
-  }
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "credit":
-        return TrendingDown
-      case "debit":
-        return TrendingUp
-      default:
-        return FileCheck
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-green-500 text-white"
-      case "pending":
-        return "bg-secondary text-secondary-foreground"
-      case "rejected":
-        return "bg-destructive text-destructive-foreground"
-      default:
-        return "bg-muted text-muted-foreground"
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "Aprobada"
-      case "pending":
-        return "Pendiente"
-      case "rejected":
-        return "Rechazada"
-      default:
-        return status
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "approved":
-        return CheckCircle
-      case "pending":
-        return Clock
-      case "rejected":
-        return AlertCircle
-      default:
-        return Clock
-    }
-  }
-
-  const filteredNotes = creditDebitNotes.filter((note) => {
-    const matchesSearch =
-      note.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.originalInvoice.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.reference.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = filterType === "all" || note.type === filterType
-    const matchesStatus = filterStatus === "all" || note.status === filterStatus
-    return matchesSearch && matchesType && matchesStatus
-  })
 
   const toggleSubmenu = (label: string) => {
     setExpandedMenus((prev) => ({
@@ -444,7 +441,7 @@ export default function NotasCreditoDebitoPage() {
                     placeholder="Buscar notas, proveedores, facturas..."
                     className="pl-10 w-80 bg-input border-border"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => handleSearch(e.target.value)}
                   />
                 </div>
               </div>
@@ -488,11 +485,18 @@ export default function NotasCreditoDebitoPage() {
                 <p className="text-muted-foreground">Gestión de ajustes contables con proveedores</p>
               </div>
               <div className="flex items-center gap-3">
-                <Button variant="outline" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
+                <Button 
+                  variant="outline" 
+                  className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                  onClick={handleCreateCredito}
+                >
                   <Minus className="h-4 w-4 mr-2" />
                   Nota Crédito
                 </Button>
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
+                <Button 
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all"
+                  onClick={handleCreateDebito}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Nota Débito
                 </Button>
@@ -561,122 +565,34 @@ export default function NotasCreditoDebitoPage() {
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {filteredNotes.length} de {creditDebitNotes.length} notas
+                    {filteredNotas.length} de {allNotas.length} notas
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Notes Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredNotes.map((note) => {
-                const TypeIcon = getTypeIcon(note.type)
-                const StatusIcon = getStatusIcon(note.status)
+            {/* Data Table */}
+            <Card className="border-border">
+              <CardContent className="p-0">
+                <DataTable
+                  data={filteredNotas}
+                  columns={columns}
+                  loading={loading}
+                  error={error}
+                  title="Notas de Crédito/Débito"
+                  onSearch={handleSearch}
+                />
+              </CardContent>
+            </Card>
 
-                return (
-                  <Card key={note.id} className="hover:shadow-lg transition-all duration-300 border-border group">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-semibold text-foreground">{note.id}</CardTitle>
-                        <Badge className={getTypeColor(note.type)}>
-                          <TypeIcon className="h-3 w-3 mr-1" />
-                          {getTypeLabel(note.type)}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{note.supplier}</p>
-                      <p className="text-xs text-muted-foreground">Factura: {note.originalInvoice}</p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Motivo</p>
-                        <p className="text-sm font-medium text-foreground">{note.reason}</p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Fecha Emisión</p>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                            <p className="text-sm font-medium">{note.issueDate}</p>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Items</p>
-                          <p className="text-sm font-medium">{note.items}</p>
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Descripción</p>
-                        <p className="text-sm text-foreground">{note.description}</p>
-                      </div>
-
-                      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Subtotal:</span>
-                          <span className="font-medium">{note.subtotal}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Impuestos:</span>
-                          <span className="font-medium">{note.tax}</span>
-                        </div>
-                        <div className="flex justify-between text-base font-bold border-t border-border pt-2">
-                          <span>Total:</span>
-                          <span
-                            className={cn(
-                              "text-foreground",
-                              note.type === "credit" ? "text-green-600" : "text-red-600",
-                            )}
-                          >
-                            {note.type === "credit" ? "-" : "+"}
-                            {note.total}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Ref: {note.reference}</p>
-                          {note.approvedBy && <p className="text-xs text-green-600">Aprobado por: {note.approvedBy}</p>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <StatusIcon className="h-4 w-4 text-muted-foreground" />
-                          <Badge className={getStatusColor(note.status)}>{getStatusLabel(note.status)}</Badge>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                          <Eye className="h-3 w-3 mr-1" />
-                          Ver
-                        </Button>
-                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                          <Edit className="h-3 w-3 mr-1" />
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive hover:text-destructive bg-transparent"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-
-            {filteredNotes.length === 0 && (
-              <Card className="border-border">
-                <CardContent className="p-12 text-center">
-                  <FileCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No se encontraron notas</h3>
-                  <p className="text-muted-foreground">Intenta ajustar los filtros o crear una nueva nota</p>
-                </CardContent>
-              </Card>
-            )}
+            {/* Modal */}
+            <NotaCreditoDebitoModal
+              isOpen={modalOpen}
+              onClose={() => setModalOpen(false)}
+              onSave={handleSave}
+              nota={selectedNota}
+              tipoOperacion={modalTipoOperacion}
+            />
           </main>
         </div>
       </div>

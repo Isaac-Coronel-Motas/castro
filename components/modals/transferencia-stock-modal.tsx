@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
-import { TransferenciaStock, CreateTransferenciaStockRequest, UpdateTransferenciaStockRequest, TransferenciaStockDetalle } from "@/lib/types/compras"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
+import { TransferenciaStock, CreateTransferenciaStockRequest, UpdateTransferenciaStockRequest, TransferenciaStockDetalle } from "@/lib/types/compras-adicionales"
 import { Package, Calendar, User, Warehouse, Plus, Trash2, ArrowRightLeft, Truck } from "lucide-react"
 
 interface TransferenciaStockModalProps {
@@ -23,6 +24,7 @@ interface TransferenciaStockModalProps {
 
 export function TransferenciaStockModal({ isOpen, onClose, onSave, transferencia, mode }: TransferenciaStockModalProps) {
   const { user } = useAuth()
+  const authenticatedFetch = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreateTransferenciaStockRequest>({
     usuario_id: user?.usuario_id || 0,
     almacen_origen_id: 0,
@@ -57,35 +59,39 @@ export function TransferenciaStockModal({ isOpen, onClose, onSave, transferencia
 
   const loadInitialData = async () => {
     try {
+      console.log('🔍 Cargando datos iniciales para transferencias...')
+      
       // Cargar almacenes
-      const almacenesRes = await fetch('/api/almacenes')
+      const almacenesRes = await authenticatedFetch.authenticatedFetch('/api/compras/referencias/almacenes')
       const almacenesData = await almacenesRes.json()
+      console.log('📡 Respuesta almacenes:', almacenesRes.status, almacenesData.success ? almacenesData.data?.length : 'error')
       if (almacenesData.success) {
         setAlmacenes(almacenesData.data)
       }
 
       // Cargar productos
-      const productosRes = await fetch('/api/referencias/productos')
+      const productosRes = await authenticatedFetch.authenticatedFetch('/api/compras/referencias/productos')
       const productosData = await productosRes.json()
+      console.log('📡 Respuesta productos:', productosRes.status, productosData.success ? productosData.data?.length : 'error')
       if (productosData.success) {
         setProductos(productosData.data)
       }
+
+      console.log('✅ Datos iniciales cargados exitosamente')
     } catch (error) {
-      console.error('Error cargando datos iniciales:', error)
+      console.error('❌ Error cargando datos iniciales:', error)
     }
   }
 
   const loadStockDisponible = async (almacenId: number) => {
     try {
-      const stockRes = await fetch(`/api/stock?almacen_id=${almacenId}`)
-      const stockData = await stockRes.json()
-      if (stockData.success) {
-        const stockMap: { [key: number]: number } = {}
-        stockData.data.forEach((item: any) => {
-          stockMap[item.producto_id] = item.cantidad
-        })
-        setStockDisponible(stockMap)
-      }
+      // Por ahora, usar el stock de los productos directamente
+      // En una implementación real, esto vendría de una API de stock por almacén
+      const stockMap: { [key: number]: number } = {}
+      productos.forEach((producto) => {
+        stockMap[producto.producto_id] = producto.stock || 0
+      })
+      setStockDisponible(stockMap)
     } catch (error) {
       console.error('Error cargando stock:', error)
     }

@@ -323,12 +323,12 @@ export async function POST(request: NextRequest) {
 
         // Registrar movimiento en el log de inventario
         await pool.query(
-          'INSERT INTO movimientos_inventario (producto_id, tipo_movimiento, cantidad, motivo, usuario_id, fecha) VALUES ($1, $2, $3, $4, $5, $6)',
+          'INSERT INTO movimientos_inventario (producto_id, tipo_movimiento, cantidad, detalle, usuario_id, fecha_movimiento) VALUES ($1, $2, $3, $4, $5, $6)',
           [
             item.producto_id,
             determineMovementType(item.cantidad_ajustada),
             Math.abs(item.cantidad_ajustada),
-            `Ajuste de inventario - ${body.referencia || 'N/A'}`,
+            `Ajuste de inventario - ${body.observaciones || 'N/A'}`,
             body.usuario_id,
             new Date().toISOString()
           ]

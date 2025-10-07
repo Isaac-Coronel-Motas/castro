@@ -1,83 +1,52 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Plus,
-  FileText,
-  TrendingDown,
-  TrendingUp,
-  DollarSign,
-  User,
-  Mail,
-  Phone,
-  Search,
-} from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
-import { toast } from "sonner"
+import { useAuth } from "@/contexts/auth-context"
+import { 
+  getTipoOperacionColor, 
+  getTipoOperacionLabel, 
+  getNotaEstadoColor, 
+  getNotaEstadoLabel 
+} from "@/lib/utils/compras-client"
+import { 
+  NotaCreditoDebito, 
+  CreateNotaCreditoDebitoRequest, 
+  UpdateNotaCreditoDebitoRequest 
+} from "@/lib/types/compras-adicionales"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter 
+} from "@/components/ui/dialog"
+import { 
+  Plus, 
+  Trash2, 
+  Calendar, 
+  FileText, 
+  User, 
+  Building, 
+  Package,
+  DollarSign,
+  AlertCircle
+} from "lucide-react"
 
 interface NotaCreditoDebitoModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (data: any) => Promise<boolean>
-  nota?: any
-  mode: 'create' | 'edit'
-}
-
-interface FormData {
-  tipo: 'credito' | 'debito'
-  facturaOriginal: string
-  fechaFactura: string
-  montoOriginal: string
-  cliente_id: number
-  cliente_nombre: string
-  email: string
-  telefono: string
-  motivo: string
-  descripcion: string
-  montoAjuste: string
-  impuestosAjuste: string
-}
-
-interface Cliente {
-  cliente_id: number
-  nombre: string
-  email?: string
-  telefono?: string
-}
-
-interface Sucursal {
-  sucursal_id: number
-  nombre: string
-}
-
-interface Almacen {
-  almacen_id: number
-  nombre: string
-  descripcion?: string
-  almacen_principal: boolean
-  sucursal_nombre?: string
-}
-
-interface Usuario {
-  usuario_id: number
-  nombre: string
-  username: string
+  onSave: (data: CreateNotaCreditoDebitoRequest | UpdateNotaCreditoDebitoRequest) => Promise<void>
+  nota?: NotaCreditoDebito | null
+  tipoOperacion: 'compra' | 'venta'
 }
 
 export function NotaCreditoDebitoModal({ 
@@ -85,225 +54,234 @@ export function NotaCreditoDebitoModal({
   onClose, 
   onSave, 
   nota, 
-  mode 
+  tipoOperacion 
 }: NotaCreditoDebitoModalProps) {
-  const { token, user } = useAuth()
-  const { authenticatedFetch } = useAuthenticatedFetch()
+  const { user } = useAuth()
+  const authenticatedFetch = useAuthenticatedFetch()
   
-  const [formData, setFormData] = useState<FormData>({
-    tipo: 'credito',
-    facturaOriginal: '',
-    fechaFactura: new Date().toISOString().split('T')[0],
-    montoOriginal: '',
-    cliente_id: 0,
-    cliente_nombre: '',
-    email: '',
-    telefono: '',
+  const [formData, setFormData] = useState<CreateNotaCreditoDebitoRequest>({
+    tipo_operacion: tipoOperacion,
+    proveedor_id: undefined,
+    cliente_id: undefined,
+    sucursal_id: 1,
+    almacen_id: 1,
+    usuario_id: user?.usuario_id || 0,
+    fecha_registro: new Date().toISOString().split('T')[0],
     motivo: '',
-    descripcion: '',
-    montoAjuste: '',
-    impuestosAjuste: '',
+    estado: 'activo',
+    referencia_id: 0,
+    monto_nc: 0,
+    monto_gravada_5: 0,
+    monto_gravada_10: 0,
+    monto_exenta: 0,
+    monto_iva: 0,
+    items: []
   })
-  
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Partial<FormData>>({})
-  
-  // Estados para datos de referencia
-  const [clientes, setClientes] = useState<Cliente[]>([])
-  const [sucursales, setSucursales] = useState<Sucursal[]>([])
-  const [almacenes, setAlmacenes] = useState<Almacen[]>([])
-  const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  
-  // Estados de carga
-  const [loadingClientes, setLoadingClientes] = useState(false)
-  const [loadingSucursales, setLoadingSucursales] = useState(false)
-  const [loadingAlmacenes, setLoadingAlmacenes] = useState(false)
-  const [loadingUsuarios, setLoadingUsuarios] = useState(false)
-  
-  // Estados para búsqueda
-  const [searchCliente, setSearchCliente] = useState('')
-  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
 
-  // Cargar datos de referencia cuando se abre el modal
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
+  const [loading, setLoading] = useState(false)
+  const [proveedores, setProveedores] = useState<any[]>([])
+  const [clientes, setClientes] = useState<any[]>([])
+  const [sucursales, setSucursales] = useState<any[]>([])
+  const [almacenes, setAlmacenes] = useState<any[]>([])
+  const [productos, setProductos] = useState<any[]>([])
+
+  const isEdit = !!nota
+  const isCompra = tipoOperacion === 'compra'
+
   useEffect(() => {
     if (isOpen) {
-      loadReferenceData()
+      loadInitialData()
+      if (isEdit && nota) {
+        loadNotaData()
+      } else {
+        resetForm()
+      }
     }
-  }, [isOpen])
+  }, [isOpen, nota, tipoOperacion])
 
-  // Cargar datos de la nota si está en modo edición
-  useEffect(() => {
-    if (mode === 'edit' && nota) {
-      setFormData({
-        tipo: nota.tipo_nota || 'credito',
-        facturaOriginal: nota.referencia_id || '',
-        fechaFactura: nota.fecha_registro || new Date().toISOString().split('T')[0],
-        montoOriginal: nota.monto_original?.toString() || '',
-        cliente_id: nota.cliente_id || 0,
-        cliente_nombre: nota.cliente_nombre || '',
-        email: nota.cliente_email || '',
-        telefono: nota.cliente_telefono || '',
-        motivo: nota.motivo || '',
-        descripcion: nota.descripcion || '',
-        montoAjuste: nota.monto?.toString() || '',
-        impuestosAjuste: nota.monto_iva?.toString() || '',
+  const loadInitialData = async () => {
+    try {
+      console.log('🔍 Cargando datos iniciales...')
+      
+      const [proveedoresRes, clientesRes, sucursalesRes, almacenesRes, productosRes] = await Promise.all([
+        authenticatedFetch.authenticatedFetch('/api/compras/referencias/proveedores'),
+        authenticatedFetch.authenticatedFetch('/api/compras/referencias/clientes'),
+        authenticatedFetch.authenticatedFetch('/api/sucursales'),
+        authenticatedFetch.authenticatedFetch('/api/compras/referencias/almacenes'),
+        authenticatedFetch.authenticatedFetch('/api/compras/referencias/productos')
+      ])
+
+      console.log('📡 Respuestas recibidas:', {
+        proveedores: proveedoresRes.status,
+        clientes: clientesRes.status,
+        sucursales: sucursalesRes.status,
+        almacenes: almacenesRes.status,
+        productos: productosRes.status
       })
-    } else {
-      // Resetear formulario para modo creación
-      setFormData({
-        tipo: 'credito',
-        facturaOriginal: '',
-        fechaFactura: new Date().toISOString().split('T')[0],
-        montoOriginal: '',
-        cliente_id: 0,
-        cliente_nombre: '',
-        email: '',
-        telefono: '',
-        motivo: '',
-        descripcion: '',
-        montoAjuste: '',
-        impuestosAjuste: '',
+
+      const proveedoresData = await proveedoresRes.json()
+      const clientesData = await clientesRes.json()
+      const sucursalesData = await sucursalesRes.json()
+      const almacenesData = await almacenesRes.json()
+      const productosData = await productosRes.json()
+
+      console.log('📊 Datos parseados:', {
+        proveedores: proveedoresData.success ? proveedoresData.data?.length : 'error',
+        clientes: clientesData.success ? clientesData.data?.length : 'error',
+        sucursales: sucursalesData.success ? sucursalesData.data?.length : 'error',
+        almacenes: almacenesData.success ? almacenesData.data?.length : 'error',
+        productos: productosData.success ? productosData.data?.length : 'error'
       })
+
+      if (proveedoresData.success) setProveedores(proveedoresData.data)
+      if (clientesData.success) setClientes(clientesData.data)
+      if (sucursalesData.success) setSucursales(sucursalesData.data)
+      if (almacenesData.success) setAlmacenes(almacenesData.data)
+      if (productosData.success) setProductos(productosData.data)
+
+      console.log('✅ Datos cargados exitosamente')
+    } catch (error) {
+      console.error('❌ Error cargando datos iniciales:', error)
     }
+  }
+
+  const loadNotaData = () => {
+    if (!nota) return
+
+    setFormData({
+      tipo_operacion: nota.tipo_operacion,
+      proveedor_id: nota.proveedor_id,
+      cliente_id: nota.cliente_id,
+      sucursal_id: nota.sucursal_id,
+      almacen_id: nota.almacen_id,
+      usuario_id: nota.usuario_id,
+      fecha_registro: nota.fecha_registro,
+      motivo: nota.motivo || '',
+      estado: nota.estado,
+      referencia_id: nota.referencia_id,
+      monto_nc: nota.monto_nc || 0,
+      monto_gravada_5: nota.monto_gravada_5 || 0,
+      monto_gravada_10: nota.monto_gravada_10 || 0,
+      monto_exenta: nota.monto_exenta || 0,
+      monto_iva: nota.monto_iva || 0,
+      items: nota.detalles?.map(d => ({
+        producto_id: d.producto_id,
+        cantidad: d.cantidad,
+        precio_unitario: d.precio_unitario
+      })) || []
+    })
+  }
+
+  const resetForm = () => {
+    setFormData({
+      tipo_operacion: tipoOperacion,
+      proveedor_id: undefined,
+      cliente_id: undefined,
+      sucursal_id: 1,
+      almacen_id: 1,
+      usuario_id: user?.usuario_id || 0,
+      fecha_registro: new Date().toISOString().split('T')[0],
+      motivo: '',
+      estado: 'activo',
+      referencia_id: 0,
+      monto_nc: 0,
+      monto_gravada_5: 0,
+      monto_gravada_10: 0,
+      monto_exenta: 0,
+      monto_iva: 0,
+      items: []
+    })
     setErrors({})
-  }, [mode, nota, isOpen])
-
-  // Funciones para cargar datos de referencia
-  const loadReferenceData = async () => {
-    await Promise.all([
-      loadClientes(),
-      loadSucursales(),
-      loadAlmacenes(),
-      loadUsuarios()
-    ])
   }
 
-  const loadClientes = async () => {
-    try {
-      setLoadingClientes(true)
-      const response = await authenticatedFetch('/api/referencias/clientes?limit=100')
-      const data = await response.json()
-      
-      if (data.success) {
-        setClientes(data.data || [])
-      } else {
-        toast.error('Error al cargar clientes')
-      }
-    } catch (error) {
-      console.error('Error loading clientes:', error)
-      toast.error('Error al cargar clientes')
-    } finally {
-      setLoadingClientes(false)
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }))
     }
   }
 
-  const loadSucursales = async () => {
-    try {
-      setLoadingSucursales(true)
-      const response = await authenticatedFetch('/api/sucursales')
-      const data = await response.json()
-      
-      if (data.success) {
-        setSucursales(data.data || [])
-      } else {
-        toast.error('Error al cargar sucursales')
-      }
-    } catch (error) {
-      console.error('Error loading sucursales:', error)
-      toast.error('Error al cargar sucursales')
-    } finally {
-      setLoadingSucursales(false)
-    }
-  }
-
-  const loadAlmacenes = async () => {
-    try {
-      setLoadingAlmacenes(true)
-      const response = await authenticatedFetch('/api/referencias/almacenes')
-      const data = await response.json()
-      
-      if (data.success) {
-        setAlmacenes(data.data || [])
-      } else {
-        toast.error('Error al cargar almacenes')
-      }
-    } catch (error) {
-      console.error('Error loading almacenes:', error)
-      toast.error('Error al cargar almacenes')
-    } finally {
-      setLoadingAlmacenes(false)
-    }
-  }
-
-  const loadUsuarios = async () => {
-    try {
-      setLoadingUsuarios(true)
-      const response = await authenticatedFetch('/api/usuarios?limit=100')
-      const data = await response.json()
-      
-      if (data.success) {
-        setUsuarios(data.data || [])
-      } else {
-        toast.error('Error al cargar usuarios')
-      }
-    } catch (error) {
-      console.error('Error loading usuarios:', error)
-      toast.error('Error al cargar usuarios')
-    } finally {
-      setLoadingUsuarios(false)
-    }
-  }
-
-  const handleInputChange = (field: keyof FormData, value: string) => {
+  const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      items: [...(prev.items || []), { producto_id: 0, cantidad: 1, precio_unitario: 0 }]
     }))
-    
-    // Limpiar error del campo
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined
-      }))
-    }
   }
 
-  const calculateTaxes = (amount: string): string => {
-    const numAmount = parseFloat(amount) || 0
-    return (numAmount * 0.13).toFixed(2)
+  const removeItem = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      items: (prev.items || []).filter((_, i) => i !== index)
+    }))
+  }
+
+  const updateItem = (index: number, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      items: (prev.items || []).map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    }))
+  }
+
+  const calculateTotals = () => {
+    const subtotal = (formData.items || []).reduce((sum, item) => 
+      sum + (item.cantidad * item.precio_unitario), 0
+    )
+    const iva = subtotal * 0.13 // 13% IVA
+    const total = subtotal + iva
+
+    setFormData(prev => ({
+      ...prev,
+      monto_nc: total,
+      monto_gravada_10: subtotal,
+      monto_iva: iva
+    }))
   }
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<FormData> = {}
+    const newErrors: { [key: string]: string } = {}
 
-    if (!formData.facturaOriginal.trim()) {
-      newErrors.facturaOriginal = 'El número de factura es requerido'
+    if (!formData.sucursal_id || formData.sucursal_id <= 0) {
+      newErrors.sucursal_id = 'La sucursal es requerida'
     }
 
-    if (!formData.fechaFactura) {
-      newErrors.fechaFactura = 'La fecha de factura es requerida'
+    if (!formData.almacen_id || formData.almacen_id <= 0) {
+      newErrors.almacen_id = 'El almacén es requerido'
     }
 
-    if (!formData.montoOriginal || parseFloat(formData.montoOriginal) <= 0) {
-      newErrors.montoOriginal = 'El monto original debe ser mayor a 0'
+    if (!formData.referencia_id || formData.referencia_id <= 0) {
+      newErrors.referencia_id = 'La referencia es requerida'
     }
 
-    if (!formData.cliente_id || formData.cliente_id === 0) {
-      newErrors.cliente_id = 'Debe seleccionar un cliente'
+    if (isCompra && (!formData.proveedor_id || formData.proveedor_id <= 0)) {
+      newErrors.proveedor_id = 'El proveedor es requerido'
     }
 
-    if (!formData.motivo) {
-      newErrors.motivo = 'El motivo del ajuste es requerido'
+    if (!isCompra && (!formData.cliente_id || formData.cliente_id <= 0)) {
+      newErrors.cliente_id = 'El cliente es requerido'
     }
 
-    if (!formData.descripcion.trim()) {
-      newErrors.descripcion = 'La descripción es requerida'
+    if (!formData.motivo?.trim()) {
+      newErrors.motivo = 'El motivo es requerido'
     }
 
-    if (!formData.montoAjuste || parseFloat(formData.montoAjuste) <= 0) {
-      newErrors.montoAjuste = 'El monto del ajuste debe ser mayor a 0'
+    if ((formData.items || []).length === 0) {
+      newErrors.items = 'Debe agregar al menos un producto'
     }
+
+    (formData.items || []).forEach((item, index) => {
+      if (!item.producto_id || item.producto_id <= 0) {
+        newErrors[`items[${index}].producto_id`] = 'El producto es requerido'
+      }
+      if (!item.cantidad || item.cantidad <= 0) {
+        newErrors[`items[${index}].cantidad`] = 'La cantidad debe ser mayor a 0'
+      }
+      if (!item.precio_unitario || item.precio_unitario <= 0) {
+        newErrors[`items[${index}].precio_unitario`] = 'El precio debe ser mayor a 0'
+      }
+    })
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -312,122 +290,35 @@ export function NotaCreditoDebitoModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('🔍 handleSubmit: Iniciando envío del formulario...')
+    console.log('🔍 handleSubmit: Datos del formulario:', formData)
+    
     if (!validateForm()) {
+      console.log('❌ handleSubmit: Validación fallida')
       return
     }
 
+    console.log('✅ handleSubmit: Validación exitosa, preparando datos...')
+    console.log('🔍 handleSubmit: Datos preparados para guardar:', formData)
+    console.log('🔍 handleSubmit: Llamando a onSave...')
+
     setLoading(true)
     try {
-      // Obtener valores por defecto del usuario actual
-      const defaultSucursalId = user?.sucursales?.[0]?.sucursal_id || sucursales[0]?.sucursal_id || 1
-      const defaultAlmacenId = almacenes.find(a => a.sucursal_nombre === sucursales.find(s => s.sucursal_id === defaultSucursalId)?.nombre)?.almacen_id || almacenes[0]?.almacen_id || 1
-      const defaultUsuarioId = user?.usuario_id || usuarios[0]?.usuario_id || 1
-
-      const notaData = {
-        tipo_nota: formData.tipo,
-        cliente_id: formData.cliente_id,
-        referencia_id: formData.facturaOriginal,
-        fecha_registro: formData.fechaFactura,
-        motivo: formData.motivo,
-        descripcion: formData.descripcion,
-        monto: parseFloat(formData.montoAjuste),
-        monto_iva: parseFloat(formData.impuestosAjuste),
-        monto_gravada_10: parseFloat(formData.montoAjuste),
-        monto_gravada_5: 0,
-        monto_exenta: 0,
-        estado: 'activo',
-        tipo_operacion: 'venta',
-        sucursal_id: defaultSucursalId,
-        almacen_id: defaultAlmacenId,
-        usuario_id: defaultUsuarioId,
-      }
-
-      const success = await onSave(notaData)
-      if (success) {
-        toast.success(
-          mode === 'create' 
-            ? 'Nota creada exitosamente' 
-            : 'Nota actualizada exitosamente'
-        )
-        onClose()
-      }
+      calculateTotals()
+      await onSave(formData)
+      console.log('✅ handleSubmit: Guardado exitoso')
+      onClose()
     } catch (error) {
-      console.error('Error al guardar nota:', error)
-      toast.error('Error al guardar la nota')
+      console.error('❌ handleSubmit: Error guardando nota:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleFacturaSearch = async (numeroFactura: string) => {
-    if (!numeroFactura.trim()) {
-      toast.error('Ingrese un número de factura para buscar')
-      return
-    }
-
-    try {
-      const response = await authenticatedFetch(`/api/ventas/buscar-facturas?numero=${encodeURIComponent(numeroFactura)}&limit=5`)
-      const data = await response.json()
-      
-      if (data.success && data.data.length > 0) {
-        const factura = data.data[0] // Tomar la primera factura encontrada
-        
-        // Llenar automáticamente los datos de la factura
-        setFormData(prev => ({
-          ...prev,
-          facturaOriginal: factura.nro_factura,
-          fechaFactura: factura.fecha_venta,
-          montoOriginal: factura.monto_venta.toString(),
-          cliente_id: factura.cliente.cliente_id,
-          cliente_nombre: factura.cliente.nombre,
-          email: factura.cliente.email || '',
-          telefono: factura.cliente.telefono || ''
-        }))
-        
-        setSearchCliente(factura.cliente.nombre)
-        
-        toast.success(`Factura encontrada: ${factura.nro_factura} - ${factura.cliente.nombre}`)
-      } else {
-        toast.warning('No se encontraron facturas con ese número')
-      }
-    } catch (error) {
-      console.error('Error buscando factura:', error)
-      toast.error('Error al buscar la factura')
-    }
+  const getProductoNombre = (productoId: number) => {
+    const producto = productos.find(p => p.producto_id === productoId)
+    return producto ? `${producto.cod_product} - ${producto.nombre_producto}` : 'Producto no encontrado'
   }
-
-  // Funciones para manejo de clientes
-  const handleClienteSelect = (cliente: Cliente) => {
-    setFormData(prev => ({
-      ...prev,
-      cliente_id: cliente.cliente_id,
-      cliente_nombre: cliente.nombre,
-      email: cliente.email || '',
-      telefono: cliente.telefono || ''
-    }))
-    setSearchCliente(cliente.nombre)
-    setShowClienteDropdown(false)
-    
-    // Limpiar error del cliente
-    if (errors.cliente_id) {
-      setErrors(prev => ({
-        ...prev,
-        cliente_id: undefined
-      }))
-    }
-  }
-
-  const handleClienteSearch = (search: string) => {
-    setSearchCliente(search)
-    setShowClienteDropdown(search.length > 0)
-  }
-
-  // Filtrar clientes por búsqueda
-  const filteredClientes = clientes.filter(cliente =>
-    cliente.nombre.toLowerCase().includes(searchCliente.toLowerCase()) ||
-    cliente.email?.toLowerCase().includes(searchCliente.toLowerCase()) ||
-    cliente.telefono?.includes(searchCliente)
-  )
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -435,352 +326,303 @@ export function NotaCreditoDebitoModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            {mode === 'create' ? 'Nueva' : 'Modificar'} Nota de Crédito/Débito
+            {isEdit ? 'Editar' : 'Crear'} Nota de {isCompra ? 'Crédito' : 'Débito'}
+            <Badge className={getTipoOperacionColor(tipoOperacion)}>
+              {getTipoOperacionLabel(tipoOperacion)}
+            </Badge>
           </DialogTitle>
-          <DialogDescription>
-            Complete los datos para {mode === 'create' ? 'crear' : 'modificar'} una nota de ajuste contable
-          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Tipo de Nota */}
-          <div className="space-y-3">
-            <Label className="text-base font-semibold">Tipo de Nota</Label>
-            <RadioGroup
-              value={formData.tipo}
-              onValueChange={(value) => handleInputChange("tipo", value as 'credito' | 'debito')}
-              className="flex gap-6"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="credito" id="credito" />
-                <Label htmlFor="credito" className="flex items-center gap-2 cursor-pointer">
-                  <TrendingDown className="h-4 w-4 text-red-600" />
-                  Nota de Crédito (Reducción)
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="debito" id="debito" />
-                <Label htmlFor="debito" className="flex items-center gap-2 cursor-pointer">
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                  Nota de Débito (Aumento)
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {/* Información de Factura Original */}
+          {/* Información General */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Factura Original</CardTitle>
-              <CardDescription>Datos de la factura que se va a ajustar</CardDescription>
+              <CardTitle className="text-lg">Información General</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="facturaOriginal">Número de Factura *</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="facturaOriginal"
-                      placeholder="F-001234"
-                      value={formData.facturaOriginal}
-                      onChange={(e) => handleInputChange("facturaOriginal", e.target.value)}
-                      className={errors.facturaOriginal ? "border-red-500" : ""}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleFacturaSearch(formData.facturaOriginal)}
-                    >
-                      <Search className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {errors.facturaOriginal && (
-                    <p className="text-sm text-red-500">{errors.facturaOriginal}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fechaFactura">Fecha de Factura *</Label>
+                  <Label htmlFor="fecha_registro">Fecha de Registro</Label>
                   <Input
-                    id="fechaFactura"
+                    id="fecha_registro"
                     type="date"
-                    value={formData.fechaFactura}
-                    onChange={(e) => handleInputChange("fechaFactura", e.target.value)}
-                    className={errors.fechaFactura ? "border-red-500" : ""}
+                    value={formData.fecha_registro}
+                    onChange={(e) => handleInputChange('fecha_registro', e.target.value)}
+                    className={errors.fecha_registro ? 'border-red-500' : ''}
                   />
-                  {errors.fechaFactura && (
-                    <p className="text-sm text-red-500">{errors.fechaFactura}</p>
+                  {errors.fecha_registro && (
+                    <p className="text-sm text-red-500">{errors.fecha_registro}</p>
                   )}
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="montoOriginal">Monto Original de Factura *</Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+                <div className="space-y-2">
+                  <Label htmlFor="referencia_id">Referencia ID</Label>
                   <Input
-                    id="montoOriginal"
+                    id="referencia_id"
                     type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    className={`pl-10 ${errors.montoOriginal ? "border-red-500" : ""}`}
-                    value={formData.montoOriginal}
-                    onChange={(e) => handleInputChange("montoOriginal", e.target.value)}
+                    value={formData.referencia_id}
+                    onChange={(e) => handleInputChange('referencia_id', parseInt(e.target.value))}
+                    className={errors.referencia_id ? 'border-red-500' : ''}
+                    placeholder="ID de la factura referenciada"
                   />
+                  {errors.referencia_id && (
+                    <p className="text-sm text-red-500">{errors.referencia_id}</p>
+                  )}
                 </div>
-                {errors.montoOriginal && (
-                  <p className="text-sm text-red-500">{errors.montoOriginal}</p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sucursal_id">Sucursal</Label>
+                  <Select
+                    value={formData.sucursal_id.toString()}
+                    onValueChange={(value) => handleInputChange('sucursal_id', parseInt(value))}
+                  >
+                    <SelectTrigger className={errors.sucursal_id ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Seleccionar sucursal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sucursales.map((sucursal) => (
+                        <SelectItem key={sucursal.sucursal_id} value={sucursal.sucursal_id.toString()}>
+                          {sucursal.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.sucursal_id && (
+                    <p className="text-sm text-red-500">{errors.sucursal_id}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="almacen_id">Almacén</Label>
+                  <Select
+                    value={formData.almacen_id.toString()}
+                    onValueChange={(value) => handleInputChange('almacen_id', parseInt(value))}
+                  >
+                    <SelectTrigger className={errors.almacen_id ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Seleccionar almacén" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {almacenes.map((almacen) => (
+                        <SelectItem key={almacen.almacen_id} value={almacen.almacen_id.toString()}>
+                          {almacen.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.almacen_id && (
+                    <p className="text-sm text-red-500">{errors.almacen_id}</p>
+                  )}
+                </div>
+
+                {isCompra ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="proveedor_id">Proveedor</Label>
+                    <Select
+                      value={formData.proveedor_id?.toString() || ''}
+                      onValueChange={(value) => handleInputChange('proveedor_id', parseInt(value))}
+                    >
+                      <SelectTrigger className={errors.proveedor_id ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Seleccionar proveedor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {proveedores.map((proveedor) => (
+                          <SelectItem key={proveedor.proveedor_id} value={proveedor.proveedor_id.toString()}>
+                            {proveedor.nombre_proveedor}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.proveedor_id && (
+                      <p className="text-sm text-red-500">{errors.proveedor_id}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="cliente_id">Cliente</Label>
+                    <Select
+                      value={formData.cliente_id?.toString() || ''}
+                      onValueChange={(value) => handleInputChange('cliente_id', parseInt(value))}
+                    >
+                      <SelectTrigger className={errors.cliente_id ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Seleccionar cliente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clientes.map((cliente) => (
+                          <SelectItem key={cliente.cliente_id} value={cliente.cliente_id.toString()}>
+                            {cliente.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.cliente_id && (
+                      <p className="text-sm text-red-500">{errors.cliente_id}</p>
+                    )}
+                  </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Información del Cliente */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Información del Cliente</CardTitle>
-              <CardDescription>Datos del cliente asociado a la factura</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="cliente">Nombre del Cliente *</Label>
-                            <div className="relative">
-                              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input
-                                id="cliente"
-                                placeholder="Buscar cliente..."
-                                className={`pl-10 ${errors.cliente_id ? "border-red-500" : ""}`}
-                                value={searchCliente}
-                                onChange={(e) => handleClienteSearch(e.target.value)}
-                                onFocus={() => setShowClienteDropdown(true)}
-                              />
-                              {showClienteDropdown && filteredClientes.length > 0 && (
-                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                  {filteredClientes.map((cliente) => (
-                                    <div
-                                      key={cliente.cliente_id}
-                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                      onClick={() => handleClienteSelect(cliente)}
-                                    >
-                                      <div className="font-medium">{cliente.nombre}</div>
-                                      {cliente.email && (
-                                        <div className="text-sm text-gray-500">{cliente.email}</div>
-                                      )}
-                                      {cliente.telefono && (
-                                        <div className="text-sm text-gray-500">{cliente.telefono}</div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {errors.cliente_id && (
-                              <p className="text-sm text-red-500">{errors.cliente_id}</p>
-                            )}
-                          </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Correo Electrónico</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="cliente@email.com"
-                      className="pl-10"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange("email", e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="telefono">Teléfono</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="telefono"
-                      placeholder="8888-8888"
-                      className="pl-10"
-                      value={formData.telefono}
-                      onChange={(e) => handleInputChange("telefono", e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Detalles del Ajuste */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Detalles del Ajuste</CardTitle>
-              <CardDescription>Información sobre el motivo y monto del ajuste</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="motivo">Motivo del Ajuste *</Label>
-                <Select 
-                  value={formData.motivo} 
-                  onValueChange={(value) => handleInputChange("motivo", value)}
-                >
-                  <SelectTrigger className={errors.motivo ? "border-red-500" : ""}>
-                    <SelectValue placeholder="Seleccione el motivo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formData.tipo === "credito" ? (
-                      <>
-                        <SelectItem value="devolucion">Devolución por defecto</SelectItem>
-                        <SelectItem value="descuento">Descuento por volumen</SelectItem>
-                        <SelectItem value="error_facturacion">Error en facturación</SelectItem>
-                        <SelectItem value="garantia">Garantía</SelectItem>
-                        <SelectItem value="promocion">Promoción especial</SelectItem>
-                        <SelectItem value="otro_credito">Otro motivo</SelectItem>
-                      </>
-                    ) : (
-                      <>
-                        <SelectItem value="recargo_tardio">Recargo por entrega tardía</SelectItem>
-                        <SelectItem value="intereses_mora">Intereses por mora</SelectItem>
-                        <SelectItem value="servicios_adicionales">Servicios adicionales</SelectItem>
-                        <SelectItem value="ajuste_precio">Ajuste de precio</SelectItem>
-                        <SelectItem value="gastos_envio">Gastos de envío</SelectItem>
-                        <SelectItem value="otro_debito">Otro motivo</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="motivo">Motivo</Label>
+                <Textarea
+                  id="motivo"
+                  value={formData.motivo}
+                  onChange={(e) => handleInputChange('motivo', e.target.value)}
+                  className={errors.motivo ? 'border-red-500' : ''}
+                  placeholder="Describa el motivo de la nota..."
+                  rows={3}
+                />
                 {errors.motivo && (
                   <p className="text-sm text-red-500">{errors.motivo}</p>
                 )}
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="descripcion">Descripción Detallada *</Label>
-                <Textarea
-                  id="descripcion"
-                  placeholder="Describa detalladamente el motivo del ajuste..."
-                  rows={3}
-                  value={formData.descripcion}
-                  onChange={(e) => handleInputChange("descripcion", e.target.value)}
-                  className={errors.descripcion ? "border-red-500" : ""}
-                />
-                {errors.descripcion && (
-                  <p className="text-sm text-red-500">{errors.descripcion}</p>
-                )}
+          {/* Productos */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Productos</CardTitle>
+                <Button type="button" onClick={addItem} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Producto
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {errors.items && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{errors.items}</p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {(formData.items || []).map((item, index) => (
+                  <div key={index} className="p-4 border rounded-lg space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Producto {index + 1}</h4>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeItem(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Producto</Label>
+                        <Select
+                          value={item.producto_id.toString()}
+                          onValueChange={(value) => updateItem(index, 'producto_id', parseInt(value))}
+                        >
+                          <SelectTrigger className={errors[`items[${index}].producto_id`] ? 'border-red-500' : ''}>
+                            <SelectValue placeholder="Seleccionar producto" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {productos.map((producto) => (
+                              <SelectItem key={producto.producto_id} value={producto.producto_id.toString()}>
+                                {producto.cod_product} - {producto.nombre_producto}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors[`items[${index}].producto_id`] && (
+                          <p className="text-sm text-red-500">{errors[`items[${index}].producto_id`]}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Cantidad</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.cantidad}
+                          onChange={(e) => updateItem(index, 'cantidad', parseFloat(e.target.value))}
+                          className={errors[`items[${index}].cantidad`] ? 'border-red-500' : ''}
+                        />
+                        {errors[`items[${index}].cantidad`] && (
+                          <p className="text-sm text-red-500">{errors[`items[${index}].cantidad`]}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Precio Unitario</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.precio_unitario}
+                          onChange={(e) => updateItem(index, 'precio_unitario', parseFloat(e.target.value))}
+                          className={errors[`items[${index}].precio_unitario`] ? 'border-red-500' : ''}
+                        />
+                        {errors[`items[${index}].precio_unitario`] && (
+                          <p className="text-sm text-red-500">{errors[`items[${index}].precio_unitario`]}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">
+                        Subtotal: ₡{(item.cantidad * item.precio_unitario).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="montoAjuste">
-                    Monto del Ajuste * 
-                    <span className="text-sm text-muted-foreground ml-1">
-                      ({formData.tipo === "credito" ? "Reducción" : "Aumento"})
-                    </span>
-                  </Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="montoAjuste"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className={`pl-10 ${errors.montoAjuste ? "border-red-500" : ""}`}
-                      value={formData.montoAjuste}
-                      onChange={(e) => {
-                        handleInputChange("montoAjuste", e.target.value)
-                        // Calcular impuestos automáticamente
-                        const taxes = calculateTaxes(e.target.value)
-                        handleInputChange("impuestosAjuste", taxes)
-                      }}
-                    />
-                  </div>
-                  {errors.montoAjuste && (
-                    <p className="text-sm text-red-500">{errors.montoAjuste}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="impuestosAjuste">Impuestos (13% IVA)</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="impuestosAjuste"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="pl-10"
-                      value={formData.impuestosAjuste}
-                      onChange={(e) => handleInputChange("impuestosAjuste", e.target.value)}
-                      readOnly
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Resumen del Ajuste */}
-              {formData.montoAjuste && (
-                <div className="mt-4 p-4 bg-muted rounded-lg">
-                  <h4 className="font-semibold mb-2">Resumen del Ajuste</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Monto Original:</span>
-                      <div className="font-medium">₡{Number.parseFloat(formData.montoOriginal || "0").toLocaleString()}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">
-                        {formData.tipo === "credito" ? "Reducción:" : "Aumento:"}
-                      </span>
-                      <div className={`font-medium ${formData.tipo === "credito" ? "text-red-600" : "text-blue-600"}`}>
-                        {formData.tipo === "credito" ? "-" : "+"}₡{Number.parseFloat(formData.montoAjuste || "0").toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Impuestos:</span>
-                      <div className={`font-medium ${formData.tipo === "credito" ? "text-red-600" : "text-blue-600"}`}>
-                        {formData.tipo === "credito" ? "-" : "+"}₡{Number.parseFloat(formData.impuestosAjuste || "0").toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Total Final:</span>
-                      <div className="font-bold text-lg">
-                        ₡{(
-                          Number.parseFloat(formData.montoOriginal || "0") + 
-                          (formData.tipo === "credito" ? -1 : 1) * 
-                          (Number.parseFloat(formData.montoAjuste || "0") + Number.parseFloat(formData.impuestosAjuste || "0"))
-                        ).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
+              {(formData.items || []).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No hay productos agregados</p>
+                  <p className="text-sm">Haga clic en "Agregar Producto" para comenzar</p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Botones de Acción */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              className="bg-primary hover:bg-primary/90"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {mode === 'create' ? 'Creando...' : 'Actualizando...'}
-                </>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4 mr-2" />
-                  {mode === 'create' ? 'Crear Nota' : 'Actualizar Nota'}
-                </>
-              )}
-            </Button>
-          </div>
+          {/* Totales */}
+          {(formData.items || []).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Resumen</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>₡{(formData.monto_gravada_10 || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>IVA (13%):</span>
+                    <span>₡{(formData.monto_iva || 0).toLocaleString()}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between font-bold text-lg">
+                    <span>Total:</span>
+                    <span>₡{(formData.monto_nc || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </form>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button 
+            type="submit" 
+            onClick={handleSubmit}
+            disabled={loading || (formData.items || []).length === 0}
+          >
+            {loading ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

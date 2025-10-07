@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
         cpp.estado as estado_cuenta,
         CASE 
           WHEN cpp.fecha_vencimiento IS NOT NULL THEN 
-            EXTRACT(DAYS FROM (cpp.fecha_vencimiento - CURRENT_DATE))
+            (cpp.fecha_vencimiento - CURRENT_DATE)
           ELSE NULL
         END as dias_vencimiento,
         CASE 

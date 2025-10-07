@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
+import { useApi } from "@/hooks/use-api"
+import { DataTable } from "@/components/data-table"
 import {
   Wrench,
   LayoutDashboard,
@@ -38,6 +40,9 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { AjusteInventario } from "@/lib/types/compras-adicionales"
+import { getAjusteEstadoColor, getAjusteEstadoLabel, getTipoMovimientoColor, getTipoMovimientoLabel } from "@/lib/utils/compras-client"
+import { AjusteInventarioModal } from "@/components/modals/ajuste-inventario-modal"
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", active: false },
@@ -118,227 +123,193 @@ export default function AjustesInventarioPage() {
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
     Compras: true,
   })
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterType, setFilterType] = useState("all")
-  const [filterStatus, setFilterStatus] = useState("all")
+  const [selectedAjuste, setSelectedAjuste] = useState<AjusteInventario | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
+  const [searchTerm, setSearchTerm] = useState('')
   const router = useRouter()
+
+  const {
+    data: ajustes,
+    loading,
+    error,
+    pagination,
+    search,
+    setSorting,
+    setPagination,
+    create: createItem,
+    update: updateItem,
+    delete: deleteItem,
+    refetch: refresh
+  } = useApi<AjusteInventario>('/api/compras/ajustes-inventario')
 
   const metrics = [
     {
       title: "Ajustes del Mes",
-      value: "28",
+      value: ajustes?.filter(a => {
+        const fecha = new Date(a.fecha)
+        const ahora = new Date()
+        return fecha.getMonth() === ahora.getMonth() && fecha.getFullYear() === ahora.getFullYear()
+      }).length.toString() || "0",
       change: "+12%",
-      trend: "up",
+      trend: "up" as const,
       icon: RotateCcw,
       color: "bg-primary text-primary-foreground",
     },
     {
       title: "Productos Afectados",
-      value: "156",
+      value: ajustes?.reduce((total, ajuste) => total + (ajuste.total_productos || 0), 0).toString() || "0",
       change: "+8%",
-      trend: "up",
+      trend: "up" as const,
       icon: Boxes,
       color: "bg-secondary text-secondary-foreground",
     },
     {
       title: "Entradas",
-      value: "18",
+      value: ajustes?.filter(a => a.detalles?.some(d => d.cantidad_ajustada > 0)).length.toString() || "0",
       change: "+15%",
-      trend: "up",
+      trend: "up" as const,
       icon: ArrowUp,
       color: "bg-chart-1 text-white",
     },
     {
       title: "Valor Ajustado",
-      value: "₡2.1M",
+      value: `₡${ajustes?.reduce((total, ajuste) => total + (ajuste.valor_total || 0), 0).toLocaleString() || "0"}`,
       change: "+22%",
-      trend: "up",
+      trend: "up" as const,
       icon: Calculator,
       color: "bg-chart-2 text-white",
     },
   ]
 
-  const inventoryAdjustments = [
+  const columns = [
     {
-      id: "AJ-001",
-      product: "Samsung Galaxy A54 - Pantalla",
-      sku: "SGX-A54-LCD",
-      adjustmentDate: "2024-01-15",
-      type: "entry",
-      reason: "Compra",
-      previousStock: 15,
-      adjustment: 25,
-      newStock: 40,
-      unitCost: "₡85,000",
-      totalValue: "₡2,125,000",
-      status: "approved",
-      user: "Juan Pérez",
-      reference: "OC-001",
-      location: "Almacén Principal",
+      key: 'codigo_ajuste',
+      label: 'Código',
+      sortable: true,
     },
     {
-      id: "AJ-002",
-      product: "iPhone 12 - Batería Original",
-      sku: "IPH-12-BAT",
-      adjustmentDate: "2024-01-14",
-      type: "exit",
-      reason: "Venta",
-      previousStock: 8,
-      adjustment: -3,
-      newStock: 5,
-      unitCost: "₡45,000",
-      totalValue: "-₡135,000",
-      status: "approved",
-      user: "María González",
-      reference: "VT-045",
-      location: "Almacén Principal",
+      key: 'fecha',
+      label: 'Fecha',
+      sortable: true,
+      render: (item: any) => new Date(item.fecha).toLocaleDateString('es-CR')
     },
     {
-      id: "AJ-003",
-      product: "Cable USB-C Premium",
-      sku: "CBL-USBC-PR",
-      adjustmentDate: "2024-01-13",
-      type: "correction",
-      reason: "Corrección Stock",
-      previousStock: 50,
-      adjustment: -5,
-      newStock: 45,
-      unitCost: "₡3,500",
-      totalValue: "-₡17,500",
-      status: "pending",
-      user: "Carlos Rodríguez",
-      reference: "INV-2024-001",
-      location: "Almacén Principal",
+      key: 'motivo_descripcion',
+      label: 'Motivo',
+      sortable: true,
     },
     {
-      id: "AJ-004",
-      product: "Procesador Intel i7-12700K",
-      sku: "INT-I7-12700K",
-      adjustmentDate: "2024-01-12",
-      type: "loss",
-      reason: "Merma",
-      previousStock: 12,
-      adjustment: -2,
-      newStock: 10,
-      unitCost: "₡180,000",
-      totalValue: "-₡360,000",
-      status: "approved",
-      user: "Ana Martínez",
-      reference: "MER-001",
-      location: "Almacén Principal",
+      key: 'almacen_nombre',
+      label: 'Almacén',
+      sortable: true,
     },
     {
-      id: "AJ-005",
-      product: "Memoria RAM DDR4 16GB",
-      sku: "RAM-DDR4-16GB",
-      adjustmentDate: "2024-01-11",
-      type: "return",
-      reason: "Devolución Cliente",
-      previousStock: 22,
-      adjustment: 1,
-      newStock: 23,
-      unitCost: "₡65,000",
-      totalValue: "₡65,000",
-      status: "approved",
-      user: "Luis Fernández",
-      reference: "DEV-012",
-      location: "Almacén Principal",
+      key: 'total_productos',
+      label: 'Productos',
+      sortable: true,
     },
+    {
+      key: 'valor_total',
+      label: 'Valor',
+      sortable: true,
+      render: (item: any) => `₡${(item.valor_total || 0).toLocaleString()}`
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      sortable: true,
+      render: (item: any) => (
+        <Badge className={getAjusteEstadoColor(item.estado)}>
+          {getAjusteEstadoLabel(item.estado)}
+        </Badge>
+      )
+    },
+    {
+      key: 'usuario_nombre',
+      label: 'Usuario',
+      sortable: true,
+    },
+    {
+      key: 'actions',
+      label: 'Acciones',
+      render: (item: any) => (
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleView(item)}
+            className="h-8 w-8 p-0"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          {item.estado === 'borrador' && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEdit(item)}
+                className="h-8 w-8 p-0"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleDelete(item)}
+                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      )
+    }
   ]
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "entry":
-        return "bg-green-500 text-white"
-      case "exit":
-        return "bg-blue-500 text-white"
-      case "correction":
-        return "bg-secondary text-secondary-foreground"
-      case "loss":
-        return "bg-destructive text-destructive-foreground"
-      case "return":
-        return "bg-chart-2 text-white"
-      default:
-        return "bg-muted text-muted-foreground"
+  const handleCreate = () => {
+    setSelectedAjuste(null)
+    setModalMode('create')
+    setShowModal(true)
+  }
+
+  const handleEdit = (ajuste: AjusteInventario) => {
+    setSelectedAjuste(ajuste)
+    setModalMode('edit')
+    setShowModal(true)
+  }
+
+  const handleView = (ajuste: AjusteInventario) => {
+    setSelectedAjuste(ajuste)
+    setModalMode('view')
+    setShowModal(true)
+  }
+
+  const handleDelete = async (ajuste: AjusteInventario) => {
+    if (confirm(`¿Está seguro de que desea eliminar el ajuste ${ajuste.codigo_ajuste}?`)) {
+      try {
+        await deleteItem(ajuste.ajuste_id)
+        refresh()
+      } catch (error) {
+        console.error('Error eliminando ajuste:', error)
+      }
     }
   }
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case "entry":
-        return "Entrada"
-      case "exit":
-        return "Salida"
-      case "correction":
-        return "Corrección"
-      case "loss":
-        return "Merma"
-      case "return":
-        return "Devolución"
-      default:
-        return type
+  const handleSave = async (data: any) => {
+    try {
+      if (modalMode === 'create') {
+        await createItem(data)
+      } else if (modalMode === 'edit' && selectedAjuste) {
+        await updateItem(selectedAjuste.ajuste_id, data)
+      }
+      setShowModal(false)
+      refresh()
+    } catch (error) {
+      console.error('Error guardando ajuste:', error)
     }
   }
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "entry":
-        return ArrowUp
-      case "exit":
-        return ArrowDown
-      case "correction":
-        return RotateCcw
-      case "loss":
-        return AlertTriangle
-      case "return":
-        return Package
-      default:
-        return RotateCcw
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-green-500 text-white"
-      case "pending":
-        return "bg-secondary text-secondary-foreground"
-      case "rejected":
-        return "bg-destructive text-destructive-foreground"
-      default:
-        return "bg-muted text-muted-foreground"
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "Aprobado"
-      case "pending":
-        return "Pendiente"
-      case "rejected":
-        return "Rechazado"
-      default:
-        return status
-    }
-  }
-
-  const getAdjustmentColor = (adjustment: number) => {
-    if (adjustment > 0) return "text-green-600"
-    if (adjustment < 0) return "text-red-600"
-    return "text-muted-foreground"
-  }
-
-  const filteredAdjustments = inventoryAdjustments.filter((adjustment) => {
-    const matchesSearch =
-      adjustment.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      adjustment.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      adjustment.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      adjustment.reference.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = filterType === "all" || adjustment.type === filterType
-    const matchesStatus = filterStatus === "all" || adjustment.status === filterStatus
-    return matchesSearch && matchesType && matchesStatus
-  })
 
   const toggleSubmenu = (label: string) => {
     setExpandedMenus((prev) => ({
@@ -456,10 +427,14 @@ export default function AjustesInventarioPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar productos, SKU, referencias..."
+                    placeholder="Buscar ajustes, motivos, almacenes..."
                     className="pl-10 w-80 bg-input border-border"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      const term = e.target.value
+                      setSearchTerm(term)
+                      search(term)
+                    }}
                   />
                 </div>
               </div>
@@ -479,7 +454,7 @@ export default function AjustesInventarioPage() {
                   </Avatar>
                   <div className="text-sm">
                     <p className="font-medium text-foreground">{user?.username || "Usuario"}</p>
-                    <p className="text-muted-foreground">{user?.role || "Usuario"}</p>
+                    <p className="text-muted-foreground">{user?.rol_nombre || "Usuario"}</p>
                   </div>
                 </div>
                 <Button
@@ -502,7 +477,10 @@ export default function AjustesInventarioPage() {
                 <h1 className="text-3xl font-bold text-foreground mb-2">Ajustes de Inventario</h1>
                 <p className="text-muted-foreground">Control y seguimiento de movimientos de stock</p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
+              <Button 
+                onClick={handleCreate}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Nuevo Ajuste
               </Button>
@@ -540,147 +518,41 @@ export default function AjustesInventarioPage() {
               ))}
             </div>
 
-            {/* Filters */}
-            <Card className="mb-6 border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center gap-4">
-                    <h3 className="font-semibold text-foreground">Movimientos de Inventario</h3>
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-muted-foreground" />
-                      <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        className="bg-input border border-border rounded-md px-3 py-1 text-sm"
-                      >
-                        <option value="all">Todos los tipos</option>
-                        <option value="entry">Entradas</option>
-                        <option value="exit">Salidas</option>
-                        <option value="correction">Correcciones</option>
-                        <option value="loss">Mermas</option>
-                        <option value="return">Devoluciones</option>
-                      </select>
-                      <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="bg-input border border-border rounded-md px-3 py-1 text-sm ml-2"
-                      >
-                        <option value="all">Todos los estados</option>
-                        <option value="approved">Aprobados</option>
-                        <option value="pending">Pendientes</option>
-                        <option value="rejected">Rechazados</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {filteredAdjustments.length} de {inventoryAdjustments.length} ajustes
-                  </div>
-                </div>
+            {/* Data Table */}
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <RotateCcw className="h-5 w-5" />
+                  Ajustes de Inventario
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  title="Ajustes de Inventario"
+                  data={ajustes || []}
+                  columns={columns}
+                  loading={loading}
+                  error={error}
+                  pagination={pagination}
+                  onSearch={search}
+                  onSort={(sortBy, sortOrder) => setSorting(sortBy, sortOrder)}
+                  onPageChange={(page) => setPagination(page, pagination?.limit || 10)}
+                  onLimitChange={(limit) => setPagination(pagination?.page || 1, limit)}
+                  searchPlaceholder="Buscar ajustes, motivos, almacenes..."
+                />
               </CardContent>
             </Card>
-
-            {/* Adjustments Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredAdjustments.map((adjustment) => {
-                const TypeIcon = getTypeIcon(adjustment.type)
-
-                return (
-                  <Card key={adjustment.id} className="hover:shadow-lg transition-all duration-300 border-border group">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-semibold text-foreground">{adjustment.id}</CardTitle>
-                        <div className="flex items-center gap-2">
-                          <Badge className={getTypeColor(adjustment.type)}>
-                            <TypeIcon className="h-3 w-3 mr-1" />
-                            {getTypeLabel(adjustment.type)}
-                          </Badge>
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{adjustment.product}</p>
-                      <p className="text-xs text-muted-foreground">SKU: {adjustment.sku}</p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Motivo</p>
-                        <p className="text-sm font-medium text-foreground">{adjustment.reason}</p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Fecha</p>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                            <p className="text-sm font-medium">{adjustment.adjustmentDate}</p>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Usuario</p>
-                          <p className="text-sm font-medium">{adjustment.user}</p>
-                        </div>
-                      </div>
-
-                      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Stock Anterior:</span>
-                          <span className="font-medium">{adjustment.previousStock}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Ajuste:</span>
-                          <span className={cn("font-bold", getAdjustmentColor(adjustment.adjustment))}>
-                            {adjustment.adjustment > 0 ? "+" : ""}
-                            {adjustment.adjustment}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-base font-bold border-t border-border pt-2">
-                          <span>Stock Nuevo:</span>
-                          <span className="text-foreground">{adjustment.newStock}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            Ref: {adjustment.reference} • {adjustment.location}
-                          </p>
-                          <p className="text-sm font-bold text-foreground">{adjustment.totalValue}</p>
-                        </div>
-                        <Badge className={getStatusColor(adjustment.status)}>{getStatusLabel(adjustment.status)}</Badge>
-                      </div>
-
-                      <div className="flex items-center gap-2 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                          <Eye className="h-3 w-3 mr-1" />
-                          Ver
-                        </Button>
-                        <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                          <Edit className="h-3 w-3 mr-1" />
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive hover:text-destructive bg-transparent"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-
-            {filteredAdjustments.length === 0 && (
-              <Card className="border-border">
-                <CardContent className="p-12 text-center">
-                  <RotateCcw className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No se encontraron ajustes</h3>
-                  <p className="text-muted-foreground">Intenta ajustar los filtros o crear un nuevo ajuste</p>
-                </CardContent>
-              </Card>
-            )}
           </main>
         </div>
+
+        {/* Modal */}
+        <AjusteInventarioModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          onSave={handleSave}
+          ajuste={selectedAjuste}
+          mode={modalMode}
+        />
       </div>
     </ProtectedRoute>
   )

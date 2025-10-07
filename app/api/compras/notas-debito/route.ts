@@ -5,7 +5,7 @@ import {
   createAuthzErrorResponse 
 } from '@/lib/middleware/auth';
 import { 
-  validateNotaDebitoCompraData, 
+  validateNotaCreditoDebitoData, 
   buildAdvancedSearchWhereClause,
   buildAdvancedOrderByClause,
   buildPaginationParams,
@@ -13,9 +13,9 @@ import {
   sanitizeForLog 
 } from '@/lib/utils/compras-adicionales';
 import { 
-  CreateNotaDebitoCompraRequest, 
+  CreateNotaCreditoDebitoRequest, 
   ComprasAdicionalesApiResponse, 
-  FiltrosNotasDebitoCompra 
+  FiltrosNotasCreditoDebito 
 } from '@/lib/types/compras-adicionales';
 
 // GET /api/compras/notas-debito - Listar notas de débito
@@ -122,42 +122,52 @@ export async function GET(request: NextRequest) {
         nd.monto_nd,
         nd.monto_gravada_5,
         nd.monto_gravada_10,
-        nd.monto_exento,
-        nd.total_iva,
-        nd.total_nota,
-        p.nombre_proveedor,
+        nd.monto_exenta,
+        nd.monto_iva,
+        p.nombre_proveedor as proveedor_nombre,
         c.nombre as cliente_nombre,
+        u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
         a.nombre as almacen_nombre,
-        u.nombre as usuario_nombre,
+        COUNT(ndd.nota_debito_detalle_id) as total_items,
+        COALESCE(SUM(ndd.cantidad * ndd.precio_unitario), 0) as monto_total_items,
         CASE 
-          WHEN nd.estado = 'activo' THEN 'Activa'
-          WHEN nd.estado = 'anulada' THEN 'Anulada'
-          ELSE nd.estado
+          WHEN nd.tipo_operacion = 'compra' THEN 'Compra'
+          WHEN nd.tipo_operacion = 'venta' THEN 'Venta'
+        END as tipo_operacion_display,
+        CASE 
+          WHEN nd.estado = 'activo' THEN 'Activo'
+          WHEN nd.estado = 'anulado' THEN 'Anulado'
         END as estado_display,
         COUNT(*) OVER() as total_count
       FROM nota_debito_cabecera nd
       LEFT JOIN proveedores p ON nd.proveedor_id = p.proveedor_id
       LEFT JOIN clientes c ON nd.cliente_id = c.cliente_id
+      LEFT JOIN usuarios u ON nd.usuario_id = u.usuario_id
       LEFT JOIN sucursales s ON nd.sucursal_id = s.sucursal_id
       LEFT JOIN almacenes a ON nd.almacen_id = a.almacen_id
-      LEFT JOIN usuarios u ON nd.usuario_id = u.usuario_id
+      LEFT JOIN nota_debito_detalle ndd ON nd.nota_debito_id = ndd.nota_debito_id
       ${whereClause}
+      GROUP BY nd.nota_debito_id, nd.tipo_operacion, nd.proveedor_id, nd.cliente_id, 
+               nd.sucursal_id, nd.almacen_id, nd.usuario_id, nd.fecha_registro, 
+               nd.nro_nota, nd.motivo, nd.estado, nd.referencia_id, nd.monto_nd, 
+               nd.monto_gravada_5, nd.monto_gravada_10, nd.monto_exenta, nd.monto_iva, 
+               p.nombre_proveedor, c.nombre, u.nombre, s.nombre, a.nombre
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
     const allParams = [...queryParams, ...params, limitParam, offsetParam];
     const result = await pool.query(query, allParams);
-    const notasDebito = result.rows;
-    const total = notasDebito.length > 0 ? parseInt(notasDebito[0].total_count) : 0;
+    const notas = result.rows;
+    const total = notas.length > 0 ? parseInt(notas[0].total_count) : 0;
 
     const response: ComprasAdicionalesApiResponse = {
       success: true,
       message: 'Notas de débito obtenidas exitosamente',
-      data: notasDebito.map(nd => {
-        const { total_count, ...notaDebito } = nd;
-        return notaDebito;
+      data: notas.map(n => {
+        const { total_count, ...nota } = n;
+        return nota;
       }),
       pagination: {
         page,
@@ -192,10 +202,10 @@ export async function POST(request: NextRequest) {
       return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    const body: CreateNotaDebitoCompraRequest = await request.json();
+    const body: CreateNotaCreditoDebitoRequest = await request.json();
 
     // Validar datos
-    const validation = validateNotaDebitoCompraData(body);
+    const validation = validateNotaCreditoDebitoData(body);
     if (!validation.valid) {
       const response: ComprasAdicionalesApiResponse = {
         success: false,
@@ -223,13 +233,13 @@ export async function POST(request: NextRequest) {
 
     // Verificar que el cliente existe si se proporciona
     if (body.cliente_id) {
-      const clienteQuery = 'SELECT cliente_id FROM clientes WHERE cliente_id = $1 AND estado = true';
+      const clienteQuery = 'SELECT cliente_id FROM clientes WHERE cliente_id = $1';
       const clienteResult = await pool.query(clienteQuery, [body.cliente_id]);
       
       if (clienteResult.rows.length === 0) {
         const response: ComprasAdicionalesApiResponse = {
           success: false,
-          message: 'El cliente especificado no existe o está inactivo',
+          message: 'El cliente especificado no existe',
           error: 'Cliente inválido'
         };
         return NextResponse.json(response, { status: 400 });
@@ -275,16 +285,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Generar número de nota
-    const nroNota = await generateNotaNumber('ND');
+    // Verificar que los productos existen
+    if (body.items && body.items.length > 0) {
+      for (const item of body.items) {
+        const productoQuery = 'SELECT producto_id FROM productos WHERE producto_id = $1 AND estado = true';
+        const productoResult = await pool.query(productoQuery, [item.producto_id]);
+        
+        if (productoResult.rows.length === 0) {
+          const response: ComprasAdicionalesApiResponse = {
+            success: false,
+            message: `El producto con ID ${item.producto_id} no existe o está inactivo`,
+            error: 'Producto inválido'
+          };
+          return NextResponse.json(response, { status: 400 });
+        }
+      }
+    }
 
     // Crear nota de débito
     const createNotaQuery = `
       INSERT INTO nota_debito_cabecera (
         tipo_operacion, proveedor_id, cliente_id, sucursal_id, almacen_id, 
-        usuario_id, fecha_registro, nro_nota, motivo, estado, referencia_id,
-        monto_nd, monto_gravada_5, monto_gravada_10, monto_exento, total_iva, total_nota
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        usuario_id, fecha_registro, nro_nota, motivo, estado, referencia_id, 
+        monto_nd, monto_gravada_5, monto_gravada_10, monto_exenta, monto_iva
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING nota_debito_id
     `;
 
@@ -296,19 +320,46 @@ export async function POST(request: NextRequest) {
       body.almacen_id,
       body.usuario_id,
       body.fecha_registro || new Date().toISOString().split('T')[0],
-      nroNota,
-      body.motivo,
+      generateNotaNumber(body.tipo_operacion, 1), // Se actualizará después
+      body.motivo || null,
       body.estado || 'activo',
       body.referencia_id,
-      body.monto_nd || 0,
+      body.monto_nc || null,
       body.monto_gravada_5 || 0,
       body.monto_gravada_10 || 0,
-      body.monto_exento || 0,
-      body.total_iva || 0,
-      body.total_nota || 0
+      body.monto_exenta || 0,
+      body.monto_iva || 0
     ]);
 
     const newNotaId = notaResult.rows[0].nota_debito_id;
+
+    // Actualizar número de nota
+    const nroNota = generateNotaNumber(body.tipo_operacion, newNotaId);
+    await pool.query(
+      'UPDATE nota_debito_cabecera SET nro_nota = $1 WHERE nota_debito_id = $2',
+      [nroNota, newNotaId]
+    );
+
+    // Crear detalles de la nota
+    if (body.items && body.items.length > 0) {
+      for (const item of body.items) {
+        await pool.query(
+          'INSERT INTO nota_debito_detalle (nota_debito_id, producto_id, cantidad, precio_unitario) VALUES ($1, $2, $3, $4)',
+          [newNotaId, item.producto_id, item.cantidad, item.precio_unitario || 0]
+        );
+      }
+    }
+
+    // Calcular monto total si no se proporcionó
+    if (!body.monto_nc && body.items && body.items.length > 0) {
+      const montoTotal = body.items.reduce((sum, item) => 
+        sum + (item.cantidad * (item.precio_unitario || 0)), 0
+      );
+      await pool.query(
+        'UPDATE nota_debito_cabecera SET monto_nd = $1 WHERE nota_debito_id = $2',
+        [montoTotal, newNotaId]
+      );
+    }
 
     // Obtener la nota creada con información completa
     const getNotaQuery = `
@@ -328,20 +379,19 @@ export async function POST(request: NextRequest) {
         nd.monto_nd,
         nd.monto_gravada_5,
         nd.monto_gravada_10,
-        nd.monto_exento,
-        nd.total_iva,
-        nd.total_nota,
-        p.nombre_proveedor,
+        nd.monto_exenta,
+        nd.monto_iva,
+        p.nombre_proveedor as proveedor_nombre,
         c.nombre as cliente_nombre,
+        u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
-        a.nombre as almacen_nombre,
-        u.nombre as usuario_nombre
+        a.nombre as almacen_nombre
       FROM nota_debito_cabecera nd
       LEFT JOIN proveedores p ON nd.proveedor_id = p.proveedor_id
       LEFT JOIN clientes c ON nd.cliente_id = c.cliente_id
+      LEFT JOIN usuarios u ON nd.usuario_id = u.usuario_id
       LEFT JOIN sucursales s ON nd.sucursal_id = s.sucursal_id
       LEFT JOIN almacenes a ON nd.almacen_id = a.almacen_id
-      LEFT JOIN usuarios u ON nd.usuario_id = u.usuario_id
       WHERE nd.nota_debito_id = $1
     `;
 
@@ -358,7 +408,10 @@ export async function POST(request: NextRequest) {
       nota_debito_id: newNotaId,
       nro_nota: nroNota,
       tipo_operacion: body.tipo_operacion,
-      monto_nd: body.monto_nd,
+      proveedor_id: body.proveedor_id,
+      cliente_id: body.cliente_id,
+      total_items: body.items?.length || 0,
+      monto_nd: body.monto_nc,
       timestamp: new Date().toISOString()
     }));
 

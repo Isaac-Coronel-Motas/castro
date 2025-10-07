@@ -32,9 +32,9 @@ export default function TransferenciasStockPage() {
     handleSort,
     handlePageChange,
     handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
+    create,
+    update,
+    delete: deleteItem,
     refresh
   } = useApi<TransferenciaStock>('/api/compras/transferencias')
 
@@ -194,9 +194,9 @@ export default function TransferenciasStockPage() {
   const handleSave = async (data: CreateTransferenciaStockRequest | UpdateTransferenciaStockRequest) => {
     try {
       if (modalMode === 'create') {
-        await createItem(data as CreateTransferenciaStockRequest)
+        await create(data as CreateTransferenciaStockRequest)
       } else {
-        await updateItem((data as UpdateTransferenciaStockRequest).transferencia_id!, data as UpdateTransferenciaStockRequest)
+        await update((data as UpdateTransferenciaStockRequest).transferencia_id!, data as UpdateTransferenciaStockRequest)
       }
       setIsModalOpen(false)
       setSelectedTransferencia(null)

@@ -26,17 +26,12 @@ export default function RegistroDeComprasPage() {
     error,
     pagination,
     search,
-    sort,
-    page,
-    limit,
-    handleSearch,
-    handleSort,
-    handlePageChange,
-    handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
-    refresh
+    setSorting,
+    setPagination,
+    create: createItem,
+    update: updateItem,
+    delete: deleteItem,
+    refetch: refresh
   } = useApi<CompraCabecera>('/api/compras/registro')
 
   const columns = [
@@ -203,12 +198,20 @@ export default function RegistroDeComprasPage() {
       color: "bg-secondary text-secondary-foreground",
     },
     {
-      title: "Confirmadas",
-      value: compras?.filter(c => c.estado === 'confirmada').length.toString() || "0",
+      title: "En Progreso",
+      value: compras?.filter(c => c.estado === 'en_progreso').length.toString() || "0",
       change: "+8%",
       trend: "up" as const,
       icon: Receipt,
       color: "bg-chart-1 text-white",
+    },
+    {
+      title: "Completadas",
+      value: compras?.filter(c => c.estado === 'completada').length.toString() || "0",
+      change: "+15%",
+      trend: "up" as const,
+      icon: Receipt,
+      color: "bg-green-500 text-white",
     },
     {
       title: "Valor Total",
@@ -266,11 +269,10 @@ export default function RegistroDeComprasPage() {
               error={error}
               pagination={pagination}
               search={search}
-              sort={sort}
-              onSearch={handleSearch}
-              onSort={handleSort}
-              onPageChange={handlePageChange}
-              onLimitChange={handleLimitChange}
+              onSearch={search}
+              onSort={(sortBy, sortOrder) => setSorting(sortBy, sortOrder)}
+              onPageChange={(page) => setPagination(page, pagination?.limit || 10)}
+              onLimitChange={(limit) => setPagination(pagination?.page || 1, limit)}
               searchPlaceholder="Buscar compras, proveedores, facturas..."
             />
           </CardContent>

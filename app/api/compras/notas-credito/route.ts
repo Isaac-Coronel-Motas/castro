@@ -5,7 +5,7 @@ import {
   createAuthzErrorResponse 
 } from '@/lib/middleware/auth';
 import { 
-  validateNotaCreditoData, 
+  validateNotaCreditoDebitoData, 
   buildAdvancedSearchWhereClause,
   buildAdvancedOrderByClause,
   buildPaginationParams,
@@ -13,9 +13,9 @@ import {
   sanitizeForLog 
 } from '@/lib/utils/compras-adicionales';
 import { 
-  CreateNotaCreditoRequest, 
+  CreateNotaCreditoDebitoRequest, 
   ComprasAdicionalesApiResponse, 
-  FiltrosNotasCredito 
+  FiltrosNotasCreditoDebito 
 } from '@/lib/types/compras-adicionales';
 
 // GET /api/compras/notas-credito - Listar notas de crédito/débito
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const { limitParam, offsetParam } = buildPaginationParams(page, limit, offset);
 
     // Construir consulta de búsqueda
-    const searchFields = ['nc.nro_nota', 'nc.motivo', 'p.nombre_proveedor', 'c.nombre_cliente'];
+    const searchFields = ['nc.nro_nota', 'nc.motivo', 'p.nombre_proveedor', 'c.nombre'];
     const additionalConditions: string[] = [];
     const queryParams: any[] = [];
     let paramCount = 0;
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
         nc.monto_exenta,
         nc.monto_iva,
         p.nombre_proveedor as proveedor_nombre,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
         a.nombre as almacen_nombre,
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
                nc.sucursal_id, nc.almacen_id, nc.usuario_id, nc.fecha_registro, 
                nc.nro_nota, nc.motivo, nc.estado, nc.referencia_id, nc.monto_nc, 
                nc.monto_gravada_5, nc.monto_gravada_10, nc.monto_exenta, nc.monto_iva, 
-               p.nombre_proveedor, c.nombre_cliente, u.nombre, s.nombre, a.nombre
+               p.nombre_proveedor, c.nombre, u.nombre, s.nombre, a.nombre
       ${orderByClause}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
@@ -203,10 +203,10 @@ export async function POST(request: NextRequest) {
       return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    const body: CreateNotaCreditoRequest = await request.json();
+    const body: CreateNotaCreditoDebitoRequest = await request.json();
 
     // Validar datos
-    const validation = validateNotaCreditoData(body);
+    const validation = validateNotaCreditoDebitoData(body);
     if (!validation.valid) {
       const response: ComprasAdicionalesApiResponse = {
         success: false,
@@ -383,7 +383,7 @@ export async function POST(request: NextRequest) {
         nc.monto_exenta,
         nc.monto_iva,
         p.nombre_proveedor as proveedor_nombre,
-        c.nombre_cliente as cliente_nombre,
+        c.nombre as cliente_nombre,
         u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
         a.nombre as almacen_nombre

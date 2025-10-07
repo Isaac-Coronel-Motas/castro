@@ -22,6 +22,21 @@ export function authenticateToken(request: NextRequest): { user: JwtPayload | nu
 }
 
 /**
+ * Verifica si el usuario es administrador basado en su rol
+ */
+export function isAdmin(user: JwtPayload): boolean {
+  // Verificar si tiene permisos de administrador
+  const adminPermissions = [
+    'administracion.crear', 'administracion.leer', 'administracion.actualizar', 'administracion.eliminar',
+    'crear_administracion', 'leer_administracion', 'actualizar_administracion', 'eliminar_administracion',
+    'usuarios.crear', 'usuarios.leer', 'usuarios.actualizar', 'usuarios.eliminar',
+    'crear_usuarios', 'leer_usuarios', 'actualizar_usuarios', 'eliminar_usuarios'
+  ];
+  
+  return adminPermissions.some(adminPerm => user.permisos.includes(adminPerm));
+}
+
+/**
  * Middleware de autorización por permisos simplificados
  * Soporta tanto permisos específicos como permisos por módulo
  */
@@ -66,15 +81,8 @@ export function requirePermission(permission: string) {
       }
     }
 
-    // Verificar si tiene permisos de administrador (acceso completo)
-    const adminPermissions = [
-      'administracion.crear', 'administracion.leer', 'administracion.actualizar', 'administracion.eliminar',
-      'crear_administracion', 'leer_administracion', 'actualizar_administracion', 'eliminar_administracion'
-    ];
-    
-    const hasAdminPermission = adminPermissions.some(adminPerm => user.permisos.includes(adminPerm));
-    
-    if (hasAdminPermission) {
+    // Verificar si es administrador (acceso completo)
+    if (isAdmin(user)) {
       return { authorized: true, error: null };
     }
 

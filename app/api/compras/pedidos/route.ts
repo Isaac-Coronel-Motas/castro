@@ -10,8 +10,10 @@ import {
   buildOrderByClause,
   buildPaginationParams,
   generateComprobanteNumber,
+  mapEstadoForDatabase,
+  mapEstadoForFrontend,
   sanitizeForLog 
-} from '@/lib/utils/compras';
+} from '@/lib/utils/compras-server';
 import { 
   CreatePedidoCompraRequest, 
   ComprasApiResponse, 
@@ -125,7 +127,10 @@ export async function GET(request: NextRequest) {
       message: 'Pedidos de compra obtenidos exitosamente',
       data: pedidos.map(p => {
         const { total_count, ...pedido } = p;
-        return pedido;
+        return {
+          ...pedido,
+          estado: mapEstadoForFrontend(pedido.estado)
+        };
       }),
       pagination: {
         page,
@@ -248,18 +253,18 @@ export async function POST(request: NextRequest) {
 
     const pedidoResult = await pool.query(createPedidoQuery, [
       body.fecha_pedido || new Date().toISOString().split('T')[0],
-      body.estado || 'pendiente',
+      mapEstadoForDatabase(body.estado || 'pendiente'),
       body.usuario_id || null,
       body.comentario || null,
       body.sucursal_id || null,
       body.almacen_id || null,
-      body.nro_comprobante || generateComprobanteNumber('PC', 1) // Se actualizará después
+      body.nro_comprobante || 'TEMP-PC' // Se actualizará después
     ]);
 
     const newPedidoId = pedidoResult.rows[0].pedido_compra_id;
 
     // Actualizar número de comprobante
-    const nroComprobante = generateComprobanteNumber('PC', newPedidoId);
+    const nroComprobante = await generateComprobanteNumber('PC', newPedidoId);
     await pool.query(
       'UPDATE pedido_compra SET nro_comprobante = $1 WHERE pedido_compra_id = $2',
       [nroComprobante, newPedidoId]
@@ -324,7 +329,10 @@ export async function POST(request: NextRequest) {
     const response: ComprasApiResponse = {
       success: true,
       message: 'Pedido de compra creado exitosamente',
-      data: pedidoData.rows[0]
+      data: {
+        ...pedidoData.rows[0],
+        estado: mapEstadoForFrontend(pedidoData.rows[0].estado)
+      }
     };
 
     // Log de auditoría

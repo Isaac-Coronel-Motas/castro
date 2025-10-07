@@ -5,17 +5,21 @@ import {
   createAuthzErrorResponse 
 } from '@/lib/middleware/auth';
 import { 
-  validateOrdenCompraData, 
+  validateOrdenCompraData
+} from '@/lib/utils/compras';
+import { 
   buildSearchWhereClause,
   buildOrderByClause,
   buildPaginationParams,
   generateComprobanteNumber,
   generateTrackingNumber,
+  sanitizeForLog 
+} from '@/lib/utils/compras-server';
+import { 
   calculateProgress,
   calculateDaysRemaining,
-  determinePriority,
-  sanitizeForLog 
-} from '@/lib/utils/compras';
+  determinePriority 
+} from '@/lib/utils/compras-client';
 import { 
   CreateOrdenCompraRequest, 
   ComprasApiResponse, 
@@ -103,7 +107,7 @@ export async function GET(request: NextRequest) {
         p.nombre_proveedor as proveedor_nombre,
         u.nombre as usuario_nombre,
         a.nombre as almacen_nombre,
-        COUNT(doc.det_orden_compra_id) as total_items,
+        COUNT(doc.orden_compra_detalle_id) as total_items,
         COALESCE(SUM(doc.cantidad * doc.precio_unitario), 0) as monto_total,
         CONCAT('TRK-', LPAD(oc.orden_compra_id::text, 3, '0'), '-', EXTRACT(YEAR FROM oc.fecha_orden)) as tracking,
         CASE 
@@ -123,7 +127,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN proveedores p ON oc.proveedor_id = p.proveedor_id
       LEFT JOIN usuarios u ON oc.usuario_id = u.usuario_id
       LEFT JOIN almacenes a ON oc.almacen_id = a.almacen_id
-      LEFT JOIN detalle_orden_compra doc ON oc.orden_compra_id = doc.orden_compra_id
+      LEFT JOIN orden_compra_detalle doc ON oc.orden_compra_id = doc.orden_compra_id
       ${whereClause}
       GROUP BY oc.orden_compra_id, oc.proveedor_id, oc.usuario_id, oc.presu_prov_id, 
                oc.fecha_orden, oc.estado, oc.monto_oc, oc.observaciones, oc.almacen_id, 
@@ -304,7 +308,7 @@ export async function POST(request: NextRequest) {
     if (body.items && body.items.length > 0) {
       for (const item of body.items) {
         await pool.query(
-          'INSERT INTO detalle_orden_compra (orden_compra_id, producto_id, cantidad, precio_unitario) VALUES ($1, $2, $3, $4)',
+          'INSERT INTO orden_compra_detalle (orden_compra_id, producto_id, cantidad, precio_unitario) VALUES ($1, $2, $3, $4)',
           [newOrdenId, item.producto_id, item.cantidad, item.precio_unitario]
         );
       }
