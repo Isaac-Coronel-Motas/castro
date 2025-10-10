@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { whereClause, params } = buildAdvancedSearchWhereClause(searchFields, search, additionalConditions);
-    const orderByClause = buildAdvancedOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_registro');
+    const orderByClause = buildAdvancedOrderByClause(sort_by, sort_order as 'asc' | 'desc', 'fecha_registro', 'nota_debito');
 
     // Consulta principal
     const query = `

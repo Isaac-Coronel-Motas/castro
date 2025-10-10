@@ -1,3 +1,35 @@
+// ===== FUNCIONES PARA PEDIDOS DE COMPRA (CLIENTE) =====
+
+/**
+ * Obtiene el color del estado de un pedido de compra
+ */
+export function getEstadoColor(estado: string): string {
+  const colores: { [key: string]: string } = {
+    'borrador': 'bg-gray-500 text-white',
+    'pendiente': 'bg-yellow-500 text-white',
+    'confirmado': 'bg-blue-500 text-white',
+    'recibido': 'bg-green-500 text-white',
+    'anulado': 'bg-red-500 text-white',
+    'cancelado': 'bg-red-500 text-white'
+  };
+  return colores[estado] || 'bg-muted text-muted-foreground';
+}
+
+/**
+ * Obtiene la etiqueta del estado de un pedido de compra
+ */
+export function getEstadoLabel(estado: string): string {
+  const etiquetas: { [key: string]: string } = {
+    'borrador': 'Borrador',
+    'pendiente': 'Pendiente',
+    'confirmado': 'Confirmado',
+    'recibido': 'Recibido',
+    'anulado': 'Anulado',
+    'cancelado': 'Cancelado'
+  };
+  return etiquetas[estado] || estado;
+}
+
 // ===== FUNCIONES PARA AJUSTES DE INVENTARIO (CLIENTE) =====
 
 /**
@@ -59,6 +91,49 @@ export function determineMovementTypeClient(cantidadAjustada: number): string {
   } else {
     return 'ajuste';
   }
+}
+
+// ===== FUNCIONES PARA ÓRDENES DE COMPRA (CLIENTE) =====
+
+/**
+ * Calcula el progreso de una orden de compra basado en fechas
+ */
+export function calculateProgress(fechaInicio: string, fechaFin: string): number {
+  const inicio = new Date(fechaInicio);
+  const fin = new Date(fechaFin);
+  const hoy = new Date();
+  
+  const totalDias = Math.ceil((fin.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
+  const diasTranscurridos = Math.ceil((hoy.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (totalDias <= 0) return 100;
+  if (diasTranscurridos <= 0) return 0;
+  
+  const progreso = Math.min(100, Math.max(0, (diasTranscurridos / totalDias) * 100));
+  return Math.round(progreso);
+}
+
+/**
+ * Calcula los días restantes hasta una fecha
+ */
+export function calculateDaysRemaining(fechaFin: string): number {
+  const fin = new Date(fechaFin);
+  const hoy = new Date();
+  
+  const diferenciaTiempo = fin.getTime() - hoy.getTime();
+  const diasRestantes = Math.ceil(diferenciaTiempo / (1000 * 60 * 60 * 24));
+  
+  return diasRestantes;
+}
+
+/**
+ * Determina la prioridad basada en días restantes
+ */
+export function determinePriority(diasRestantes: number): string {
+  if (diasRestantes < 0) return 'alta'; // Vencida
+  if (diasRestantes <= 3) return 'alta'; // Por vencer
+  if (diasRestantes <= 7) return 'media'; // Próxima a vencer
+  return 'baja'; // Vigente
 }
 
 // ===== FUNCIONES PARA NOTAS DE CRÉDITO/DÉBITO (CLIENTE) =====

@@ -31,7 +31,8 @@ export function buildAdvancedSearchWhereClause(
 export function buildAdvancedOrderByClause(
   sortBy: string,
   sortOrder: 'asc' | 'desc',
-  defaultField: string = 'id'
+  defaultField: string = 'id',
+  tableContext?: string
 ): string {
   const validSortFields = [
     'id', 'fecha', 'fecha_pedido', 'fecha_presupuesto', 'fecha_orden', 'fecha_compra',
@@ -39,13 +40,41 @@ export function buildAdvancedOrderByClause(
     'fecha_entrega', 'progreso', 'prioridad', 'nro_comprobante', 'nro_nota', 'created_at'
   ];
   
-  // Mapear campos comunes a campos reales de la tabla
-  const fieldMapping: { [key: string]: string } = {
-    'created_at': 'fecha_registro',
-    'fecha': 'fecha_registro',
-    'monto': 'monto_nc',
-    'nombre': 'proveedor_nombre'
-  };
+  // Mapear campos comunes a campos reales según el contexto de la tabla
+  let fieldMapping: { [key: string]: string } = {};
+  
+  if (tableContext === 'compra_cabecera' || tableContext === 'registro') {
+    fieldMapping = {
+      'created_at': 'fecha_compra',
+      'fecha': 'fecha_compra',
+      'fecha_registro': 'fecha_compra',
+      'monto': 'monto_compra',
+      'nombre': 'proveedor_nombre'
+    };
+  } else if (tableContext === 'nota_credito' || tableContext === 'nota_debito') {
+    fieldMapping = {
+      'created_at': 'fecha_registro',
+      'fecha': 'fecha_registro',
+      'monto': 'monto_nc',
+      'nombre': 'proveedor_nombre'
+    };
+  } else if (tableContext === 'ajustes_inventario' || tableContext === 'ajustes') {
+    fieldMapping = {
+      'created_at': 'fecha',
+      'fecha': 'fecha',
+      'fecha_registro': 'fecha',
+      'monto': 'cantidad_ajustada',
+      'nombre': 'observaciones'
+    };
+  } else {
+    // Mapeo genérico por defecto
+    fieldMapping = {
+      'created_at': 'fecha_registro',
+      'fecha': 'fecha_registro',
+      'monto': 'monto_total',
+      'nombre': 'proveedor_nombre'
+    };
+  }
   
   const mappedField = fieldMapping[sortBy] || sortBy;
   const field = validSortFields.includes(sortBy) ? mappedField : defaultField;
