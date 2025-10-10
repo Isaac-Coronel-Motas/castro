@@ -232,7 +232,7 @@ export function InformeDiagnosticosComponent() {
                 <SelectContent>
                   <SelectItem value="all">Todos los técnicos</SelectItem>
                   {tecnicos.map((tecnico) => (
-                    <SelectItem key={tecnico.usuario_id} value={tecnico.usuario_id.toString()}>
+                    <SelectItem key={tecnico.usuario_id} value={tecnico.usuario_id?.toString() || ''}>
                       {tecnico.nombre}
                     </SelectItem>
                   ))}

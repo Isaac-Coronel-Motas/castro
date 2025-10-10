@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       queryParams.push(fecha_hasta)
     }
     if (sucursal_id) {
-      whereConditions.push(`d.sucursal_id = $${queryParams.length + 1}`)
+      whereConditions.push(`re.sucursal_id = $${queryParams.length + 1}`)
       queryParams.push(sucursal_id)
     }
     if (tecnico_id) {
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       queryParams.push(estado_diagnostico)
     }
     if (tipo_diagnostico_id) {
-      whereConditions.push(`d.tipo_diagnostico_id = $${queryParams.length + 1}`)
+      whereConditions.push(`d.tipo_diag_id = $${queryParams.length + 1}`)
       queryParams.push(tipo_diagnostico_id)
     }
 
@@ -70,7 +70,8 @@ export async function GET(request: NextRequest) {
         0 as tendencia_periodo_anterior,
         0 as porcentaje_cambio
       FROM diagnostico d
-      LEFT JOIN solicitud_servicio ss ON d.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
     `
 
@@ -82,9 +83,10 @@ export async function GET(request: NextRequest) {
       SELECT 
         d.estado_diagnostico as estado,
         COUNT(DISTINCT d.diagnostico_id) as cantidad,
-        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN solicitud_servicio ss2 ON d2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM diagnostico d
-      LEFT JOIN solicitud_servicio ss ON d.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
       GROUP BY d.estado_diagnostico
       ORDER BY cantidad DESC
@@ -95,15 +97,16 @@ export async function GET(request: NextRequest) {
     // Top técnicos
     const porTecnicoQuery = `
       SELECT 
-        t.tecnico_id,
-        t.nombre as tecnico_nombre,
+        u.usuario_id as tecnico_id,
+        u.nombre as tecnico_nombre,
         COUNT(DISTINCT d.diagnostico_id) as cantidad_registros,
-        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN solicitud_servicio ss2 ON d2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM diagnostico d
-      LEFT JOIN tecnicos t ON d.tecnico_id = t.tecnico_id
-      LEFT JOIN solicitud_servicio ss ON d.solicitud_id = ss.solicitud_id
+      LEFT JOIN usuarios u ON d.tecnico_id = u.usuario_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
-      GROUP BY t.tecnico_id, t.nombre
+      GROUP BY u.usuario_id, u.nombre
       ORDER BY cantidad_registros DESC
       LIMIT 20
     `
@@ -116,9 +119,10 @@ export async function GET(request: NextRequest) {
         c.cliente_id,
         c.nombre as cliente_nombre,
         COUNT(DISTINCT d.diagnostico_id) as cantidad_registros,
-        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN solicitud_servicio ss2 ON d2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM diagnostico d
-      LEFT JOIN solicitud_servicio ss ON d.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       LEFT JOIN clientes c ON ss.cliente_id = c.cliente_id
       ${whereClause}
       GROUP BY c.cliente_id, c.nombre
@@ -134,10 +138,11 @@ export async function GET(request: NextRequest) {
         s.sucursal_id,
         s.nombre as sucursal_nombre,
         COUNT(DISTINCT d.diagnostico_id) as cantidad_registros,
-        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN solicitud_servicio ss2 ON d2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM diagnostico d
-      LEFT JOIN sucursales s ON d.sucursal_id = s.sucursal_id
-      LEFT JOIN solicitud_servicio ss ON d.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN sucursales s ON re.sucursal_id = s.sucursal_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
       GROUP BY s.sucursal_id, s.nombre
       ORDER BY cantidad_registros DESC
@@ -148,15 +153,16 @@ export async function GET(request: NextRequest) {
     // Distribución por tipo de diagnóstico
     const porTipoDiagnosticoQuery = `
       SELECT 
-        td.tipo_diagnostico_id as cliente_id,
-        td.descripcion as cliente_nombre,
+        td.tipo_diag_id,
+        td.descripcion as tipo_diagnostico_nombre,
         COUNT(DISTINCT d.diagnostico_id) as cantidad_registros,
-        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN solicitud_servicio ss2 ON d2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        ROUND((COUNT(DISTINCT d.diagnostico_id) * 100.0 / (SELECT COUNT(DISTINCT d2.diagnostico_id) FROM diagnostico d2 LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM diagnostico d
-      LEFT JOIN tipo_diagnostico td ON d.tipo_diagnostico_id = td.tipo_diagnostico_id
-      LEFT JOIN solicitud_servicio ss ON d.solicitud_id = ss.solicitud_id
+      LEFT JOIN tipo_diagnosticos td ON d.tipo_diag_id = td.tipo_diag_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
-      GROUP BY td.tipo_diagnostico_id, td.descripcion
+      GROUP BY td.tipo_diag_id, td.descripcion
       ORDER BY cantidad_registros DESC
       LIMIT 20
     `
@@ -175,7 +181,8 @@ export async function GET(request: NextRequest) {
           ELSE 'stable'
         END as tendencia
       FROM diagnostico d
-      LEFT JOIN solicitud_servicio ss ON d.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
       GROUP BY TO_CHAR(d.fecha_diagnostico, 'YYYY-MM'), EXTRACT(YEAR FROM d.fecha_diagnostico)
       ORDER BY mes DESC

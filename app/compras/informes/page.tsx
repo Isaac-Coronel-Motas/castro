@@ -160,18 +160,18 @@ export default function InformesComprasPage() {
                           : 'bg-muted text-muted-foreground'
                       }`}>
                         <IconComponent className="h-4 w-4" />
-                      </div>
-                      <div>
+              </div>
+                    <div>
                         <h3 className="font-medium text-sm">{tab.label}</h3>
                         <p className="text-xs text-muted-foreground">{tab.description}</p>
-                      </div>
                     </div>
                   </div>
+                    </div>
                 )
               })}
-            </div>
-          </CardContent>
-        </Card>
+                  </div>
+                </CardContent>
+              </Card>
 
         {/* Tabs de informes */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

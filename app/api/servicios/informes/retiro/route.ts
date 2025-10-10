@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       queryParams.push(fecha_hasta)
     }
     if (sucursal_id) {
-      whereConditions.push(`se.sucursal_id = $${queryParams.length + 1}`)
+      whereConditions.push(`re.sucursal_id = $${queryParams.length + 1}`)
       queryParams.push(sucursal_id)
     }
     if (cliente_id) {
@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
         0 as tendencia_periodo_anterior,
         0 as porcentaje_cambio
       FROM salida_equipo se
-      LEFT JOIN solicitud_servicio ss ON se.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON se.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
     `
 
@@ -70,14 +71,16 @@ export async function GET(request: NextRequest) {
     // Top entregado por
     const porEntregadoPorQuery = `
       SELECT 
-        se.entregado_por as tecnico_id,
-        se.entregado_por as tecnico_nombre,
+        u.usuario_id as tecnico_id,
+        u.nombre as tecnico_nombre,
         COUNT(DISTINCT se.salida_id) as cantidad_registros,
-        ROUND((COUNT(DISTINCT se.salida_id) * 100.0 / (SELECT COUNT(DISTINCT se2.salida_id) FROM salida_equipo se2 LEFT JOIN solicitud_servicio ss2 ON se2.solicitud_id = ss2.solicitud_id ${whereClause.replace('se.', 'se2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        ROUND((COUNT(DISTINCT se.salida_id) * 100.0 / (SELECT COUNT(DISTINCT se2.salida_id) FROM salida_equipo se2 LEFT JOIN recepcion_equipo re2 ON se2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('se.', 'se2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM salida_equipo se
-      LEFT JOIN solicitud_servicio ss ON se.solicitud_id = ss.solicitud_id
+      LEFT JOIN usuarios u ON se.entregado_por = u.usuario_id
+      LEFT JOIN recepcion_equipo re ON se.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
-      GROUP BY se.entregado_por
+      GROUP BY u.usuario_id, u.nombre
       ORDER BY cantidad_registros DESC
       LIMIT 20
     `
@@ -90,9 +93,10 @@ export async function GET(request: NextRequest) {
         se.retirado_por as tecnico_id,
         se.retirado_por as tecnico_nombre,
         COUNT(DISTINCT se.salida_id) as cantidad_registros,
-        ROUND((COUNT(DISTINCT se.salida_id) * 100.0 / (SELECT COUNT(DISTINCT se2.salida_id) FROM salida_equipo se2 LEFT JOIN solicitud_servicio ss2 ON se2.solicitud_id = ss2.solicitud_id ${whereClause.replace('se.', 'se2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        ROUND((COUNT(DISTINCT se.salida_id) * 100.0 / (SELECT COUNT(DISTINCT se2.salida_id) FROM salida_equipo se2 LEFT JOIN recepcion_equipo re2 ON se2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('se.', 'se2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM salida_equipo se
-      LEFT JOIN solicitud_servicio ss ON se.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON se.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
       GROUP BY se.retirado_por
       ORDER BY cantidad_registros DESC
@@ -107,9 +111,10 @@ export async function GET(request: NextRequest) {
         c.cliente_id,
         c.nombre as cliente_nombre,
         COUNT(DISTINCT se.salida_id) as cantidad_registros,
-        ROUND((COUNT(DISTINCT se.salida_id) * 100.0 / (SELECT COUNT(DISTINCT se2.salida_id) FROM salida_equipo se2 LEFT JOIN solicitud_servicio ss2 ON se2.solicitud_id = ss2.solicitud_id ${whereClause.replace('se.', 'se2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        ROUND((COUNT(DISTINCT se.salida_id) * 100.0 / (SELECT COUNT(DISTINCT se2.salida_id) FROM salida_equipo se2 LEFT JOIN recepcion_equipo re2 ON se2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('se.', 'se2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM salida_equipo se
-      LEFT JOIN solicitud_servicio ss ON se.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON se.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       LEFT JOIN clientes c ON ss.cliente_id = c.cliente_id
       ${whereClause}
       GROUP BY c.cliente_id, c.nombre
@@ -125,10 +130,11 @@ export async function GET(request: NextRequest) {
         s.sucursal_id,
         s.nombre as sucursal_nombre,
         COUNT(DISTINCT se.salida_id) as cantidad_registros,
-        ROUND((COUNT(DISTINCT se.salida_id) * 100.0 / (SELECT COUNT(DISTINCT se2.salida_id) FROM salida_equipo se2 LEFT JOIN solicitud_servicio ss2 ON se2.solicitud_id = ss2.solicitud_id ${whereClause.replace('se.', 'se2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        ROUND((COUNT(DISTINCT se.salida_id) * 100.0 / (SELECT COUNT(DISTINCT se2.salida_id) FROM salida_equipo se2 LEFT JOIN recepcion_equipo re2 ON se2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('se.', 'se2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM salida_equipo se
-      LEFT JOIN sucursales s ON se.sucursal_id = s.sucursal_id
-      LEFT JOIN solicitud_servicio ss ON se.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON se.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
+      LEFT JOIN sucursales s ON re.sucursal_id = s.sucursal_id
       ${whereClause}
       GROUP BY s.sucursal_id, s.nombre
       ORDER BY cantidad_registros DESC
@@ -148,7 +154,8 @@ export async function GET(request: NextRequest) {
           ELSE 'stable'
         END as tendencia
       FROM salida_equipo se
-      LEFT JOIN solicitud_servicio ss ON se.solicitud_id = ss.solicitud_id
+      LEFT JOIN recepcion_equipo re ON se.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
       GROUP BY TO_CHAR(se.fecha_salida, 'YYYY-MM'), EXTRACT(YEAR FROM se.fecha_salida)
       ORDER BY mes DESC

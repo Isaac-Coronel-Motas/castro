@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     const query = `
       SELECT 
-        u.usuario_id as tecnico_id,
+        u.usuario_id,
         u.nombre,
         e.puesto as especialidad,
         e.telefono,

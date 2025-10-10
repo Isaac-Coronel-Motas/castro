@@ -226,7 +226,7 @@ export function InformeReclamosComponent() {
                 <SelectContent>
                   <SelectItem value="all">Todos los técnicos</SelectItem>
                   {tecnicos.map((tecnico) => (
-                    <SelectItem key={tecnico.usuario_id} value={tecnico.usuario_id.toString()}>
+                    <SelectItem key={tecnico.usuario_id} value={tecnico.usuario_id?.toString() || ''}>
                       {tecnico.nombre}
                     </SelectItem>
                   ))}
@@ -282,7 +282,7 @@ export function InformeReclamosComponent() {
                 <SelectContent>
                   <SelectItem value="all">Todos los gestores</SelectItem>
                   {tecnicos.map((tecnico) => (
-                    <SelectItem key={tecnico.usuario_id} value={tecnico.usuario_id.toString()}>
+                    <SelectItem key={tecnico.usuario_id} value={tecnico.usuario_id?.toString() || ''}>
                       {tecnico.nombre}
                     </SelectItem>
                   ))}
@@ -404,25 +404,25 @@ export function InformeReclamosComponent() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Top Técnicos</CardTitle>
-                <CardDescription>Técnicos con más reclamos</CardDescription>
+                <CardTitle>Top Recibido Por</CardTitle>
+                <CardDescription>Usuarios que recibieron más reclamos</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {informe.por_tecnico.slice(0, 5).map((tecnico, index) => (
+                  {informe.por_recibido_por?.slice(0, 5).map((usuario, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium text-blue-600">{index + 1}</span>
                         </div>
-                        <span className="font-medium">{tecnico.tecnico_nombre}</span>
+                        <span className="font-medium">{usuario.tecnico_nombre}</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-medium">{formatNumber(tecnico.cantidad_registros)}</div>
-                        <div className="text-sm text-gray-500">{tecnico.porcentaje}%</div>
+                        <div className="font-medium">{formatNumber(usuario.cantidad_registros)}</div>
+                        <div className="text-sm text-gray-500">{usuario.porcentaje}%</div>
                       </div>
                     </div>
-                  ))}
+                  )) || []}
                 </div>
               </CardContent>
             </Card>
@@ -453,7 +453,31 @@ export function InformeReclamosComponent() {
             </Card>
           </div>
 
-          {/* Distribución por Sucursal */}
+          {/* Top Gestionado Por */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Gestionado Por</CardTitle>
+              <CardDescription>Usuarios que gestionaron más reclamos</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {informe.por_gestionado_por?.slice(0, 5).map((usuario, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-purple-600">{index + 1}</span>
+                      </div>
+                      <span className="font-medium">{usuario.tecnico_nombre}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{formatNumber(usuario.cantidad_registros)}</div>
+                      <div className="text-sm text-gray-500">{usuario.porcentaje}%</div>
+                    </div>
+                  </div>
+                )) || []}
+              </div>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Distribución por Sucursal</CardTitle>

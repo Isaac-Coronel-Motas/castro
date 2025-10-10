@@ -27,15 +27,15 @@ export async function GET(request: NextRequest) {
     const queryParams = []
 
     if (fecha_desde) {
-      whereConditions.push(`DATE(os.fecha_orden) >= $${queryParams.length + 1}`)
+      whereConditions.push(`DATE(os.fecha_solicitud) >= $${queryParams.length + 1}`)
       queryParams.push(fecha_desde)
     }
     if (fecha_hasta) {
-      whereConditions.push(`DATE(os.fecha_orden) <= $${queryParams.length + 1}`)
+      whereConditions.push(`DATE(os.fecha_solicitud) <= $${queryParams.length + 1}`)
       queryParams.push(fecha_hasta)
     }
     if (sucursal_id) {
-      whereConditions.push(`os.sucursal_id = $${queryParams.length + 1}`)
+      whereConditions.push(`ss.sucursal_id = $${queryParams.length + 1}`)
       queryParams.push(sucursal_id)
     }
     if (tecnico_id) {
@@ -47,15 +47,15 @@ export async function GET(request: NextRequest) {
       queryParams.push(cliente_id)
     }
     if (estado) {
-      whereConditions.push(`os.estado_ord_serv = $${queryParams.length + 1}`)
+      whereConditions.push(`os.estado = $${queryParams.length + 1}`)
       queryParams.push(estado)
     }
     if (estado_orden) {
-      whereConditions.push(`os.estado_ord_serv = $${queryParams.length + 1}`)
+      whereConditions.push(`os.estado = $${queryParams.length + 1}`)
       queryParams.push(estado_orden)
     }
     if (forma_cobro) {
-      whereConditions.push(`os.forma_cobro = $${queryParams.length + 1}`)
+      whereConditions.push(`os.forma_cobro_id = $${queryParams.length + 1}`)
       queryParams.push(forma_cobro)
     }
 
@@ -64,13 +64,16 @@ export async function GET(request: NextRequest) {
     // Resumen
     const resumenQuery = `
       SELECT 
-        COUNT(DISTINCT os.orden_id) as total_registros,
-        COALESCE(SUM(os.monto_total), 0) as valor_total,
-        ROUND(AVG(os.monto_total), 2) as promedio_por_registro,
+        COUNT(DISTINCT os.orden_servicio_id) as total_registros,
+        COALESCE(SUM(os.monto_servicio), 0) as valor_total,
+        ROUND(AVG(os.monto_servicio), 2) as promedio_por_registro,
         0 as tendencia_periodo_anterior,
         0 as porcentaje_cambio
       FROM orden_servicio os
-      LEFT JOIN solicitud_servicio ss ON os.solicitud_id = ss.solicitud_id
+      LEFT JOIN presupuesto_servicios ps ON os.presu_serv_id = ps.presu_serv_id
+      LEFT JOIN diagnostico d ON ps.diagnostico_id = d.diagnostico_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
     `
 
@@ -80,13 +83,16 @@ export async function GET(request: NextRequest) {
     // Distribución por estado
     const porEstadoQuery = `
       SELECT 
-        os.estado_ord_serv as estado,
-        COUNT(DISTINCT os.orden_id) as cantidad,
-        ROUND((COUNT(DISTINCT os.orden_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_id) FROM orden_servicio os2 LEFT JOIN solicitud_servicio ss2 ON os2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        os.estado,
+        COUNT(DISTINCT os.orden_servicio_id) as cantidad,
+        ROUND((COUNT(DISTINCT os.orden_servicio_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_servicio_id) FROM orden_servicio os2 LEFT JOIN presupuesto_servicios ps2 ON os2.presu_serv_id = ps2.presu_serv_id LEFT JOIN diagnostico d2 ON ps2.diagnostico_id = d2.diagnostico_id LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ps.', 'ps2.').replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM orden_servicio os
-      LEFT JOIN solicitud_servicio ss ON os.solicitud_id = ss.solicitud_id
+      LEFT JOIN presupuesto_servicios ps ON os.presu_serv_id = ps.presu_serv_id
+      LEFT JOIN diagnostico d ON ps.diagnostico_id = d.diagnostico_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
-      GROUP BY os.estado_ord_serv
+      GROUP BY os.estado
       ORDER BY cantidad DESC
     `
 
@@ -95,16 +101,19 @@ export async function GET(request: NextRequest) {
     // Top técnicos
     const porTecnicoQuery = `
       SELECT 
-        t.tecnico_id,
-        t.nombre as tecnico_nombre,
-        COUNT(DISTINCT os.orden_id) as cantidad_registros,
-        COALESCE(SUM(os.monto_total), 0) as valor_total,
-        ROUND((COUNT(DISTINCT os.orden_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_id) FROM orden_servicio os2 LEFT JOIN solicitud_servicio ss2 ON os2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        u.usuario_id as tecnico_id,
+        u.nombre as tecnico_nombre,
+        COUNT(DISTINCT os.orden_servicio_id) as cantidad_registros,
+        COALESCE(SUM(os.monto_servicio), 0) as valor_total,
+        ROUND((COUNT(DISTINCT os.orden_servicio_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_servicio_id) FROM orden_servicio os2 LEFT JOIN presupuesto_servicios ps2 ON os2.presu_serv_id = ps2.presu_serv_id LEFT JOIN diagnostico d2 ON ps2.diagnostico_id = d2.diagnostico_id LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ps.', 'ps2.').replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM orden_servicio os
-      LEFT JOIN tecnicos t ON os.tecnico_id = t.tecnico_id
-      LEFT JOIN solicitud_servicio ss ON os.solicitud_id = ss.solicitud_id
+      LEFT JOIN usuarios u ON os.tecnico_id = u.usuario_id
+      LEFT JOIN presupuesto_servicios ps ON os.presu_serv_id = ps.presu_serv_id
+      LEFT JOIN diagnostico d ON ps.diagnostico_id = d.diagnostico_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
-      GROUP BY t.tecnico_id, t.nombre
+      GROUP BY u.usuario_id, u.nombre
       ORDER BY cantidad_registros DESC
       LIMIT 20
     `
@@ -116,11 +125,14 @@ export async function GET(request: NextRequest) {
       SELECT 
         c.cliente_id,
         c.nombre as cliente_nombre,
-        COUNT(DISTINCT os.orden_id) as cantidad_registros,
-        COALESCE(SUM(os.monto_total), 0) as valor_total,
-        ROUND((COUNT(DISTINCT os.orden_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_id) FROM orden_servicio os2 LEFT JOIN solicitud_servicio ss2 ON os2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        COUNT(DISTINCT os.orden_servicio_id) as cantidad_registros,
+        COALESCE(SUM(os.monto_servicio), 0) as valor_total,
+        ROUND((COUNT(DISTINCT os.orden_servicio_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_servicio_id) FROM orden_servicio os2 LEFT JOIN presupuesto_servicios ps2 ON os2.presu_serv_id = ps2.presu_serv_id LEFT JOIN diagnostico d2 ON ps2.diagnostico_id = d2.diagnostico_id LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ps.', 'ps2.').replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM orden_servicio os
-      LEFT JOIN solicitud_servicio ss ON os.solicitud_id = ss.solicitud_id
+      LEFT JOIN presupuesto_servicios ps ON os.presu_serv_id = ps.presu_serv_id
+      LEFT JOIN diagnostico d ON ps.diagnostico_id = d.diagnostico_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       LEFT JOIN clientes c ON ss.cliente_id = c.cliente_id
       ${whereClause}
       GROUP BY c.cliente_id, c.nombre
@@ -135,12 +147,15 @@ export async function GET(request: NextRequest) {
       SELECT 
         s.sucursal_id,
         s.nombre as sucursal_nombre,
-        COUNT(DISTINCT os.orden_id) as cantidad_registros,
-        COALESCE(SUM(os.monto_total), 0) as valor_total,
-        ROUND((COUNT(DISTINCT os.orden_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_id) FROM orden_servicio os2 LEFT JOIN solicitud_servicio ss2 ON os2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        COUNT(DISTINCT os.orden_servicio_id) as cantidad_registros,
+        COALESCE(SUM(os.monto_servicio), 0) as valor_total,
+        ROUND((COUNT(DISTINCT os.orden_servicio_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_servicio_id) FROM orden_servicio os2 LEFT JOIN presupuesto_servicios ps2 ON os2.presu_serv_id = ps2.presu_serv_id LEFT JOIN diagnostico d2 ON ps2.diagnostico_id = d2.diagnostico_id LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ps.', 'ps2.').replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM orden_servicio os
-      LEFT JOIN sucursales s ON os.sucursal_id = s.sucursal_id
-      LEFT JOIN solicitud_servicio ss ON os.solicitud_id = ss.solicitud_id
+      LEFT JOIN presupuesto_servicios ps ON os.presu_serv_id = ps.presu_serv_id
+      LEFT JOIN diagnostico d ON ps.diagnostico_id = d.diagnostico_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
+      LEFT JOIN sucursales s ON ss.sucursal_id = s.sucursal_id
       ${whereClause}
       GROUP BY s.sucursal_id, s.nombre
       ORDER BY cantidad_registros DESC
@@ -151,15 +166,18 @@ export async function GET(request: NextRequest) {
     // Distribución por forma de cobro
     const porFormaCobroQuery = `
       SELECT 
-        os.forma_cobro as cliente_id,
-        os.forma_cobro as cliente_nombre,
-        COUNT(DISTINCT os.orden_id) as cantidad_registros,
-        COALESCE(SUM(os.monto_total), 0) as valor_total,
-        ROUND((COUNT(DISTINCT os.orden_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_id) FROM orden_servicio os2 LEFT JOIN solicitud_servicio ss2 ON os2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ss.', 'ss2.')})), 2) as porcentaje
+        os.forma_cobro_id as forma_cobro,
+        os.forma_cobro_id as forma_cobro_nombre,
+        COUNT(DISTINCT os.orden_servicio_id) as cantidad_registros,
+        COALESCE(SUM(os.monto_servicio), 0) as valor_total,
+        ROUND((COUNT(DISTINCT os.orden_servicio_id) * 100.0 / (SELECT COUNT(DISTINCT os2.orden_servicio_id) FROM orden_servicio os2 LEFT JOIN presupuesto_servicios ps2 ON os2.presu_serv_id = ps2.presu_serv_id LEFT JOIN diagnostico d2 ON ps2.diagnostico_id = d2.diagnostico_id LEFT JOIN recepcion_equipo re2 ON d2.recepcion_id = re2.recepcion_id LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id ${whereClause.replace('os.', 'os2.').replace('ps.', 'ps2.').replace('d.', 'd2.').replace('re.', 're2.').replace('ss.', 'ss2.')})), 2) as porcentaje
       FROM orden_servicio os
-      LEFT JOIN solicitud_servicio ss ON os.solicitud_id = ss.solicitud_id
+      LEFT JOIN presupuesto_servicios ps ON os.presu_serv_id = ps.presu_serv_id
+      LEFT JOIN diagnostico d ON ps.diagnostico_id = d.diagnostico_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
-      GROUP BY os.forma_cobro
+      GROUP BY os.forma_cobro_id
       ORDER BY cantidad_registros DESC
       LIMIT 20
     `
@@ -169,19 +187,22 @@ export async function GET(request: NextRequest) {
     // Tendencias mensuales
     const tendenciasQuery = `
       SELECT 
-        TO_CHAR(os.fecha_orden, 'YYYY-MM') as mes,
-        EXTRACT(YEAR FROM os.fecha_orden) as año,
-        COUNT(DISTINCT os.orden_id) as cantidad_registros,
-        COALESCE(SUM(os.monto_total), 0) as valor_total,
+        TO_CHAR(os.fecha_solicitud, 'YYYY-MM') as mes,
+        EXTRACT(YEAR FROM os.fecha_solicitud) as año,
+        COUNT(DISTINCT os.orden_servicio_id) as cantidad_registros,
+        COALESCE(SUM(os.monto_servicio), 0) as valor_total,
         CASE 
-          WHEN COUNT(DISTINCT os.orden_id) > LAG(COUNT(DISTINCT os.orden_id)) OVER (ORDER BY TO_CHAR(os.fecha_orden, 'YYYY-MM')) THEN 'up'
-          WHEN COUNT(DISTINCT os.orden_id) < LAG(COUNT(DISTINCT os.orden_id)) OVER (ORDER BY TO_CHAR(os.fecha_orden, 'YYYY-MM')) THEN 'down'
+          WHEN COUNT(DISTINCT os.orden_servicio_id) > LAG(COUNT(DISTINCT os.orden_servicio_id)) OVER (ORDER BY TO_CHAR(os.fecha_solicitud, 'YYYY-MM')) THEN 'up'
+          WHEN COUNT(DISTINCT os.orden_servicio_id) < LAG(COUNT(DISTINCT os.orden_servicio_id)) OVER (ORDER BY TO_CHAR(os.fecha_solicitud, 'YYYY-MM')) THEN 'down'
           ELSE 'stable'
         END as tendencia
       FROM orden_servicio os
-      LEFT JOIN solicitud_servicio ss ON os.solicitud_id = ss.solicitud_id
+      LEFT JOIN presupuesto_servicios ps ON os.presu_serv_id = ps.presu_serv_id
+      LEFT JOIN diagnostico d ON ps.diagnostico_id = d.diagnostico_id
+      LEFT JOIN recepcion_equipo re ON d.recepcion_id = re.recepcion_id
+      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       ${whereClause}
-      GROUP BY TO_CHAR(os.fecha_orden, 'YYYY-MM'), EXTRACT(YEAR FROM os.fecha_orden)
+      GROUP BY TO_CHAR(os.fecha_solicitud, 'YYYY-MM'), EXTRACT(YEAR FROM os.fecha_solicitud)
       ORDER BY mes DESC
       LIMIT 12
     `

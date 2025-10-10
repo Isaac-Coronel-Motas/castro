@@ -29,11 +29,11 @@ import {
   DialogTitle, 
   DialogFooter 
 } from "@/components/ui/dialog"
-import { 
-  Plus, 
+import {
+  Plus,
   Trash2, 
   Calendar, 
-  FileText, 
+  FileText,
   User, 
   Building, 
   Package,
@@ -208,10 +208,10 @@ export function NotaCreditoDebitoModal({
       items: [...(prev.items || []), { producto_id: 0, cantidad: 1, precio_unitario: 0 }]
     }))
   }
-
+    
   const removeItem = (index: number) => {
     setFormData(prev => ({
-      ...prev,
+        ...prev,
       items: (prev.items || []).filter((_, i) => i !== index)
     }))
   }
@@ -307,7 +307,7 @@ export function NotaCreditoDebitoModal({
       calculateTotals()
       await onSave(formData)
       console.log('✅ handleSubmit: Guardado exitoso')
-      onClose()
+        onClose()
     } catch (error) {
       console.error('❌ handleSubmit: Error guardando nota:', error)
     } finally {
@@ -343,7 +343,7 @@ export function NotaCreditoDebitoModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fecha_registro">Fecha de Registro</Label>
-                  <Input
+                    <Input
                     id="fecha_registro"
                     type="date"
                     value={formData.fecha_registro}
@@ -370,7 +370,7 @@ export function NotaCreditoDebitoModal({
                   )}
                 </div>
 
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label htmlFor="sucursal_id">Sucursal</Label>
                   <Select
                     value={formData.sucursal_id.toString()}
@@ -389,10 +389,10 @@ export function NotaCreditoDebitoModal({
                   </Select>
                   {errors.sucursal_id && (
                     <p className="text-sm text-red-500">{errors.sucursal_id}</p>
-                  )}
-                </div>
+                )}
+              </div>
 
-                <div className="space-y-2">
+                          <div className="space-y-2">
                   <Label htmlFor="almacen_id">Almacén</Label>
                   <Select
                     value={formData.almacen_id.toString()}
@@ -411,8 +411,8 @@ export function NotaCreditoDebitoModal({
                   </Select>
                   {errors.almacen_id && (
                     <p className="text-sm text-red-500">{errors.almacen_id}</p>
-                  )}
-                </div>
+                                      )}
+                                    </div>
 
                 {isCompra ? (
                   <div className="space-y-2">
@@ -434,8 +434,8 @@ export function NotaCreditoDebitoModal({
                     </Select>
                     {errors.proveedor_id && (
                       <p className="text-sm text-red-500">{errors.proveedor_id}</p>
-                    )}
-                  </div>
+                              )}
+                            </div>
                 ) : (
                   <div className="space-y-2">
                     <Label htmlFor="cliente_id">Cliente</Label>
@@ -454,14 +454,14 @@ export function NotaCreditoDebitoModal({
                         ))}
                       </SelectContent>
                     </Select>
-                    {errors.cliente_id && (
-                      <p className="text-sm text-red-500">{errors.cliente_id}</p>
-                    )}
-                  </div>
+                            {errors.cliente_id && (
+                              <p className="text-sm text-red-500">{errors.cliente_id}</p>
+                            )}
+                          </div>
                 )}
-              </div>
+                  </div>
 
-              <div className="space-y-2">
+                <div className="space-y-2">
                 <Label htmlFor="motivo">Motivo</Label>
                 <Textarea
                   id="motivo"
@@ -513,29 +513,29 @@ export function NotaCreditoDebitoModal({
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
+              <div className="space-y-2">
                         <Label>Producto</Label>
-                        <Select
+                <Select 
                           value={item.producto_id.toString()}
                           onValueChange={(value) => updateItem(index, 'producto_id', parseInt(value))}
-                        >
+                >
                           <SelectTrigger className={errors[`items[${index}].producto_id`] ? 'border-red-500' : ''}>
                             <SelectValue placeholder="Seleccionar producto" />
-                          </SelectTrigger>
-                          <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                             {productos.map((producto) => (
                               <SelectItem key={producto.producto_id} value={producto.producto_id.toString()}>
                                 {producto.cod_product} - {producto.nombre_producto}
                               </SelectItem>
                             ))}
-                          </SelectContent>
-                        </Select>
+                  </SelectContent>
+                </Select>
                         {errors[`items[${index}].producto_id`] && (
                           <p className="text-sm text-red-500">{errors[`items[${index}].producto_id`]}</p>
-                        )}
-                      </div>
+                )}
+              </div>
 
-                      <div className="space-y-2">
+              <div className="space-y-2">
                         <Label>Cantidad</Label>
                         <Input
                           type="number"
@@ -546,33 +546,33 @@ export function NotaCreditoDebitoModal({
                         />
                         {errors[`items[${index}].cantidad`] && (
                           <p className="text-sm text-red-500">{errors[`items[${index}].cantidad`]}</p>
-                        )}
-                      </div>
+                )}
+              </div>
 
-                      <div className="space-y-2">
+                <div className="space-y-2">
                         <Label>Precio Unitario</Label>
-                        <Input
-                          type="number"
+                    <Input
+                      type="number"
                           min="0"
-                          step="0.01"
+                      step="0.01"
                           value={item.precio_unitario}
                           onChange={(e) => updateItem(index, 'precio_unitario', parseFloat(e.target.value))}
                           className={errors[`items[${index}].precio_unitario`] ? 'border-red-500' : ''}
                         />
                         {errors[`items[${index}].precio_unitario`] && (
                           <p className="text-sm text-red-500">{errors[`items[${index}].precio_unitario`]}</p>
-                        )}
-                      </div>
-                    </div>
+                  )}
+                </div>
+              </div>
 
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">
                         Subtotal: ₡{(item.cantidad * item.precio_unitario).toLocaleString()}
                       </p>
+                      </div>
                     </div>
-                  </div>
                 ))}
-              </div>
+                      </div>
 
               {(formData.items || []).length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
@@ -613,15 +613,15 @@ export function NotaCreditoDebitoModal({
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button 
-            type="submit" 
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
             onClick={handleSubmit}
             disabled={loading || (formData.items || []).length === 0}
           >
             {loading ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear')}
-          </Button>
+            </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

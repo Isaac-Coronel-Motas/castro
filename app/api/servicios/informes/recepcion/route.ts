@@ -153,16 +153,17 @@ export async function GET(request: NextRequest) {
     // Distribución por equipo
     const porEquipoQuery = `
       SELECT 
-        e.equipo_id as cliente_id,
-        e.nombre_equipo as cliente_nombre,
+        e.equipo_id,
+        te.nombre as equipo_nombre,
         COUNT(red.detalle_id) as cantidad_registros,
         ROUND((COUNT(red.detalle_id) * 100.0 / (SELECT COUNT(red2.detalle_id) FROM recepcion_equipo re2 LEFT JOIN solicitud_servicio ss2 ON re2.solicitud_id = ss2.solicitud_id LEFT JOIN recepcion_equipo_detalle red2 ON re2.recepcion_id = red2.recepcion_id ${whereClause.replace('re.', 're2.').replace('ss.', 'ss2.').replace('red.', 'red2.')})), 2) as porcentaje
       FROM recepcion_equipo re
       LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
       LEFT JOIN recepcion_equipo_detalle red ON re.recepcion_id = red.recepcion_id
       LEFT JOIN equipos e ON red.equipo_id = e.equipo_id
+      LEFT JOIN tipo_equipo te ON e.tipo_equipo_id = te.tipo_equipo_id
       ${whereClause}
-      GROUP BY e.equipo_id, e.nombre_equipo
+      GROUP BY e.equipo_id, te.nombre
       ORDER BY cantidad_registros DESC
       LIMIT 20
     `
