@@ -119,7 +119,7 @@ export function InformeRecepcionComponent() {
   }
 
   const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('es-CR').format(num)
+    return new Intl.NumberFormat('es-PY').format(num)
   }
 
   const getTendenciaIcon = (tendencia: 'up' | 'down' | 'stable') => {

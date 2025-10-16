@@ -120,7 +120,7 @@ const metrics = [
   },
   {
     title: "Ventas del Día",
-    value: "₡ 2.450.000",
+    value: "PYG 2.450.000",
     subtitle: "+12% vs ayer",
     icon: BarChart3,
     color: "text-green-600",
@@ -128,7 +128,7 @@ const metrics = [
   },
   {
     title: "Ingresos del Mes",
-    value: "₡ 45.200.000",
+    value: "PYG 45.200.000",
     subtitle: "+8% vs mes anterior",
     icon: TrendingUp,
     color: "text-purple-600",

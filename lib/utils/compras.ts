@@ -53,12 +53,14 @@ export function validatePedidoCompraData(data: CreatePedidoCompraRequest): Valid
 export function validatePresupuestoProveedorData(data: CreatePresupuestoProveedorRequest): ValidationResult {
   const errors: { [key: string]: string } = {};
 
+
   if (!data.usuario_id || data.usuario_id <= 0) {
     errors.usuario_id = 'El usuario es requerido';
   }
 
-  // proveedor_id es opcional - solo se requiere si se proporciona
-  if (data.proveedor_id !== undefined && data.proveedor_id <= 0) {
+  // proveedor_id es completamente opcional - no se valida en ningún caso
+  // Solo se valida si se proporciona explícitamente y es inválido
+  if (data.proveedor_id !== undefined && data.proveedor_id !== null && data.proveedor_id !== '' && data.proveedor_id <= 0) {
     errors.proveedor_id = 'El proveedor debe ser válido';
   }
 
@@ -154,15 +156,10 @@ export function mapEstadoForDatabase(estado: string): string {
 }
 
 /**
- * Formatea un número como moneda
+ * Formatea un número como moneda paraguaya (PYG)
  */
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('es-CR', {
-    style: 'currency',
-    currency: 'CRC',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount);
+  return `PYG ${amount.toLocaleString('es-PY')}`;
 }
 
 /**

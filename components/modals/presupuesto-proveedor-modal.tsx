@@ -468,7 +468,7 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
                 <div className="bg-muted p-4 rounded-lg space-y-2">
                   <div className="flex justify-between">
                     <span className="font-semibold">Monto Total:</span>
-                    <span className="font-bold text-lg">₡{calculateMontoConDescuento().toLocaleString()}</span>
+                    <span className="font-bold text-lg">PYG {calculateMontoConDescuento().toLocaleString()}</span>
                   </div>
                 </div>
               </CardContent>
@@ -493,7 +493,7 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
                           <div className="flex-1">
                             <div className="font-medium">{detalle.nombre_producto}</div>
                             <div className="text-sm text-muted-foreground">
-                              Cantidad: {detalle.cantidad} × ₡{detalle.precio_unitario?.toLocaleString()} = ₡{(detalle.cantidad * detalle.precio_unitario).toLocaleString()}
+                              Cantidad: {detalle.cantidad} × PYG {detalle.precio_unitario?.toLocaleString()} = PYG {(detalle.cantidad * detalle.precio_unitario).toLocaleString()}
                             </div>
                           </div>
                           {mode !== 'view' && (
@@ -532,7 +532,7 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Monto calculado:</span>
-                      <span className="font-medium">₡{calculateMontoConDescuento().toLocaleString()}</span>
+                      <span className="font-medium">PYG {calculateMontoConDescuento().toLocaleString()}</span>
                     </div>
                   </div>
                 )}

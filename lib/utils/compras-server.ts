@@ -92,8 +92,9 @@ export function validatePresupuestoProveedorData(data: CreatePresupuestoProveedo
     errors.usuario_id = 'El usuario es requerido';
   }
 
-  if (!data.proveedor_id || data.proveedor_id <= 0) {
-    errors.proveedor_id = 'El proveedor es requerido';
+  // proveedor_id es opcional - solo se requiere si se proporciona
+  if (data.proveedor_id !== undefined && data.proveedor_id <= 0) {
+    errors.proveedor_id = 'El proveedor debe ser válido';
   }
 
   if (data.fecha_presupuesto && isNaN(Date.parse(data.fecha_presupuesto))) {

@@ -115,7 +115,7 @@ export function InformeReclamosComponent() {
   }
 
   const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('es-CR').format(num)
+    return new Intl.NumberFormat('es-PY').format(num)
   }
 
   const getTendenciaIcon = (tendencia: 'up' | 'down' | 'stable') => {
@@ -383,7 +383,7 @@ export function InformeReclamosComponent() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {informe.por_estado.map((item, index) => (
+                {(informe.por_estado || []).map((item, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-2">
                       <Badge className={getEstadoColor(item.estado)}>
@@ -434,7 +434,7 @@ export function InformeReclamosComponent() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {informe.por_cliente.slice(0, 5).map((cliente, index) => (
+                  {(informe.por_cliente || []).slice(0, 5).map((cliente, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -485,7 +485,7 @@ export function InformeReclamosComponent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {informe.por_sucursal.map((sucursal, index) => (
+                {(informe.por_sucursal || []).map((sucursal, index) => (
                   <div key={index} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Building className="h-4 w-4 text-gray-500" />
@@ -509,7 +509,7 @@ export function InformeReclamosComponent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {informe.tendencias_mensuales.map((tendencia, index) => (
+                {(informe.tendencias_mensuales || []).map((tendencia, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
                       <span className="font-medium">{tendencia.mes}</span>

@@ -111,7 +111,7 @@ export function InformeRetiroComponent() {
   }
 
   const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('es-CR').format(num)
+    return new Intl.NumberFormat('es-PY').format(num)
   }
 
   const getTendenciaIcon = (tendencia: 'up' | 'down' | 'stable') => {
@@ -283,7 +283,7 @@ export function InformeRetiroComponent() {
                 <Truck className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatNumber(informe.resumen.total_registros)}</div>
+                <div className="text-2xl font-bold">{formatNumber(informe.resumen?.total_registros || 0)}</div>
                 <p className="text-xs text-muted-foreground">
                   Equipos retirados
                 </p>
@@ -296,7 +296,7 @@ export function InformeRetiroComponent() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatNumber(informe.resumen.promedio_por_registro || 0)}</div>
+                <div className="text-2xl font-bold">{formatNumber(informe.resumen?.promedio_por_registro || 0)}</div>
                 <p className="text-xs text-muted-foreground">
                   Promedio de retiros
                 </p>
@@ -309,7 +309,7 @@ export function InformeRetiroComponent() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{informe.resumen.porcentaje_cambio || 0}%</div>
+                <div className="text-2xl font-bold">{informe.resumen?.porcentaje_cambio || 0}%</div>
                 <p className="text-xs text-muted-foreground">
                   Cambio vs período anterior
                 </p>
@@ -339,7 +339,7 @@ export function InformeRetiroComponent() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {informe.por_tecnico.slice(0, 5).map((tecnico, index) => (
+                  {(informe.por_tecnico || []).slice(0, 5).map((tecnico, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -364,7 +364,7 @@ export function InformeRetiroComponent() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {informe.por_cliente.slice(0, 5).map((cliente, index) => (
+                  {(informe.por_cliente || []).slice(0, 5).map((cliente, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -391,7 +391,7 @@ export function InformeRetiroComponent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {informe.por_sucursal.map((sucursal, index) => (
+                {(informe.por_sucursal || []).map((sucursal, index) => (
                   <div key={index} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Building className="h-4 w-4 text-gray-500" />
@@ -415,7 +415,7 @@ export function InformeRetiroComponent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {informe.tendencias_mensuales.map((tendencia, index) => (
+                {(informe.tendencias_mensuales || []).map((tendencia, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
                       <span className="font-medium">{tendencia.mes}</span>

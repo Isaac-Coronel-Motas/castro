@@ -8,13 +8,32 @@ import {
   calculateLockoutTime,
   sanitizeForLog 
 } from '@/lib/utils/auth';
+import { decryptCredentials } from '@/lib/utils/server-encryption';
 import { LoginRequest, LoginResponse, ApiResponse } from '@/lib/types/auth';
 
 export async function POST(request: NextRequest) {
   try {
     const body: LoginRequest = await request.json();
-    const { username, password, remember_me = false } = body;
+    const { username: encryptedUsername, password: encryptedPassword, remember_me = false } = body;
     const ip_origen = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+
+    // Desencriptar credenciales
+    let username: string;
+    let password: string;
+    
+    try {
+      const decrypted = decryptCredentials(encryptedUsername, encryptedPassword);
+      username = decrypted.username;
+      password = decrypted.password;
+    } catch (decryptError) {
+      console.error('Error desencriptando credenciales:', decryptError);
+      const response: ApiResponse = {
+        success: false,
+        message: 'Error de seguridad en la transmisión de datos',
+        error: 'Credenciales encriptadas inválidas'
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
 
     // Validar datos de entrada
     if (!username || !password) {

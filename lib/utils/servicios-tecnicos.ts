@@ -742,15 +742,10 @@ export function generateReclamoNumber(id: number): string {
 }
 
 /**
- * Formatea moneda paraguaya
+ * Formatea moneda paraguaya (PYG)
  */
 export function formatParaguayanCurrency(amount: number): string {
-  return new Intl.NumberFormat('es-PY', {
-    style: 'currency',
-    currency: 'PYG',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount);
+  return `PYG ${amount.toLocaleString('es-PY')}`;
 }
 
 /**

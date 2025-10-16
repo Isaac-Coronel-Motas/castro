@@ -144,7 +144,7 @@ export function AgregarProductoModal({ isOpen, onClose, onAdd, productos }: Agre
                     <div className="flex flex-col">
                       <span className="font-medium">{producto.nombre_producto}</span>
                       <span className="text-sm text-muted-foreground">
-                        {producto.cod_product} - ₡{(producto.precio_venta || 0).toLocaleString()}
+                        {producto.cod_product} - PYG {(producto.precio_venta || 0).toLocaleString()}
                       </span>
                     </div>
                   </SelectItem>
@@ -173,7 +173,7 @@ export function AgregarProductoModal({ isOpen, onClose, onAdd, productos }: Agre
                   <span className="font-medium">Descripción:</span> {productoSeleccionado.descripcion_producto || 'N/A'}
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">Precio sugerido:</span> ₡{(productoSeleccionado.precio_venta || 0).toLocaleString()}
+                  <span className="font-medium">Precio sugerido:</span> PYG {(productoSeleccionado.precio_venta || 0).toLocaleString()}
                 </div>
               </CardContent>
             </Card>
@@ -218,7 +218,7 @@ export function AgregarProductoModal({ isOpen, onClose, onAdd, productos }: Agre
             <CardContent className="pt-4">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Subtotal:</span>
-                <span className="font-bold text-lg">₡{calcularSubtotal().toLocaleString()}</span>
+                <span className="font-bold text-lg">PYG {calcularSubtotal().toLocaleString()}</span>
               </div>
             </CardContent>
           </Card>

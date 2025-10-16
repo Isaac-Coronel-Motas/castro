@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { requirePermission } from '@/lib/middleware/auth'
-import { CreateCiudadRequest, UpdateCiudadRequest } from '@/lib/types/referencias'
+import { CreateDepartamentoRequest, UpdateDepartamentoRequest } from '@/lib/types/referencias'
 
 export async function GET(request: NextRequest) {
-  console.log('🚀 GET ciudades iniciado')
+  console.log('🚀 GET departamentos iniciado')
   
   try {
     console.log('🔐 Verificando permisos...')
@@ -22,16 +22,15 @@ export async function GET(request: NextRequest) {
     // Consulta simple sin ordenamiento complejo
     const query = `
       SELECT 
-        id,
-        nombre
-      FROM ciudades
-      ORDER BY id ASC
+        departamento_id,
+        nombre_departamento
+      FROM departamentos
+      ORDER BY departamento_id ASC
     `
 
-    console.log('🔍 Query ciudades:', query)
-    
+    console.log('🔍 Query departamentos:', query)
     const result = await pool.query(query)
-    console.log('📊 Resultado ciudades:', result.rows)
+    console.log('📊 Resultado departamentos:', result.rows)
 
     const response = {
       success: true,
@@ -44,11 +43,11 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    console.log('📤 Respuesta ciudades:', response)
+    console.log('📤 Respuesta departamentos:', response)
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error('❌ Error obteniendo ciudades:', error)
+    console.error('❌ Error obteniendo departamentos:', error)
     console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack trace available')
     return NextResponse.json(
       { error: 'Error interno del servidor' },
@@ -65,46 +64,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: authResult.error }, { status: 403 })
     }
 
-    const body: CreateCiudadRequest = await request.json()
+    const body: CreateDepartamentoRequest = await request.json()
 
     // Validar datos requeridos
-    if (!body.nombre || body.nombre.trim() === '') {
+    if (!body.nombre_departamento || body.nombre_departamento.trim() === '') {
       return NextResponse.json(
-        { error: 'El nombre de la ciudad es requerido' },
+        { error: 'El nombre del departamento es requerido' },
         { status: 400 }
       )
     }
 
-    // Verificar si ya existe una ciudad con el mismo nombre
+    // Verificar si ya existe un departamento con el mismo nombre
     const existingQuery = `
-      SELECT id FROM ciudades 
-      WHERE LOWER(nombre) = LOWER($1)
+      SELECT departamento_id FROM departamentos 
+      WHERE LOWER(nombre_departamento) = LOWER($1)
     `
-    const existingResult = await pool.query(existingQuery, [body.nombre.trim()])
+    const existingResult = await pool.query(existingQuery, [body.nombre_departamento.trim()])
 
     if (existingResult.rows.length > 0) {
       return NextResponse.json(
-        { error: 'Ya existe una ciudad con este nombre' },
+        { error: 'Ya existe un departamento con este nombre' },
         { status: 400 }
       )
     }
 
-    // Insertar nueva ciudad
+    // Insertar nuevo departamento
     const insertQuery = `
-      INSERT INTO ciudades (nombre)
+      INSERT INTO departamentos (nombre_departamento)
       VALUES ($1)
-      RETURNING id, nombre
+      RETURNING departamento_id, nombre_departamento
     `
 
-    const result = await pool.query(insertQuery, [body.nombre.trim()])
+    const result = await pool.query(insertQuery, [body.nombre_departamento.trim()])
 
     return NextResponse.json({
-      message: 'Ciudad creada exitosamente',
+      message: 'Departamento creado exitosamente',
       data: result.rows[0]
     }, { status: 201 })
 
   } catch (error) {
-    console.error('Error creando ciudad:', error)
+    console.error('Error creando departamento:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }

@@ -1,6 +1,62 @@
 // ===== FUNCIONES PARA PEDIDOS DE COMPRA (CLIENTE) =====
 
 /**
+ * Valida los datos de un pedido de compra en el cliente
+ */
+export function validatePedidoCompraDataClient(data: any): { valid: boolean; errors: any } {
+  const errors: any = {};
+
+  // Validar proveedor (puede estar en proveedor_id o en proveedores[0].proveedor_id)
+  const proveedorId = data.proveedor_id || (data.proveedores && data.proveedores.length > 0 ? data.proveedores[0].proveedor_id : null);
+  if (!proveedorId || proveedorId === '') {
+    errors.proveedor_id = 'El proveedor es requerido';
+  }
+
+  // Validar fecha de pedido
+  if (!data.fecha_pedido) {
+    errors.fecha_pedido = 'La fecha de pedido es requerida';
+  } else {
+    const fechaPedido = new Date(data.fecha_pedido);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    if (fechaPedido < hoy) {
+      errors.fecha_pedido = 'La fecha de pedido no puede ser anterior a hoy';
+    }
+  }
+
+  // Validar detalles
+  if (!data.detalles || data.detalles.length === 0) {
+    errors.detalles = 'Debe agregar al menos un producto';
+  } else {
+    data.detalles.forEach((detalle: any, index: number) => {
+      if (!detalle.producto_id || detalle.producto_id === '') {
+        errors[`detalles.${index}.producto_id`] = 'El producto es requerido';
+      }
+      
+      if (!detalle.cantidad || detalle.cantidad <= 0) {
+        errors[`detalles.${index}.cantidad`] = 'La cantidad debe ser mayor a 0';
+      }
+      
+      if (!detalle.precio_unitario || detalle.precio_unitario <= 0) {
+        errors[`detalles.${index}.precio_unitario`] = 'El precio unitario debe ser mayor a 0';
+      }
+    });
+  }
+
+  // Validar observaciones/comentario (opcional pero con límite de caracteres)
+  const observaciones = data.observaciones || data.comentario || '';
+  if (observaciones && observaciones.length > 500) {
+    errors.observaciones = 'Las observaciones no pueden exceder 500 caracteres';
+  }
+
+  return {
+    valid: Object.keys(errors).length === 0,
+    errors
+  };
+}
+
+/**
  * Obtiene el color del estado de un pedido de compra
  */
 export function getEstadoColor(estado: string): string {

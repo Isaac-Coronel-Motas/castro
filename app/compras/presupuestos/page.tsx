@@ -110,7 +110,7 @@ export default function PresupuestosProveedorPage() {
       sortable: true,
       render: (presupuesto: PresupuestoProveedor) => (
         <div className="font-medium">
-          ₡{(presupuesto.monto_presu_prov || 0).toLocaleString()}
+          PYG {(presupuesto.monto_presu_prov || 0).toLocaleString()}
         </div>
       )
     },
@@ -247,7 +247,7 @@ export default function PresupuestosProveedorPage() {
     },
     {
       title: "Valor Estimado",
-      value: `₡${(presupuestos?.reduce((total, p) => total + parseFloat(p.monto_presu_prov?.toString() || '0'), 0) || 0).toLocaleString()}`,
+      value: `PYG ${(presupuestos?.reduce((total, p) => total + parseFloat(p.monto_presu_prov?.toString() || '0'), 0) || 0).toLocaleString()}`,
       change: "+18%",
       trend: "up" as const,
       icon: DollarSign,

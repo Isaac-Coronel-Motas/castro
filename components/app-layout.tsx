@@ -99,6 +99,8 @@ const sidebarItems: SidebarItem[] = [
       { label: "Clientes", href: "/referencias/clientes", active: false },
       { label: "Marcas", href: "/referencias/marcas", active: false },
       { label: "Tipos de Servicio", href: "/referencias/tipos-servicio", active: false },
+      { label: "Departamentos", href: "/referencias/departamentos", active: false },
+      { label: "Ciudades", href: "/referencias/ciudades", active: false },
     ],
   },
   {

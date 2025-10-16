@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { encryptCredentials } from '@/lib/utils/encryption'
 import { LoginRequest, LoginResponse, Usuario } from "@/lib/types/auth"
 
 interface User {
@@ -71,9 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
 
     try {
+      // Encriptar credenciales antes del envío
+      const { encryptedUsername, encryptedPassword } = encryptCredentials(username, password)
+      
       const loginRequest: LoginRequest = {
-        username,
-        password,
+        username: encryptedUsername,
+        password: encryptedPassword,
         remember_me: rememberMe
       }
 

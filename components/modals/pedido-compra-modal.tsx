@@ -63,6 +63,8 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
           almacen_id: 1,
           estado: 'pendiente',
           comentario: '',
+          fecha_pedido: new Date().toISOString().split('T')[0], // Fecha actual
+          proveedor_id: '',
           detalles: [],
           proveedores: []
         })
@@ -83,6 +85,14 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
         console.log('🔍 loadPedidoData: Datos del pedido:', pedidoData)
         console.log('🔍 loadPedidoData: Proveedores:', pedidoData.proveedores)
         
+        const proveedoresData = pedidoData.proveedores?.map((prov: any) => {
+          console.log('🔍 loadPedidoData: Procesando proveedor:', prov)
+          return {
+            proveedor_id: prov.proveedor_id,
+            fecha_envio: prov.fecha_envio
+          }
+        }) || [];
+        
         setFormData({
           usuario_id: pedidoData.usuario_id,
           sucursal_id: pedidoData.sucursal_id,
@@ -90,19 +100,14 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
           estado: pedidoData.estado,
           comentario: pedidoData.comentario || '',
           fecha_pedido: pedidoData.fecha_pedido,
+          proveedor_id: pedidoData.proveedor_id || (proveedoresData.length > 0 ? proveedoresData[0].proveedor_id : ''),
           detalles: pedidoData.items?.map((item: any) => ({
             producto_id: item.producto_id,
             cantidad: item.cantidad,
             precio_unitario: item.precio_unitario,
             subtotal: item.subtotal
           })) || [],
-          proveedores: pedidoData.proveedores?.map((prov: any) => {
-            console.log('🔍 loadPedidoData: Procesando proveedor:', prov)
-            return {
-              proveedor_id: prov.proveedor_id,
-              fecha_envio: prov.fecha_envio
-            }
-          }) || []
+          proveedores: proveedoresData
         })
       }
     } catch (error) {
@@ -222,12 +227,25 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
   }
 
   const handleProveedorChange = (index: number, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      proveedores: prev.proveedores?.map((proveedor, i) => 
+    setFormData(prev => {
+      const newProveedores = prev.proveedores?.map((proveedor, i) => 
         i === index ? { ...proveedor, [field]: value } : proveedor
-      ) || []
-    }))
+      ) || [];
+      
+      // Si se cambia el proveedor_id, actualizar también el proveedor_id principal
+      if (field === 'proveedor_id' && newProveedores.length > 0) {
+        return {
+          ...prev,
+          proveedor_id: value,
+          proveedores: newProveedores
+        };
+      }
+      
+      return {
+        ...prev,
+        proveedores: newProveedores
+      };
+    })
   }
 
   const calculateSubtotal = (cantidad: number, precio: number) => {
@@ -240,6 +258,8 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
 
   const validateForm = (): boolean => {
     const validation = validatePedidoCompraDataClient(formData);
+    console.log('🔍 validateForm: Resultado de validación:', validation);
+    console.log('🔍 validateForm: Errores encontrados:', validation.errors);
     setErrors(validation.errors || {});
     return validation.valid;
   }

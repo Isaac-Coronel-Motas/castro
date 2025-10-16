@@ -65,11 +65,18 @@ export interface Servicio {
   updated_at?: string;
 }
 
-export interface Categoria {
-  categoria_id: number;
-  nombre_categoria: string;
-  estado: boolean;
-  productos_count?: number;
+export interface Departamento {
+  departamento_id: number;
+  nombre_departamento: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Ciudad {
+  id: number;
+  nombre: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Tipos para formularios
@@ -116,9 +123,12 @@ export interface ServicioFormData {
   tipo_serv_id: number | null;
 }
 
-export interface CategoriaFormData {
+export interface DepartamentoFormData {
+  nombre_departamento: string;
+}
+
+export interface CiudadFormData {
   nombre: string;
-  activo: boolean;
 }
 
 // ===== TIPOS DE REQUEST PARA APIs =====
@@ -206,6 +216,18 @@ export interface CreateServicioRequest {
   tipo_serv_id?: number;
 }
 
-export interface UpdateServicioRequest extends CreateServicioRequest {
-  servicio_id: number;
+export interface CreateDepartamentoRequest {
+  nombre_departamento: string;
+}
+
+export interface UpdateDepartamentoRequest extends CreateDepartamentoRequest {
+  departamento_id: number;
+}
+
+export interface CreateCiudadRequest {
+  nombre: string;
+}
+
+export interface UpdateCiudadRequest extends CreateCiudadRequest {
+  id: number;
 }
