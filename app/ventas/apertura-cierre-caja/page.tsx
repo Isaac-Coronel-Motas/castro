@@ -35,7 +35,7 @@ interface Caja {
 }
 
 export default function AperturaCierreCajaPage() {
-  const authenticatedFetch = useAuthenticatedFetch();
+  const { authenticatedFetch } = useAuthenticatedFetch();
   const {
     data: aperturas,
     loading,
@@ -83,7 +83,7 @@ export default function AperturaCierreCajaPage() {
       }
     }
     loadCajas()
-  }, [authenticatedFetch])
+  }, []) // Removido authenticatedFetch de las dependencias
 
   const handleSearch = (term: string) => {
     setSearchTerm(term)
@@ -138,6 +138,8 @@ export default function AperturaCierreCajaPage() {
 
   const handleSaveCierre = async (aperturaId: number, montoCierre: number, observaciones?: string): Promise<boolean> => {
     try {
+      console.log('🔍 Cerrando caja:', { aperturaId, montoCierre, observaciones });
+      
       const response = await fetch(`/api/ventas/apertura-cierre-caja/${aperturaId}/cerrar`, {
         method: 'PUT',
         headers: {
@@ -150,14 +152,23 @@ export default function AperturaCierreCajaPage() {
         })
       })
 
+      console.log('🔍 Respuesta del servidor:', response.status, response.statusText);
+
       if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Caja cerrada exitosamente:', data);
         // Recargar los datos
         window.location.reload()
         return true
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Error al cerrar caja:', errorData);
+        alert(`Error al cerrar caja: ${errorData.message || 'Error desconocido'}`);
+        return false
       }
-      return false
     } catch (error) {
-      console.error('Error al cerrar caja:', error)
+      console.error('❌ Error al cerrar caja:', error)
+      alert(`Error al cerrar caja: ${error instanceof Error ? error.message : 'Error de conexión'}`);
       return false
     }
   }

@@ -33,9 +33,9 @@ export function CierreCajaModal({ isOpen, onClose, onSave, apertura, title }: Ci
   useEffect(() => {
     if (isOpen && apertura) {
       // Calcular monto teórico (monto inicial + ventas + cobros)
-      const montoTeorico = (apertura.monto_apertura || 0) + 
-                          (apertura.total_ventas || 0) + 
-                          (apertura.total_cobros || 0)
+      const montoTeorico = Number(apertura.monto_apertura || 0) + 
+                          Number(apertura.total_ventas || 0) + 
+                          Number(apertura.total_cobros || 0)
       
       setFormData({
         monto_cierre: montoTeorico,
@@ -95,11 +95,11 @@ export function CierreCajaModal({ isOpen, onClose, onSave, apertura, title }: Ci
 
   if (!isOpen || !apertura) return null
 
-  const montoTeorico = (apertura.monto_apertura || 0) + 
-                      (apertura.total_ventas || 0) + 
-                      (apertura.total_cobros || 0)
+  const montoTeorico = Number(apertura.monto_apertura || 0) + 
+                      Number(apertura.total_ventas || 0) + 
+                      Number(apertura.total_cobros || 0)
   
-  const diferencia = formData.monto_cierre - montoTeorico
+  const diferencia = Number(formData.monto_cierre) - montoTeorico
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -133,7 +133,7 @@ export function CierreCajaModal({ isOpen, onClose, onSave, apertura, title }: Ci
               </div>
               <div>
                 <span className="text-gray-600">Monto Inicial:</span>
-                <p className="font-medium">₡{apertura.monto_apertura?.toFixed(2)}</p>
+                <p className="font-medium">₡{Number(apertura.monto_apertura || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -144,11 +144,11 @@ export function CierreCajaModal({ isOpen, onClose, onSave, apertura, title }: Ci
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Total Ventas:</span>
-                <p className="font-medium">₡{(apertura.total_ventas || 0).toFixed(2)}</p>
+                <p className="font-medium">₡{Number(apertura.total_ventas || 0).toFixed(2)}</p>
               </div>
               <div>
                 <span className="text-gray-600">Total Cobros:</span>
-                <p className="font-medium">₡{(apertura.total_cobros || 0).toFixed(2)}</p>
+                <p className="font-medium">₡{Number(apertura.total_cobros || 0).toFixed(2)}</p>
               </div>
               <div className="col-span-2">
                 <span className="text-gray-600">Monto Teórico:</span>
