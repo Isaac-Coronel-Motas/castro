@@ -68,7 +68,7 @@ export function ModalNuevoCobro({ onCobroCreated }: ModalNuevoCobroProps) {
   
   const { createCobro, loading: creatingCobro, error: createError } = useCreateCobro();
   const { toast } = useToast();
-  const authenticatedFetch = useAuthenticatedFetch();
+  const { authenticatedFetch } = useAuthenticatedFetch();
 
   const [formData, setFormData] = useState<CobroCreate>({
     venta_id: 0,
@@ -198,7 +198,7 @@ export function ModalNuevoCobro({ onCobroCreated }: ModalNuevoCobroProps) {
       if (result) {
         toast({
           title: 'Cobro creado',
-          description: `Cobro por $${formData.monto.toFixed(2)} creado exitosamente`,
+          description: `Cobro por $${Number(formData.monto).toFixed(2)} creado exitosamente`,
         });
         
         setOpen(false);
@@ -295,7 +295,7 @@ export function ModalNuevoCobro({ onCobroCreated }: ModalNuevoCobroProps) {
                         <div className="flex flex-col">
                           <span className="font-medium">{venta.nro_factura}</span>
                           <span className="text-sm text-muted-foreground">
-                            {venta.cliente_nombre} - ${venta.monto_venta.toFixed(2)}
+                            {venta.cliente_nombre} - ${Number(venta.monto_venta).toFixed(2)}
                           </span>
                         </div>
                       </SelectItem>
@@ -327,7 +327,7 @@ export function ModalNuevoCobro({ onCobroCreated }: ModalNuevoCobroProps) {
                       <span className="font-medium">Teléfono:</span> {venta.cliente_telefono}
                     </div>
                     <div>
-                      <span className="font-medium">Total:</span> ${venta.monto_venta.toFixed(2)}
+                      <span className="font-medium">Total:</span> ${Number(venta.monto_venta).toFixed(2)}
                     </div>
                     <div>
                       <span className="font-medium">Fecha:</span> {new Date(venta.fecha_venta).toLocaleDateString()}

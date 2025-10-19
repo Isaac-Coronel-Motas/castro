@@ -241,9 +241,9 @@ export function ModalNuevaVenta({ onVentaCreated }: { onVentaCreated?: () => voi
       nombre_producto: producto.nombre_producto,
       cod_product: producto.cod_product,
       cantidad: 1,
-      precio_unitario: producto.precio_venta,
+      precio_unitario: Number(producto.precio_venta || 0),
       descuento: 0,
-      subtotal: producto.precio_venta
+      subtotal: Number(producto.precio_venta || 0)
     }
 
     setFormData(prev => ({
@@ -500,7 +500,7 @@ export function ModalNuevaVenta({ onVentaCreated }: { onVentaCreated?: () => voi
                             <div className="font-medium text-sm">{producto.nombre_producto}</div>
                             <div className="text-xs text-muted-foreground">{producto.cod_product}</div>
                             <div className="text-xs text-muted-foreground">Stock: {producto.stock}</div>
-                            <div className="text-sm font-medium">₡{producto.precio_venta.toLocaleString()}</div>
+                            <div className="text-sm font-medium">₡{Number(producto.precio_venta || 0).toLocaleString()}</div>
                           </div>
                           <Button
                             size="sm"
