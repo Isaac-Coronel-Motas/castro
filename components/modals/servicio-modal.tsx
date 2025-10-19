@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Servicio, ServicioFormData } from "@/lib/types/referencias"
 import { X, Save, Settings, DollarSign, FileText } from "lucide-react"
+import { useApi } from "@/hooks/use-api"
 
 interface ServicioModalProps {
   isOpen: boolean
@@ -23,6 +24,13 @@ interface FormErrors {
   precio_base?: string
 }
 
+interface TipoServicio {
+  tipo_serv_id: number
+  descripcion: string
+  nombre: string
+  activo: boolean
+}
+
 export function ServicioModal({ isOpen, onClose, onSave, servicio, title }: ServicioModalProps) {
   const [formData, setFormData] = useState<ServicioFormData>({
     nombre: "",
@@ -33,6 +41,13 @@ export function ServicioModal({ isOpen, onClose, onSave, servicio, title }: Serv
   
   const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
+
+  // Obtener tipos de servicio dinámicamente
+  const {
+    data: tiposServicio,
+    loading: tiposLoading,
+    error: tiposError
+  } = useApi<TipoServicio>('/api/referencias/tipos-servicio/select')
 
   useEffect(() => {
     if (servicio) {
@@ -182,18 +197,36 @@ export function ServicioModal({ isOpen, onClose, onSave, servicio, title }: Serv
                 <Select
                   value={formData.tipo_serv_id?.toString() || ""}
                   onValueChange={(value) => handleInputChange("tipo_serv_id", parseInt(value))}
+                  disabled={tiposLoading}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un tipo de servicio" />
+                    <SelectValue placeholder={
+                      tiposLoading 
+                        ? "Cargando tipos..." 
+                        : tiposError 
+                          ? "Error al cargar tipos" 
+                          : "Selecciona un tipo de servicio"
+                    } />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Reparación</SelectItem>
-                    <SelectItem value="2">Instalación</SelectItem>
-                    <SelectItem value="3">Mantenimiento</SelectItem>
-                    <SelectItem value="4">Diagnóstico</SelectItem>
-                    <SelectItem value="5">Otros</SelectItem>
+                    {tiposServicio && tiposServicio.length > 0 ? (
+                      tiposServicio.map((tipo) => (
+                        <SelectItem key={tipo.tipo_serv_id} value={tipo.tipo_serv_id.toString()}>
+                          {tipo.descripcion}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>
+                        {tiposLoading ? "Cargando..." : "No hay tipos disponibles"}
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
+                {tiposError && (
+                  <p className="text-red-500 text-sm mt-1">
+                    Error al cargar tipos de servicio: {tiposError}
+                  </p>
+                )}
               </div>
             </div>
 
