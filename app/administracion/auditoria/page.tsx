@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AppLayout } from "@/components/app-layout"
 import { DataTable } from "@/components/data-table"
+import { ExportLogsModal } from "@/components/modals/export-logs-modal"
+import { exportLogsToPDF, exportLogsToExcel, LogAuditoria } from "@/lib/utils/export-logs"
+import { useToast } from "@/hooks/use-toast"
 import {
   Clock,
   Activity,
@@ -15,19 +18,9 @@ import {
   Eye,
 } from "lucide-react"
 
-interface LogAuditoria {
-  id: number;
-  fecha_hora: string;
-  usuario: string;
-  accion: string;
-  modulo: string;
-  detalles: string;
-  ip: string;
-  resultado: string;
-  created_at: string;
-}
-
 export default function AuditoriaPage() {
+  const { toast } = useToast()
+  
   // Simulamos datos de auditoría ya que no hay API específica implementada
   const [logsAuditoria] = useState<LogAuditoria[]>([
     {
@@ -123,6 +116,7 @@ export default function AuditoriaPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [loading] = useState(false)
   const [error] = useState<string | null>(null)
+  const [showExportModal, setShowExportModal] = useState(false)
 
   const handleSearch = (term: string) => {
     setSearchTerm(term)
@@ -134,8 +128,50 @@ export default function AuditoriaPage() {
   }
 
   const handleExport = () => {
-    // TODO: Implement export functionality
-    console.log('Export logs')
+    setShowExportModal(true)
+  }
+
+  const handleExportFormat = (format: 'pdf' | 'excel') => {
+    const logsToExport = filteredLogs.length > 0 ? filteredLogs : logsAuditoria
+    
+    try {
+      if (format === 'pdf') {
+        const result = exportLogsToPDF(logsToExport)
+        if (result.success) {
+          toast({
+            title: "Exportación exitosa",
+            description: "El archivo PDF se ha descargado correctamente.",
+          })
+        } else {
+          toast({
+            title: "Error en la exportación",
+            description: result.message,
+            variant: "destructive",
+          })
+        }
+      } else if (format === 'excel') {
+        const result = exportLogsToExcel(logsToExport)
+        if (result.success) {
+          toast({
+            title: "Exportación exitosa",
+            description: "El archivo Excel se ha descargado correctamente.",
+          })
+        } else {
+          toast({
+            title: "Error en la exportación",
+            description: result.message,
+            variant: "destructive",
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error en exportación:', error)
+      toast({
+        title: "Error en la exportación",
+        description: "Ocurrió un error inesperado durante la exportación.",
+        variant: "destructive",
+      })
+    }
   }
 
   const getResultadoBadge = (resultado: string) => {
@@ -302,6 +338,13 @@ export default function AuditoriaPage() {
         createButtonText=""
         searchPlaceholder="Buscar en logs de auditoría..."
         emptyMessage="No se encontraron registros de auditoría que coincidan con la búsqueda."
+      />
+
+      <ExportLogsModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExport={handleExportFormat}
+        dataCount={filteredLogs.length > 0 ? filteredLogs.length : logsAuditoria.length}
       />
     </AppLayout>
   )
