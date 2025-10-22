@@ -57,7 +57,7 @@ export function NotaCreditoDebitoModal({
   tipoOperacion 
 }: NotaCreditoDebitoModalProps) {
   const { user } = useAuth()
-  const authenticatedFetch = useAuthenticatedFetch()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   
   const [formData, setFormData] = useState<CreateNotaCreditoDebitoRequest>({
     tipo_operacion: tipoOperacion,

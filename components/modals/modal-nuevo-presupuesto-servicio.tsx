@@ -64,7 +64,7 @@ export function ModalNuevoPresupuestoServicio({ onPresupuestoCreated }: ModalNue
   
   const { createPresupuesto, loading: creatingPresupuesto, error: createError } = useCreatePresupuestoServicio();
   const { toast } = useToast();
-  const authenticatedFetch = useAuthenticatedFetch();
+  const { authenticatedFetch } = useAuthenticatedFetch();
 
   const [formData, setFormData] = useState<PresupuestoServicioCreate>({
     fecha_presupuesto: new Date().toISOString().split('T')[0],

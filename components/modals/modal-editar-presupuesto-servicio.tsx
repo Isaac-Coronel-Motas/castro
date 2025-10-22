@@ -71,7 +71,7 @@ export function ModalEditarPresupuestoServicio({
   
   const { updatePresupuesto, loading: updatingPresupuesto, error: updateError } = useUpdatePresupuestoServicio();
   const { toast } = useToast();
-  const authenticatedFetch = useAuthenticatedFetch();
+  const { authenticatedFetch } = useAuthenticatedFetch();
 
   const [formData, setFormData] = useState<PresupuestoServicioUpdate>({
     estado: 'pendiente',

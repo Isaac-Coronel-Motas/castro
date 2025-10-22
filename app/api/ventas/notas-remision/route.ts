@@ -190,6 +190,7 @@ export async function POST(request: NextRequest) {
       destino_almacen_id, 
       tipo_remision, 
       referencia_id, 
+      nro_timbrado,
       observaciones,
       detalles = []
     } = body;
@@ -307,8 +308,8 @@ export async function POST(request: NextRequest) {
       const createNotaQuery = `
         INSERT INTO nota_remision (
           fecha_remision, usuario_id, origen_almacen_id, destino_sucursal_id, 
-          destino_almacen_id, tipo_remision, referencia_id, estado, observaciones
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          destino_almacen_id, tipo_remision, referencia_id, nro_timbrado, estado, observaciones
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING remision_id
       `;
 
@@ -320,6 +321,7 @@ export async function POST(request: NextRequest) {
         destino_almacen_id || null,
         tipo_remision,
         referencia_id || null,
+        nro_timbrado || null,
         'activo',
         observaciones || null
       ]);

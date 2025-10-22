@@ -25,17 +25,12 @@ export default function RecepcionEquiposPage() {
     error,
     pagination,
     search,
-    sort,
-    page,
-    limit,
-    handleSearch,
-    handleSort,
-    handlePageChange,
-    handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
-    refresh
+    setSorting,
+    setPagination,
+    create,
+    update,
+    delete: deleteItem,
+    refetch: refresh
   } = useApi<RecepcionEquipo>('/api/servicios/recepcion-equipos')
 
   const columns = [
@@ -189,14 +184,28 @@ export default function RecepcionEquiposPage() {
   }
 
   const handleSave = async (data: CreateRecepcionEquipoRequest | UpdateRecepcionEquipoRequest) => {
+    console.log('handleSave llamado con:', data)
+    console.log('modalMode:', modalMode)
     try {
       if (modalMode === 'create') {
-        await createItem(data as CreateRecepcionEquipoRequest)
+        console.log('Creando nueva recepción...')
+        const result = await create(data as CreateRecepcionEquipoRequest)
+        if (result.success) {
+          setIsModalOpen(false)
+          setSelectedRecepcion(null)
+        } else {
+          console.error('Error creando recepción:', result.errors)
+        }
       } else {
-        await updateItem((data as UpdateRecepcionEquipoRequest).recepcion_id!, data as UpdateRecepcionEquipoRequest)
+        console.log('Actualizando recepción...')
+        const result = await update((data as UpdateRecepcionEquipoRequest).recepcion_id!, data as UpdateRecepcionEquipoRequest)
+        if (result.success) {
+          setIsModalOpen(false)
+          setSelectedRecepcion(null)
+        } else {
+          console.error('Error actualizando recepción:', result.errors)
+        }
       }
-      setIsModalOpen(false)
-      setSelectedRecepcion(null)
     } catch (error) {
       console.error('Error guardando recepción:', error)
     }
@@ -318,11 +327,10 @@ export default function RecepcionEquiposPage() {
               error={error}
               pagination={pagination}
               search={search}
-              sort={sort}
-              onSearch={handleSearch}
-              onSort={handleSort}
-              onPageChange={handlePageChange}
-              onLimitChange={handleLimitChange}
+              onSearch={search}
+              onSort={(sortBy, sortOrder) => setSorting(sortBy, sortOrder)}
+              onPageChange={(page) => setPagination(page, pagination?.limit || 10)}
+              onLimitChange={(limit) => setPagination(pagination?.page || 1, limit)}
               searchPlaceholder="Buscar recepciones..."
             />
           </CardContent>

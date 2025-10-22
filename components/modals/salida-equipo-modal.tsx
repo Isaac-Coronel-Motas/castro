@@ -26,23 +26,16 @@ export function SalidaEquipoModal({ isOpen, onClose, onSave, salida, mode }: Sal
   const { user } = useAuth()
   const { authenticatedFetch } = useAuthenticatedFetch()
   const [formData, setFormData] = useState<CreateSalidaEquipoRequest>({
-    fecha_salida: new Date().toISOString().split('T')[0],
-    estado: 'pendiente_notificacion',
-    metodo_entrega: 'retiro_taller',
-    observaciones: '',
-    usuario_id: user?.usuario_id || 0,
-    sucursal_id: 0,
-    orden_servicio_id: 0,
-    cliente_id: 0,
-    direccion_entrega: '',
-    telefono_contacto: '',
-    costo_envio: 0
+    recepcion_id: 0,
+    entregado_por: user?.usuario_id || 0,
+    retirado_por: '',
+    documento_entrega: '',
+    observaciones: ''
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
-  const [sucursales, setSucursales] = useState<any[]>([])
-  const [ordenesServicio, setOrdenesServicio] = useState<any[]>([])
-  const [clientes, setClientes] = useState<any[]>([])
+  const [recepciones, setRecepciones] = useState<any[]>([])
+  const [usuarios, setUsuarios] = useState<any[]>([])
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -50,43 +43,30 @@ export function SalidaEquipoModal({ isOpen, onClose, onSave, salida, mode }: Sal
       loadInitialData()
       if (salida && mode !== 'create') {
         setFormData({
-          fecha_salida: salida.fecha_salida,
-          estado: salida.estado,
-          metodo_entrega: salida.metodo_entrega,
-          observaciones: salida.observaciones || '',
-          usuario_id: salida.usuario_id || 0,
-          sucursal_id: salida.sucursal_id || 0,
-          orden_servicio_id: salida.orden_servicio_id || 0,
-          cliente_id: salida.cliente_id || 0,
-          direccion_entrega: salida.direccion_entrega || '',
-          telefono_contacto: salida.telefono_contacto || '',
-          costo_envio: salida.costo_envio || 0
+          recepcion_id: salida.recepcion_id || 0,
+          entregado_por: salida.entregado_por || user?.usuario_id || 0,
+          retirado_por: salida.retirado_por || '',
+          documento_entrega: salida.documento_entrega || '',
+          observaciones: salida.observaciones || ''
         })
       }
     }
-  }, [isOpen, salida, mode])
+  }, [isOpen, salida, mode, user])
 
   const loadInitialData = async () => {
     try {
-      // Cargar sucursales
-      const sucursalesRes = await authenticatedFetch('/api/referencias/sucursales')
-      const sucursalesData = await sucursalesRes.json()
-      if (sucursalesData.success) {
-        setSucursales(sucursalesData.data)
+      // Cargar recepciones procesadas (listas para retiro)
+      const recepcionesRes = await authenticatedFetch('/api/servicios/recepcion-equipos?estado_recepcion=Recepcionada')
+      const recepcionesData = await recepcionesRes.json()
+      if (recepcionesData.success) {
+        setRecepciones(recepcionesData.data)
       }
 
-      // Cargar órdenes de servicio completadas
-      const ordenesRes = await authenticatedFetch('/api/servicios/ordenes-servicio?estado=completado')
-      const ordenesData = await ordenesRes.json()
-      if (ordenesData.success) {
-        setOrdenesServicio(ordenesData.data)
-      }
-
-      // Cargar clientes
-      const clientesRes = await authenticatedFetch('/api/referencias/clientes')
-      const clientesData = await clientesRes.json()
-      if (clientesData.success) {
-        setClientes(clientesData.data)
+      // Cargar usuarios
+      const usuariosRes = await authenticatedFetch('/api/usuarios')
+      const usuariosData = await usuariosRes.json()
+      if (usuariosData.success) {
+        setUsuarios(usuariosData.data)
       }
     } catch (error) {
       console.error('Error cargando datos iniciales:', error)
@@ -111,33 +91,16 @@ export function SalidaEquipoModal({ isOpen, onClose, onSave, salida, mode }: Sal
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {}
 
-    if (!formData.sucursal_id) {
-      newErrors.sucursal_id = 'La sucursal es requerida'
+    if (!formData.recepcion_id || formData.recepcion_id === 0) {
+      newErrors.recepcion_id = 'La recepción es requerida'
     }
 
-    if (!formData.orden_servicio_id) {
-      newErrors.orden_servicio_id = 'La orden de servicio es requerida'
+    if (!formData.entregado_por || formData.entregado_por === 0) {
+      newErrors.entregado_por = 'El usuario que entrega es requerido'
     }
 
-    if (!formData.cliente_id) {
-      newErrors.cliente_id = 'El cliente es requerido'
-    }
-
-    if (!formData.fecha_salida) {
-      newErrors.fecha_salida = 'La fecha de salida es requerida'
-    }
-
-    if (formData.metodo_entrega === 'entrega_domicilio' || formData.metodo_entrega === 'envio_courier') {
-      if (!formData.direccion_entrega) {
-        newErrors.direccion_entrega = 'La dirección de entrega es requerida'
-      }
-      if (!formData.telefono_contacto) {
-        newErrors.telefono_contacto = 'El teléfono de contacto es requerido'
-      }
-    }
-
-    if (formData.metodo_entrega === 'envio_courier' && (!formData.costo_envio || formData.costo_envio <= 0)) {
-      newErrors.costo_envio = 'El costo de envío es requerido'
+    if (!formData.retirado_por || formData.retirado_por.trim() === '') {
+      newErrors.retirado_por = 'El nombre de quien retira es requerido'
     }
 
     setErrors(newErrors)
@@ -166,57 +129,27 @@ export function SalidaEquipoModal({ isOpen, onClose, onSave, salida, mode }: Sal
     }
   }
 
-  const getEstadoColor = (estado: string) => {
-    const colores: { [key: string]: string } = {
-      'pendiente_notificacion': 'bg-yellow-500 text-white',
-      'cliente_notificado': 'bg-blue-500 text-white',
-      'listo_retiro': 'bg-green-500 text-white',
-      'retirado': 'bg-gray-500 text-white',
-      'entrega_domicilio': 'bg-purple-500 text-white'
-    }
-    return colores[estado] || 'bg-muted text-muted-foreground'
+  const getRecepcionInfo = (recepcionId: number) => {
+    const recepcion = recepciones.find(r => r.recepcion_id === recepcionId)
+    return recepcion ? `${recepcion.nro_recepcion} - ${recepcion.cliente_nombre}` : 'Seleccionar recepción'
   }
 
-  const getEstadoLabel = (estado: string) => {
-    const labels: { [key: string]: string } = {
-      'pendiente_notificacion': 'Pendiente Notificación',
-      'cliente_notificado': 'Cliente Notificado',
-      'listo_retiro': 'Listo para Retiro',
-      'retirado': 'Retirado',
-      'entrega_domicilio': 'Entrega a Domicilio'
-    }
-    return labels[estado] || estado
-  }
-
-  const getMetodoEntregaColor = (metodo: string) => {
-    const colores: { [key: string]: string } = {
-      'retiro_taller': 'bg-blue-500 text-white',
-      'entrega_domicilio': 'bg-purple-500 text-white',
-      'envio_courier': 'bg-orange-500 text-white'
-    }
-    return colores[metodo] || 'bg-muted text-muted-foreground'
-  }
-
-  const getMetodoEntregaLabel = (metodo: string) => {
-    const labels: { [key: string]: string } = {
-      'retiro_taller': 'Retiro en Taller',
-      'entrega_domicilio': 'Entrega a Domicilio',
-      'envio_courier': 'Envío por Courier'
-    }
-    return labels[metodo] || metodo
+  const getUsuarioInfo = (usuarioId: number) => {
+    const usuario = usuarios.find(u => u.usuario_id === usuarioId)
+    return usuario ? `${usuario.nombre} ${usuario.apellido}` : 'Seleccionar usuario'
   }
 
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-background rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-background rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-foreground">
-              {mode === 'create' ? 'Nueva Salida de Equipo' : 
-               mode === 'edit' ? 'Editar Salida de Equipo' : 
-               'Ver Salida de Equipo'}
+              {mode === 'create' ? 'Nuevo Retiro de Equipo' : 
+               mode === 'edit' ? 'Editar Retiro de Equipo' : 
+               'Ver Retiro de Equipo'}
             </h2>
             <Button variant="ghost" onClick={onClose}>
               ✕
@@ -224,137 +157,91 @@ export function SalidaEquipoModal({ isOpen, onClose, onSave, salida, mode }: Sal
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Información General */}
+            {/* Información del Retiro */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <PackageCheck className="h-5 w-5" />
-                  Información General
+                  Información del Retiro
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fecha_salida">Fecha de Salida</Label>
-                    <Input
-                      id="fecha_salida"
-                      type="date"
-                      value={formData.fecha_salida || ''}
-                      onChange={(e) => handleInputChange('fecha_salida', e.target.value)}
-                      disabled={mode === 'view'}
-                      className={errors.fecha_salida ? 'border-red-500' : ''}
-                    />
-                    {errors.fecha_salida && (
-                      <p className="text-sm text-red-500">{errors.fecha_salida}</p>
-                    )}
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="recepcion_id">Recepción de Equipo</Label>
+                  <Select
+                    value={formData.recepcion_id?.toString()}
+                    onValueChange={(value) => handleInputChange('recepcion_id', parseInt(value))}
+                    disabled={mode === 'view'}
+                  >
+                    <SelectTrigger className={errors.recepcion_id ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Seleccionar recepción">
+                        {formData.recepcion_id ? getRecepcionInfo(formData.recepcion_id) : 'Seleccionar recepción'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {recepciones.map((recepcion) => (
+                        <SelectItem key={recepcion.recepcion_id} value={recepcion.recepcion_id.toString()}>
+                          {recepcion.nro_recepcion} - {recepcion.cliente_nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.recepcion_id && (
+                    <p className="text-sm text-red-500">{errors.recepcion_id}</p>
+                  )}
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="estado">Estado</Label>
-                    <Select
-                      value={formData.estado}
-                      onValueChange={(value) => handleInputChange('estado', value)}
-                      disabled={mode === 'view'}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar estado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pendiente_notificacion">Pendiente Notificación</SelectItem>
-                        <SelectItem value="cliente_notificado">Cliente Notificado</SelectItem>
-                        <SelectItem value="listo_retiro">Listo para Retiro</SelectItem>
-                        <SelectItem value="retirado">Retirado</SelectItem>
-                        <SelectItem value="entrega_domicilio">Entrega a Domicilio</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="entregado_por">Entregado por</Label>
+                  <Select
+                    value={formData.entregado_por?.toString()}
+                    onValueChange={(value) => handleInputChange('entregado_por', parseInt(value))}
+                    disabled={mode === 'view'}
+                  >
+                    <SelectTrigger className={errors.entregado_por ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Seleccionar usuario">
+                        {formData.entregado_por ? getUsuarioInfo(formData.entregado_por) : 'Seleccionar usuario'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {usuarios.map((usuario) => (
+                        <SelectItem key={usuario.usuario_id} value={usuario.usuario_id.toString()}>
+                          {usuario.nombre} {usuario.apellido}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.entregado_por && (
+                    <p className="text-sm text-red-500">{errors.entregado_por}</p>
+                  )}
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="metodo_entrega">Método de Entrega</Label>
-                    <Select
-                      value={formData.metodo_entrega}
-                      onValueChange={(value) => handleInputChange('metodo_entrega', value)}
-                      disabled={mode === 'view'}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar método" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="retiro_taller">Retiro en Taller</SelectItem>
-                        <SelectItem value="entrega_domicilio">Entrega a Domicilio</SelectItem>
-                        <SelectItem value="envio_courier">Envío por Courier</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="retirado_por">Retirado por</Label>
+                  <Input
+                    id="retirado_por"
+                    type="text"
+                    value={formData.retirado_por || ''}
+                    onChange={(e) => handleInputChange('retirado_por', e.target.value)}
+                    disabled={mode === 'view'}
+                    placeholder="Nombre completo de quien retira el equipo"
+                    className={errors.retirado_por ? 'border-red-500' : ''}
+                  />
+                  {errors.retirado_por && (
+                    <p className="text-sm text-red-500">{errors.retirado_por}</p>
+                  )}
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="sucursal_id">Sucursal</Label>
-                    <Select
-                      value={formData.sucursal_id?.toString()}
-                      onValueChange={(value) => handleInputChange('sucursal_id', parseInt(value))}
-                      disabled={mode === 'view'}
-                    >
-                      <SelectTrigger className={errors.sucursal_id ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Seleccionar sucursal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sucursales.map((sucursal) => (
-                          <SelectItem key={sucursal.sucursal_id} value={sucursal.sucursal_id.toString()}>
-                            {sucursal.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.sucursal_id && (
-                      <p className="text-sm text-red-500">{errors.sucursal_id}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="orden_servicio_id">Orden de Servicio</Label>
-                    <Select
-                      value={formData.orden_servicio_id?.toString()}
-                      onValueChange={(value) => handleInputChange('orden_servicio_id', parseInt(value))}
-                      disabled={mode === 'view'}
-                    >
-                      <SelectTrigger className={errors.orden_servicio_id ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Seleccionar orden" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ordenesServicio.map((orden) => (
-                          <SelectItem key={orden.orden_servicio_id} value={orden.orden_servicio_id.toString()}>
-                            #{orden.nro_orden || orden.orden_servicio_id} - {orden.cliente_nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.orden_servicio_id && (
-                      <p className="text-sm text-red-500">{errors.orden_servicio_id}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cliente_id">Cliente</Label>
-                    <Select
-                      value={formData.cliente_id?.toString()}
-                      onValueChange={(value) => handleInputChange('cliente_id', parseInt(value))}
-                      disabled={mode === 'view'}
-                    >
-                      <SelectTrigger className={errors.cliente_id ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Seleccionar cliente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clientes.map((cliente) => (
-                          <SelectItem key={cliente.cliente_id} value={cliente.cliente_id.toString()}>
-                            {cliente.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.cliente_id && (
-                      <p className="text-sm text-red-500">{errors.cliente_id}</p>
-                    )}
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="documento_entrega">Documento de Entrega</Label>
+                  <Input
+                    id="documento_entrega"
+                    type="text"
+                    value={formData.documento_entrega || ''}
+                    onChange={(e) => handleInputChange('documento_entrega', e.target.value)}
+                    disabled={mode === 'view'}
+                    placeholder="DNI, Cédula, Pasaporte, etc."
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -364,113 +251,55 @@ export function SalidaEquipoModal({ isOpen, onClose, onSave, salida, mode }: Sal
                     value={formData.observaciones || ''}
                     onChange={(e) => handleInputChange('observaciones', e.target.value)}
                     disabled={mode === 'view'}
-                    placeholder="Observaciones sobre la salida del equipo..."
+                    placeholder="Observaciones sobre el retiro del equipo..."
                     rows={3}
                   />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Información de Entrega */}
-            {(formData.metodo_entrega === 'entrega_domicilio' || formData.metodo_entrega === 'envio_courier') && (
+            {/* Información de la Recepción Seleccionada */}
+            {formData.recepcion_id && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Información de Entrega
+                    <Building className="h-5 w-5" />
+                    Información de la Recepción
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="direccion_entrega">Dirección de Entrega</Label>
-                      <Textarea
-                        id="direccion_entrega"
-                        value={formData.direccion_entrega || ''}
-                        onChange={(e) => handleInputChange('direccion_entrega', e.target.value)}
-                        disabled={mode === 'view'}
-                        placeholder="Dirección completa de entrega..."
-                        rows={3}
-                        className={errors.direccion_entrega ? 'border-red-500' : ''}
-                      />
-                      {errors.direccion_entrega && (
-                        <p className="text-sm text-red-500">{errors.direccion_entrega}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="telefono_contacto">Teléfono de Contacto</Label>
-                      <Input
-                        id="telefono_contacto"
-                        type="tel"
-                        value={formData.telefono_contacto || ''}
-                        onChange={(e) => handleInputChange('telefono_contacto', e.target.value)}
-                        disabled={mode === 'view'}
-                        placeholder="Número de teléfono..."
-                        className={errors.telefono_contacto ? 'border-red-500' : ''}
-                      />
-                      {errors.telefono_contacto && (
-                        <p className="text-sm text-red-500">{errors.telefono_contacto}</p>
-                      )}
-                    </div>
-
-                    {formData.metodo_entrega === 'envio_courier' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="costo_envio">Costo de Envío</Label>
-                        <Input
-                          id="costo_envio"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={formData.costo_envio || ''}
-                          onChange={(e) => handleInputChange('costo_envio', parseFloat(e.target.value) || 0)}
-                          disabled={mode === 'view'}
-                          placeholder="0.00"
-                          className={errors.costo_envio ? 'border-red-500' : ''}
-                        />
-                        {errors.costo_envio && (
-                          <p className="text-sm text-red-500">{errors.costo_envio}</p>
-                        )}
+                <CardContent>
+                  {(() => {
+                    const recepcion = recepciones.find(r => r.recepcion_id === formData.recepcion_id)
+                    if (!recepcion) return null
+                    
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Número de Recepción</p>
+                          <p className="font-medium">{recepcion.nro_recepcion}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Cliente</p>
+                          <p className="font-medium">{recepcion.cliente_nombre}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Fecha de Recepción</p>
+                          <p className="font-medium">
+                            {new Date(recepcion.fecha_recepcion).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Estado</p>
+                          <Badge variant="outline" className="bg-green-100 text-green-800">
+                            {recepcion.estado_recepcion}
+                          </Badge>
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    )
+                  })()}
                 </CardContent>
               </Card>
             )}
-
-            {/* Resumen */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Resumen de la Salida
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 border rounded-lg">
-                    <p className="text-sm text-muted-foreground">Estado</p>
-                    <Badge className={getEstadoColor(formData.estado)}>
-                      {getEstadoLabel(formData.estado)}
-                    </Badge>
-                  </div>
-                  <div className="text-center p-4 border rounded-lg">
-                    <p className="text-sm text-muted-foreground">Método de Entrega</p>
-                    <Badge className={getMetodoEntregaColor(formData.metodo_entrega)}>
-                      {getMetodoEntregaLabel(formData.metodo_entrega)}
-                    </Badge>
-                  </div>
-                  {formData.costo_envio > 0 && (
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-sm text-muted-foreground">Costo de Envío</p>
-                      <p className="text-lg font-bold text-foreground">
-                        ₡{formData.costo_envio.toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Botones de Acción */}
             {mode !== 'view' && (
@@ -479,7 +308,7 @@ export function SalidaEquipoModal({ isOpen, onClose, onSave, salida, mode }: Sal
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? 'Guardando...' : 'Guardar'}
+                  {loading ? 'Guardando...' : 'Guardar Retiro'}
                 </Button>
               </div>
             )}

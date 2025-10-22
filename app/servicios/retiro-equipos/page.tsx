@@ -25,17 +25,12 @@ export default function RetiroEquiposPage() {
     error,
     pagination,
     search,
-    sort,
-    page,
-    limit,
-    handleSearch,
-    handleSort,
-    handlePageChange,
-    handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
-    refresh
+    setSorting,
+    setPagination,
+    create,
+    update,
+    delete: deleteItem,
+    refetch: refresh
   } = useApi<SalidaEquipo>('/api/servicios/retiro-equipos')
 
   const columns = [
@@ -206,12 +201,22 @@ export default function RetiroEquiposPage() {
   const handleSave = async (data: CreateSalidaEquipoRequest | UpdateSalidaEquipoRequest) => {
     try {
       if (modalMode === 'create') {
-        await createItem(data as CreateSalidaEquipoRequest)
+        const result = await create(data as CreateSalidaEquipoRequest)
+        if (result.success) {
+          setIsModalOpen(false)
+          setSelectedSalida(null)
+        } else {
+          console.error('Error creando salida de equipo:', result.errors)
+        }
       } else {
-        await updateItem((data as UpdateSalidaEquipoRequest).salida_equipo_id!, data as UpdateSalidaEquipoRequest)
+        const result = await update((data as UpdateSalidaEquipoRequest).salida_equipo_id!, data as UpdateSalidaEquipoRequest)
+        if (result.success) {
+          setIsModalOpen(false)
+          setSelectedSalida(null)
+        } else {
+          console.error('Error actualizando salida de equipo:', result.errors)
+        }
       }
-      setIsModalOpen(false)
-      setSelectedSalida(null)
     } catch (error) {
       console.error('Error guardando salida de equipo:', error)
     }
@@ -363,11 +368,10 @@ export default function RetiroEquiposPage() {
               error={error}
               pagination={pagination}
               search={search}
-              sort={sort}
-              onSearch={handleSearch}
-              onSort={handleSort}
-              onPageChange={handlePageChange}
-              onLimitChange={handleLimitChange}
+              onSearch={search}
+              onSort={(sortBy, sortOrder) => setSorting(sortBy, sortOrder)}
+              onPageChange={(page) => setPagination(page, pagination?.limit || 10)}
+              onLimitChange={(limit) => setPagination(pagination?.page || 1, limit)}
               searchPlaceholder="Buscar retiros..."
             />
           </CardContent>

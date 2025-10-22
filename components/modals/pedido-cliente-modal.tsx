@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useAuth } from "@/contexts/auth-context"
+import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { PedidoCliente, PedidoFormData, ProductoDisponible, Cliente } from "@/lib/types/pedidos-clientes"
 import { Plus, Minus, Trash2, Search, Package, DollarSign, User } from "lucide-react"
 
@@ -29,6 +31,9 @@ export function PedidoClienteModal({
   pedido, 
   mode 
 }: PedidoClienteModalProps) {
+  const { token } = useAuth()
+  const { authenticatedFetch } = useAuthenticatedFetch()
+  
   const [formData, setFormData] = useState<PedidoFormData>({
     cliente_id: 0,
     fecha_venta: new Date().toISOString().split('T')[0],
@@ -91,11 +96,18 @@ export function PedidoClienteModal({
   }, [searchTerm, productos])
 
   const loadClientes = async () => {
+    if (!token) {
+      console.error('No hay token de autenticación')
+      return
+    }
+    
     try {
-      const response = await fetch('/api/referencias/clientes')
+      const response = await authenticatedFetch('/api/referencias/clientes')
       if (response.ok) {
         const data = await response.json()
         setClientes(data.data || [])
+      } else {
+        console.error('Error al cargar clientes:', response.status, response.statusText)
       }
     } catch (error) {
       console.error('Error al cargar clientes:', error)
@@ -103,11 +115,18 @@ export function PedidoClienteModal({
   }
 
   const loadProductos = async () => {
+    if (!token) {
+      console.error('No hay token de autenticación')
+      return
+    }
+    
     try {
-      const response = await fetch('/api/ventas/productos-disponibles')
+      const response = await authenticatedFetch('/api/ventas/productos-disponibles')
       if (response.ok) {
         const data = await response.json()
         setProductos(data.data || [])
+      } else {
+        console.error('Error al cargar productos:', response.status, response.statusText)
       }
     } catch (error) {
       console.error('Error al cargar productos:', error)
@@ -219,31 +238,34 @@ export function PedidoClienteModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-w-6xl w-full h-[95vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="text-2xl font-bold">
             {mode === 'create' && 'Nuevo Pedido de Cliente'}
             {mode === 'edit' && 'Editar Pedido de Cliente'}
             {mode === 'view' && 'Ver Pedido de Cliente'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-full overflow-y-auto">
+        <div className="flex-1 overflow-y-auto space-y-8 px-1">
           {/* Información del Pedido */}
-          <div className="xl:col-span-1 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Información del Pedido</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <Card className="bg-gray-50">
+            <CardHeader className="pb-6">
+              <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Información del Pedido
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
-                  <Label htmlFor="cliente_id">Cliente *</Label>
+                  <Label htmlFor="cliente_id" className="text-sm font-medium">Cliente *</Label>
                   <Select
                     value={formData.cliente_id.toString()}
                     onValueChange={(value) => setFormData({ ...formData, cliente_id: parseInt(value) })}
                     disabled={isReadOnly}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Seleccionar cliente" />
                     </SelectTrigger>
                     <SelectContent>
@@ -260,13 +282,14 @@ export function PedidoClienteModal({
                 </div>
 
                 <div>
-                  <Label htmlFor="fecha_venta">Fecha *</Label>
+                  <Label htmlFor="fecha_venta" className="text-sm font-medium">Fecha *</Label>
                   <Input
                     id="fecha_venta"
                     type="date"
                     value={formData.fecha_venta}
                     onChange={(e) => setFormData({ ...formData, fecha_venta: e.target.value })}
                     disabled={isReadOnly}
+                    className="mt-2"
                   />
                   {errors.fecha_venta && (
                     <p className="text-sm text-red-500 mt-1">{errors.fecha_venta}</p>
@@ -274,13 +297,13 @@ export function PedidoClienteModal({
                 </div>
 
                 <div>
-                  <Label htmlFor="tipo_documento">Tipo de Documento</Label>
+                  <Label htmlFor="tipo_documento" className="text-sm font-medium">Tipo de Documento</Label>
                   <Select
                     value={formData.tipo_documento}
                     onValueChange={(value) => setFormData({ ...formData, tipo_documento: value })}
                     disabled={isReadOnly}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -292,7 +315,7 @@ export function PedidoClienteModal({
                 </div>
 
                 <div>
-                  <Label htmlFor="estado">Estado</Label>
+                  <Label htmlFor="estado" className="text-sm font-medium">Estado</Label>
                   <Select
                     value={formData.estado}
                     onValueChange={(value: 'abierto' | 'cerrado' | 'cancelado') => 
@@ -300,7 +323,7 @@ export function PedidoClienteModal({
                     }
                     disabled={isReadOnly}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -311,223 +334,227 @@ export function PedidoClienteModal({
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="observaciones">Observaciones</Label>
+                <div className="md:col-span-2 lg:col-span-3">
+                  <Label htmlFor="observaciones" className="text-sm font-medium">Observaciones</Label>
                   <Textarea
                     id="observaciones"
                     value={formData.observaciones}
                     onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
                     disabled={isReadOnly}
-                    rows={3}
+                    placeholder="Observaciones adicionales sobre el pedido..."
+                    className="mt-2 min-h-[100px] resize-y"
+                    rows={4}
                   />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Resumen del Pedido */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Resumen del Pedido</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Cliente:</span>
-                  <span className="font-medium">{getClienteNombre(formData.cliente_id)}</span>
+          {/* Productos del Pedido */}
+          <Card className="bg-gray-50">
+            <CardHeader className="pb-6">
+              <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Productos del Pedido
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.productos.length === 0 ? (
+                <div className="text-center py-12">
+                  <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg mb-2">No hay productos agregados</p>
+                  <p className="text-gray-400 text-sm">Agregue productos desde la sección de búsqueda</p>
                 </div>
-                <div className="flex justify-between">
-                  <span>Productos:</span>
-                  <span className="font-medium">{formData.productos.length}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Total:</span>
-                  <span>${getTotal().toFixed(2)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Productos */}
-          <div className="xl:col-span-2 space-y-4">
-            {/* Lista de Productos Agregados */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Productos del Pedido</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {formData.productos.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No hay productos agregados</p>
-                ) : (
-                  <div className="space-y-3">
-                    {formData.productos.map((producto, index) => (
-                      <div key={index} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-900">{getProductoNombre(producto.producto_id)}</h4>
-                          </div>
-                          {!isReadOnly && (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => removeProducto(index)}
-                              className="ml-2"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+              ) : (
+                <div className="space-y-4">
+                  {formData.productos.map((producto, index) => (
+                    <div key={index} className="border rounded-lg p-6 bg-white hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 text-lg">{getProductoNombre(producto.producto_id)}</h4>
+                        </div>
+                        {!isReadOnly && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => removeProducto(index)}
+                            className="ml-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Cantidad</Label>
+                          {!isReadOnly ? (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateProductoCantidad(index, Math.max(1, producto.cantidad - 1))}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Input
+                                type="number"
+                                value={producto.cantidad}
+                                onChange={(e) => updateProductoCantidad(index, parseInt(e.target.value) || 1)}
+                                className="w-20 text-center"
+                                min="1"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateProductoCantidad(index, producto.cantidad + 1)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-600 mt-2">{producto.cantidad}</p>
                           )}
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700">Cantidad</Label>
-                            {!isReadOnly ? (
-                              <div className="flex items-center gap-2 mt-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updateProductoCantidad(index, Math.max(1, producto.cantidad - 1))}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </Button>
-                                <Input
-                                  type="number"
-                                  value={producto.cantidad}
-                                  onChange={(e) => updateProductoCantidad(index, parseInt(e.target.value) || 1)}
-                                  className="w-16 text-center h-8"
-                                  min="1"
-                                />
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updateProductoCantidad(index, producto.cantidad + 1)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-600 mt-1">{producto.cantidad}</p>
-                            )}
-                          </div>
-                          
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700">Precio Unitario</Label>
-                            {!isReadOnly ? (
-                              <Input
-                                type="number"
-                                value={producto.precio_unitario}
-                                onChange={(e) => updateProductoPrecio(index, parseFloat(e.target.value) || 0)}
-                                className="mt-1 h-8"
-                                step="0.01"
-                                min="0"
-                              />
-                            ) : (
-                              <p className="text-sm text-gray-600 mt-1">${producto.precio_unitario.toFixed(2)}</p>
-                            )}
-                          </div>
-                          
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700">Subtotal</Label>
-                            <p className="text-sm font-semibold text-gray-900 mt-1">
-                              ${(producto.cantidad * producto.precio_unitario).toFixed(2)}
-                            </p>
-                          </div>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Precio Unitario</Label>
+                          {!isReadOnly ? (
+                            <Input
+                              type="number"
+                              value={producto.precio_unitario}
+                              onChange={(e) => updateProductoPrecio(index, parseFloat(e.target.value) || 0)}
+                              className="mt-2"
+                              min="0"
+                            />
+                          ) : (
+                            <p className="text-sm text-gray-600 mt-2">${producto.precio_unitario.toFixed(2)}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Subtotal</Label>
+                          <p className="text-sm font-semibold text-gray-900 mt-2">
+                            ${(producto.cantidad * producto.precio_unitario).toFixed(2)}
+                          </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-                {errors.productos && (
-                  <p className="text-sm text-red-500 mt-2">{errors.productos}</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Buscar y Agregar Productos */}
-            {!isReadOnly && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Agregar Productos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        placeholder="Buscar productos..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
                     </div>
+                  ))}
+                </div>
+              )}
+              {errors.productos && (
+                <p className="text-sm text-red-500 mt-2">{errors.productos}</p>
+              )}
+            </CardContent>
+          </Card>
 
-                    <ScrollArea className="h-80">
-                      <div className="space-y-3">
-                        {productosFiltrados.map((producto) => (
-                          <div key={producto.producto_id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Package className="h-4 w-4 text-gray-400" />
-                                  <span className="font-medium text-gray-900">{producto.nombre}</span>
-                                  <Badge variant={producto.estado_color as any} className="text-xs">
-                                    {producto.estado_stock}
-                                  </Badge>
+          {/* Agregar Productos */}
+          {!isReadOnly && (
+            <Card className="bg-gray-50">
+              <CardHeader className="pb-6">
+                <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Agregar Productos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Input
+                      placeholder="Buscar productos por nombre o código..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-12 h-12 text-base"
+                    />
+                  </div>
+
+                  <ScrollArea className="h-80 border rounded-lg">
+                    <div className="space-y-3 p-4">
+                      {productosFiltrados.map((producto) => (
+                        <div key={producto.producto_id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Package className="h-4 w-4 text-gray-400" />
+                                <h4 className="font-medium text-gray-900">{producto.nombre}</h4>
+                                <Badge variant={producto.stock > 0 ? "default" : "destructive"}>
+                                  {producto.stock > 0 ? 'Disponible' : 'Sin Stock'}
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                <div>
+                                  <span className="font-medium">Stock:</span>
+                                  <p className={producto.stock > 0 ? 'text-green-600' : 'text-red-600'}>
+                                    {producto.stock}
+                                  </p>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-600">
-                                  <div>
-                                    <span className="font-medium">Código:</span>
-                                    <p>{producto.codigo || 'N/A'}</p>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Categoría:</span>
-                                    <p>{producto.nombre_categoria}</p>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Stock:</span>
-                                    <p className={producto.stock > 0 ? 'text-green-600' : 'text-red-600'}>
-                                      {producto.stock}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Precio:</span>
-                                    <p className="flex items-center gap-1 text-green-600 font-semibold">
-                                      <DollarSign className="h-3 w-3" />
-                                      {producto.precio_venta.toFixed(2)}
-                                    </p>
-                                  </div>
+                                <div>
+                                  <span className="font-medium">Precio:</span>
+                                  <p className="flex items-center gap-1 text-green-600 font-semibold">
+                                    <DollarSign className="h-3 w-3" />
+                                    ${(Number(producto.precio_venta) || 0).toFixed(2)}
+                                  </p>
                                 </div>
                               </div>
-                              <Button
-                                size="sm"
-                                onClick={() => addProducto(producto)}
-                                disabled={producto.stock === 0}
-                                className="ml-4"
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Agregar
-                              </Button>
                             </div>
+                            <Button
+                              size="sm"
+                              onClick={() => addProducto(producto)}
+                              disabled={producto.stock === 0}
+                              className="ml-4"
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Agregar
+                            </Button>
                           </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Resumen del Pedido */}
+          <Card className="bg-gray-50">
+            <CardHeader className="pb-6">
+              <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Resumen del Pedido
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center p-4 bg-white rounded-lg">
+                  <p className="text-sm font-medium text-gray-600">Cliente</p>
+                  <p className="text-lg font-semibold text-gray-900">{getClienteNombre(formData.cliente_id)}</p>
+                </div>
+                <div className="text-center p-4 bg-white rounded-lg">
+                  <p className="text-sm font-medium text-gray-600">Productos</p>
+                  <p className="text-lg font-semibold text-gray-900">{formData.productos.length}</p>
+                </div>
+                <div className="text-center p-4 bg-white rounded-lg">
+                  <p className="text-sm font-medium text-gray-600">Total</p>
+                  <p className="text-2xl font-bold text-green-600">${getTotal().toFixed(2)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Botones de Acción */}
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+        {/* Botones de Acción - Fijos en la parte inferior */}
+        <div className="flex-shrink-0 flex justify-end gap-4 pt-4 border-t bg-white px-6 py-4">
+          <Button variant="outline" onClick={onClose} className="h-11 px-6">
             Cancelar
           </Button>
           {!isReadOnly && (
-            <Button onClick={handleSubmit} disabled={loading}>
-              {loading ? 'Guardando...' : 'Guardar'}
+            <Button onClick={handleSubmit} disabled={loading} className="h-11 px-8">
+              {loading ? 'Guardando...' : 'Guardar Pedido'}
             </Button>
           )}
         </div>

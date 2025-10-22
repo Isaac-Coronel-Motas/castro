@@ -33,7 +33,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch'
 import { InformeVentas, FiltrosInformeVentas } from '@/lib/types/informes-ventas'
 
 export default function InformeVentasComponent() {
-  const authenticatedFetch = useAuthenticatedFetch()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   const [informe, setInforme] = useState<InformeVentas | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,21 +71,21 @@ export default function InformeVentasComponent() {
   const loadInitialData = async () => {
     try {
       // Cargar sucursales
-      const sucursalesResponse = await authenticatedFetch.authenticatedFetch('/api/sucursales')
+      const sucursalesResponse = await authenticatedFetch('/api/sucursales')
       if (sucursalesResponse.ok) {
         const sucursalesData = await sucursalesResponse.json()
         setSucursales(sucursalesData.data || [])
       }
 
       // Cargar clientes
-      const clientesResponse = await authenticatedFetch.authenticatedFetch('/api/clientes')
+      const clientesResponse = await authenticatedFetch('/api/clientes')
       if (clientesResponse.ok) {
         const clientesData = await clientesResponse.json()
         setClientes(clientesData.data || [])
       }
 
       // Cargar usuarios
-      const usuariosResponse = await authenticatedFetch.authenticatedFetch('/api/usuarios')
+      const usuariosResponse = await authenticatedFetch('/api/usuarios')
       if (usuariosResponse.ok) {
         const usuariosData = await usuariosResponse.json()
         setUsuarios(usuariosData.data || [])
@@ -113,7 +113,7 @@ export default function InformeVentasComponent() {
       if (filtros.condicion_pago) params.append('condicion_pago', filtros.condicion_pago)
       if (filtros.tipo_periodo) params.append('tipo_periodo', filtros.tipo_periodo)
 
-      const response = await authenticatedFetch.authenticatedFetch(`/api/ventas/informes/ventas?${params.toString()}`)
+      const response = await authenticatedFetch(`/api/ventas/informes/ventas?${params.toString()}`)
       
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`)

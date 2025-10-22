@@ -228,6 +228,6 @@ export function getEstadoLabel(estado: string): string {
  * Determina si un presupuesto puede ser procesado (modificado o eliminado)
  */
 export function canProcessPresupuesto(estado: string): boolean {
-  const estadosProcesables = ['nuevo', 'enviado'];
+  const estadosProcesables = ['nuevo', 'enviado', 'pendiente'];
   return estadosProcesables.includes(estado);
 }

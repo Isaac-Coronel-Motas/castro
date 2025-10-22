@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     const limitParamStr = `$${paramCount + 1}`;
     const offsetParamStr = `$${paramCount + 2}`;
 
-    // Consulta principal - simplificada para evitar problemas con JOINs
+    // Consulta principal - incluyendo información de categoría
     const query = `
       SELECT 
         p.producto_id,
@@ -90,8 +90,10 @@ export async function GET(request: NextRequest) {
         p.marca_id,
         p.unidad_id,
         p.cod_product,
-        p.estado
+        p.estado,
+        c.nombre_categoria as categoria_nombre
       FROM productos p
+      LEFT JOIN categorias c ON p.categoria_id = c.categoria_id
       ${whereClause}
       ${orderByClause}
       LIMIT ${limitParamStr} OFFSET ${offsetParamStr}
@@ -108,10 +110,11 @@ export async function GET(request: NextRequest) {
     const allParams = [...queryParams, ...params, limitParam, offsetParam];
     const result = await pool.query(query, allParams);
 
-    // Consulta para contar total - simplificada
+    // Consulta para contar total - incluyendo JOIN
     const countQuery = `
       SELECT COUNT(*) as total
       FROM productos p
+      LEFT JOIN categorias c ON p.categoria_id = c.categoria_id
       ${whereClause}
     `;
 

@@ -8,6 +8,7 @@ export interface NotaRemision {
   destino_almacen_id?: number;
   tipo_remision: 'compra' | 'venta' | 'transferencia';
   referencia_id?: number;
+  nro_timbrado?: string;
   estado: 'activo' | 'anulado';
   observaciones?: string;
   // Campos adicionales de joins
@@ -40,6 +41,7 @@ export interface NotaRemisionCreate {
   destino_almacen_id?: number;
   tipo_remision: 'compra' | 'venta' | 'transferencia';
   referencia_id?: number;
+  nro_timbrado?: string;
   estado?: 'activo' | 'anulado';
   observaciones?: string;
   detalles?: DetalleRemisionCreate[];
@@ -58,6 +60,7 @@ export interface NotaRemisionUpdate {
   destino_almacen_id?: number;
   tipo_remision?: 'compra' | 'venta' | 'transferencia';
   referencia_id?: number;
+  nro_timbrado?: string;
   estado?: 'activo' | 'anulado';
   observaciones?: string;
   detalles?: DetalleRemisionCreate[];
@@ -159,10 +162,11 @@ export interface NotasRemisionStatsResponse {
 // Tipos para productos y almacenes
 export interface ProductoRemision {
   producto_id: number;
-  nombre: string;
-  codigo: string;
-  precio: number;
-  stock_actual: number;
+  nombre_producto: string;
+  cod_product: string;
+  precio_unitario: number;
+  precio_venta: number;
+  stock: number;
   categoria_nombre?: string;
 }
 

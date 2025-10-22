@@ -170,17 +170,22 @@ export function RecepcionEquipoModal({ isOpen, onClose, onSave, recepcion, mode 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('handleSubmit llamado en modal')
+    console.log('formData:', formData)
     
     if (!validateForm()) {
+      console.log('Validación fallida')
       return
     }
 
+    console.log('Validación exitosa, guardando...')
     setLoading(true)
     try {
       const dataToSave = mode === 'create' 
         ? formData 
         : { ...formData, recepcion_id: recepcion?.recepcion_id }
       
+      console.log('dataToSave:', dataToSave)
       await onSave(dataToSave)
       onClose()
     } catch (error) {

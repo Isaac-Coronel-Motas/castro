@@ -37,7 +37,7 @@ export function validatePedidoCompraData(data: CreatePedidoCompraRequest): Valid
     errors.fecha_pedido = 'La fecha del pedido no es válida';
   }
 
-  if (data.estado && !['pendiente', 'procesado', 'cancelado', 'aprobado'].includes(data.estado)) {
+  if (data.estado && !['pendiente', 'procesado', 'cancelado'].includes(data.estado)) {
     errors.estado = 'El estado no es válido';
   }
 
@@ -237,10 +237,20 @@ export async function generateComprobanteNumber(prefix: string, pedidoId?: numbe
   const year = new Date().getFullYear();
   const month = String(new Date().getMonth() + 1).padStart(2, '0');
   
-  // Obtener el último número del mes actual solo de pedido_compra
+  // Determinar la tabla según el prefijo
+  let tableName = 'pedido_compra'; // default
+  if (prefix === 'PP') {
+    tableName = 'presupuesto_proveedor';
+  } else if (prefix === 'OC') {
+    tableName = 'ordenes_compra';
+  } else if (prefix === 'CC') {
+    tableName = 'compra_cabecera';
+  }
+  
+  // Obtener el último número del mes actual de la tabla correspondiente
   const query = `
     SELECT nro_comprobante 
-    FROM pedido_compra 
+    FROM ${tableName} 
     WHERE nro_comprobante LIKE $1
     ORDER BY nro_comprobante DESC
     LIMIT 1
@@ -277,20 +287,20 @@ export async function generateTrackingNumber(): Promise<string> {
  */
 export function mapEstadoForDatabase(estado: string): string {
   const estadoMap: { [key: string]: string } = {
-    // Estados de presupuestos
+    // Estados válidos del enum estado_pedido_p
+    'pendiente': 'pendiente',
+    'procesado': 'procesado',
+    'cancelado': 'cancelado',
+    
+    // Estados de presupuestos (diferentes enums)
     'aprobado': 'aprobado',
     'rechazado': 'rechazado',
-    'pendiente': 'pendiente',
     'nuevo': 'nuevo',
     
-    // Estados de órdenes de compra
+    // Estados de órdenes de compra (diferentes enums)
     'aprobada': 'aprobada',
     'rechazada': 'rechazada',
-    'cancelada': 'cancelada',
-    
-    // Mapeos especiales
-    'procesado': 'aprobado',  // Para pedidos, 'procesado' se mapea a 'aprobado'
-    'cancelado': 'rechazado'  // Para pedidos, 'cancelado' se mapea a 'rechazado'
+    'cancelada': 'cancelada'
   };
   
   return estadoMap[estado] || estado;
@@ -301,20 +311,20 @@ export function mapEstadoForDatabase(estado: string): string {
  */
 export function mapEstadoForFrontend(estado: string): string {
   const estadoMap: { [key: string]: string } = {
-    // Estados de presupuestos
+    // Estados válidos del enum estado_pedido_p
+    'pendiente': 'pendiente',
+    'procesado': 'procesado',
+    'cancelado': 'cancelado',
+    
+    // Estados de presupuestos (diferentes enums)
     'aprobado': 'aprobado',
     'rechazado': 'rechazado',
-    'pendiente': 'pendiente',
     'nuevo': 'nuevo',
     
-    // Estados de órdenes de compra
+    // Estados de órdenes de compra (diferentes enums)
     'aprobada': 'aprobada',
     'rechazada': 'rechazada',
-    'cancelada': 'cancelada',
-    
-    // Mapeos especiales
-    'procesado': 'aprobado',  // Para pedidos, 'procesado' se muestra como 'aprobado'
-    'cancelado': 'rechazado'  // Para pedidos, 'cancelado' se muestra como 'rechazado'
+    'cancelada': 'cancelada'
   };
   
   return estadoMap[estado] || estado;

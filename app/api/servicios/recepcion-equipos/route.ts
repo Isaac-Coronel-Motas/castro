@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       queryParams.push(parseInt(cliente_id));
     }
 
-    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions);
+    const { whereClause, params } = buildSearchWhereClause(searchFields, search, additionalConditions, queryParams);
     const orderByClause = buildOrderByClause(sort_by, sort_order as 'asc' | 'desc', 're', 'fecha_recepcion');
 
     // Consulta principal
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
-    const allParams = [...queryParams, ...params, limitParam, offsetParam];
+    const allParams = [...params, limitParam, offsetParam];
     const result = await pool.query(query, allParams);
     const recepciones = result.rows;
     const total = recepciones.length > 0 ? parseInt(recepciones[0].total_count) : 0;
@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
     const newRecepcionId = recepcionResult.rows[0].recepcion_id;
 
     // Actualizar número de recepción
-    const nroRecepcion = generateRecepcionNumber(newRecepcionId);
+    const nroRecepcion = await generateRecepcionNumber(newRecepcionId);
     await pool.query(
       'UPDATE recepcion_equipo SET nro_recepcion = $1 WHERE recepcion_id = $2',
       [nroRecepcion, newRecepcionId]

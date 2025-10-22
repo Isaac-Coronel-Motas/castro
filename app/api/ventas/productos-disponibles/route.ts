@@ -13,7 +13,7 @@ interface VentasApiResponse {
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('ventas.leer')(request);
+    const { authorized, error } = requirePermission('leer_facturas')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       paramCount++;
-      whereClause += ` AND (p.nombre ILIKE $${paramCount} OR p.codigo ILIKE $${paramCount})`;
+      whereClause += ` AND (p.nombre_producto ILIKE $${paramCount} OR p.cod_product ILIKE $${paramCount})`;
       queryParams.push(`%${search}%`);
     }
 
@@ -43,9 +43,9 @@ export async function GET(request: NextRequest) {
     const query = `
       SELECT 
         p.producto_id,
-        p.nombre,
-        p.descripcion,
-        p.codigo,
+        p.nombre_producto as nombre,
+        p.descripcion_producto as descripcion,
+        p.cod_product as codigo,
         p.precio_venta,
         p.stock,
         p.stock_minimo,
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       FROM productos p
       LEFT JOIN categorias c ON p.categoria_id = c.categoria_id
       ${whereClause}
-      ORDER BY p.nombre
+      ORDER BY p.nombre_producto
       LIMIT 100
     `;
 

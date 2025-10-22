@@ -25,17 +25,12 @@ export default function DiagnosticosPage() {
     error,
     pagination,
     search,
-    sort,
-    page,
-    limit,
-    handleSearch,
-    handleSort,
-    handlePageChange,
-    handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
-    refresh
+    setSorting,
+    setPagination,
+    create,
+    update,
+    delete: deleteItem,
+    refetch: refresh
   } = useApi<Diagnostico>('/api/servicios/diagnosticos')
 
   const columns = [
@@ -177,12 +172,22 @@ export default function DiagnosticosPage() {
   const handleSave = async (data: CreateDiagnosticoRequest | UpdateDiagnosticoRequest) => {
     try {
       if (modalMode === 'create') {
-        await createItem(data as CreateDiagnosticoRequest)
+        const result = await create(data as CreateDiagnosticoRequest)
+        if (result.success) {
+          setIsModalOpen(false)
+          setSelectedDiagnostico(null)
+        } else {
+          console.error('Error creando diagnóstico:', result.errors)
+        }
       } else {
-        await updateItem((data as UpdateDiagnosticoRequest).diagnostico_id!, data as UpdateDiagnosticoRequest)
+        const result = await update((data as UpdateDiagnosticoRequest).diagnostico_id!, data as UpdateDiagnosticoRequest)
+        if (result.success) {
+          setIsModalOpen(false)
+          setSelectedDiagnostico(null)
+        } else {
+          console.error('Error actualizando diagnóstico:', result.errors)
+        }
       }
-      setIsModalOpen(false)
-      setSelectedDiagnostico(null)
     } catch (error) {
       console.error('Error guardando diagnóstico:', error)
     }
@@ -306,11 +311,10 @@ export default function DiagnosticosPage() {
               error={error}
               pagination={pagination}
               search={search}
-              sort={sort}
-              onSearch={handleSearch}
-              onSort={handleSort}
-              onPageChange={handlePageChange}
-              onLimitChange={handleLimitChange}
+              onSearch={search}
+              onSort={(sortBy, sortOrder) => setSorting(sortBy, sortOrder)}
+              onPageChange={(page) => setPagination(page, pagination?.limit || 10)}
+              onLimitChange={(limit) => setPagination(pagination?.page || 1, limit)}
               searchPlaceholder="Buscar diagnósticos..."
             />
           </CardContent>

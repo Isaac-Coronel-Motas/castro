@@ -268,6 +268,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validar restricción de relación única
+    // Si ambos campos tienen valores válidos (no null, no 0), rechazar
+    if (body.recepcion_id && body.visita_tecnica_id && body.visita_tecnica_id !== 0) {
+      const response: ServiciosTecnicosApiResponse = {
+        success: false,
+        message: 'Un diagnóstico debe estar asociado solo a una recepción O a una visita técnica, no a ambas',
+        error: 'Relación inválida'
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
     // Crear diagnóstico
     const createDiagnosticoQuery = `
       INSERT INTO diagnostico (
@@ -282,7 +293,7 @@ export async function POST(request: NextRequest) {
       body.tecnico_id,
       body.observacion,
       body.estado_diagnostico || 'Pendiente',
-      body.visita_tecnica_id || null,
+      body.visita_tecnica_id && body.visita_tecnica_id !== 0 ? body.visita_tecnica_id : null,
       body.tipo_diag_id,
       body.motivo || null
     ]);

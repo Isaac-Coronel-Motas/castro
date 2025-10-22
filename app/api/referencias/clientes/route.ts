@@ -19,7 +19,7 @@ interface CreateClienteRequest {
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('referencias.leer')(request);
+    const { authorized, error } = requirePermission('leer_clientes')(request);
     
     if (!authorized) {
       return createAuthzErrorResponse(error || 'No autorizado');

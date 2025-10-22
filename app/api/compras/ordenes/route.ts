@@ -274,6 +274,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Generar número de comprobante
+    const nroComprobante = body.nro_comprobante || await generateComprobanteNumber('OC');
+
     // Crear orden de compra
     const createOrdenQuery = `
       INSERT INTO ordenes_compra (
@@ -292,17 +295,10 @@ export async function POST(request: NextRequest) {
       body.monto_oc || null,
       body.observaciones || null,
       body.almacen_id || null,
-      body.nro_comprobante || generateComprobanteNumber('OC', 1) // Se actualizará después
+      nroComprobante
     ]);
 
     const newOrdenId = ordenResult.rows[0].orden_compra_id;
-
-    // Actualizar número de comprobante
-    const nroComprobante = generateComprobanteNumber('OC', newOrdenId);
-    await pool.query(
-      'UPDATE ordenes_compra SET nro_comprobante = $1 WHERE orden_compra_id = $2',
-      [nroComprobante, newOrdenId]
-    );
 
     // Crear detalles de la orden
     if (body.items && body.items.length > 0) {

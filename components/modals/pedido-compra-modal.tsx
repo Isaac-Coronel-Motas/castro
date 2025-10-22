@@ -376,7 +376,6 @@ export function PedidoCompraModal({ isOpen, onClose, onSave, pedido, mode }: Ped
                       <SelectContent>
                         <SelectItem value="pendiente">Pendiente</SelectItem>
                         <SelectItem value="procesado">Procesado</SelectItem>
-                        <SelectItem value="aprobado">Aprobado</SelectItem>
                         <SelectItem value="cancelado">Cancelado</SelectItem>
                       </SelectContent>
                     </Select>

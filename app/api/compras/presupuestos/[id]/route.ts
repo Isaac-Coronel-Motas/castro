@@ -191,9 +191,50 @@ export async function PUT(
     }
 
     if (body.proveedor_id !== undefined) {
+      // Si se proporciona proveedor_id, necesitamos encontrar o crear un pedido_proveedor
+      // que tenga ese proveedor_id y usar su pedido_prov_id
+      
+      // Primero buscar si existe un pedido_proveedor para este proveedor
+      const existingPedidoQuery = `
+        SELECT pedido_prov_id FROM pedido_proveedor 
+        WHERE proveedor_id = $1 
+        ORDER BY fecha_envio DESC 
+        LIMIT 1
+      `;
+      
+      const existingPedidoResult = await pool.query(existingPedidoQuery, [body.proveedor_id]);
+      
+      let pedidoProvId;
+      
+      if (existingPedidoResult.rows.length > 0) {
+        // Usar el pedido_proveedor existente
+        pedidoProvId = existingPedidoResult.rows[0].pedido_prov_id;
+      } else {
+        // Crear un nuevo pedido_proveedor temporal para este proveedor
+        // Necesitamos crear primero un pedido_compra temporal
+        const createPedidoCompraQuery = `
+          INSERT INTO pedido_compra (usuario_id, sucursal_id, almacen_id, estado, fecha_pedido)
+          VALUES ($1, 1, 1, 'pendiente', CURRENT_DATE)
+          RETURNING pedido_compra_id
+        `;
+        
+        const pedidoCompraResult = await pool.query(createPedidoCompraQuery, [existingPresupuesto.rows[0].usuario_id]);
+        const pedidoCompraId = pedidoCompraResult.rows[0].pedido_compra_id;
+        
+        // Ahora crear el pedido_proveedor
+        const createPedidoQuery = `
+          INSERT INTO pedido_proveedor (pedido_compra_id, proveedor_id, fecha_envio, usuario_id)
+          VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+          RETURNING pedido_prov_id
+        `;
+        
+        const pedidoResult = await pool.query(createPedidoQuery, [pedidoCompraId, body.proveedor_id, existingPresupuesto.rows[0].usuario_id]);
+        pedidoProvId = pedidoResult.rows[0].pedido_prov_id;
+      }
+      
       paramCount++;
       updateFields.push(`pedido_prov_id = $${paramCount}`);
-      updateValues.push(body.proveedor_id);
+      updateValues.push(pedidoProvId);
     }
 
     if (updateFields.length === 0) {

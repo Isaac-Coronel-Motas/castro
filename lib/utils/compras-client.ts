@@ -61,11 +61,8 @@ export function validatePedidoCompraDataClient(data: any): { valid: boolean; err
  */
 export function getEstadoColor(estado: string): string {
   const colores: { [key: string]: string } = {
-    'borrador': 'bg-gray-500 text-white',
     'pendiente': 'bg-yellow-500 text-white',
-    'confirmado': 'bg-blue-500 text-white',
-    'recibido': 'bg-green-500 text-white',
-    'anulado': 'bg-red-500 text-white',
+    'procesado': 'bg-green-500 text-white',
     'cancelado': 'bg-red-500 text-white'
   };
   return colores[estado] || 'bg-muted text-muted-foreground';
@@ -76,11 +73,8 @@ export function getEstadoColor(estado: string): string {
  */
 export function getEstadoLabel(estado: string): string {
   const etiquetas: { [key: string]: string } = {
-    'borrador': 'Borrador',
     'pendiente': 'Pendiente',
-    'confirmado': 'Confirmado',
-    'recibido': 'Recibido',
-    'anulado': 'Anulado',
+    'procesado': 'Procesado',
     'cancelado': 'Cancelado'
   };
   return etiquetas[estado] || estado;

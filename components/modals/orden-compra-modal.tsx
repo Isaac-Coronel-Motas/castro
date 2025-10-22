@@ -44,22 +44,35 @@ export function OrdenCompraModal({ isOpen, onClose, onSave, orden, mode }: Orden
   useEffect(() => {
     if (isOpen) {
       loadInitialData()
-      if (orden && mode !== 'create') {
-        setFormData({
-          proveedor_id: orden.proveedor_id,
-          usuario_id: orden.usuario_id,
-          presu_prov_id: orden.presu_prov_id,
-          estado: orden.estado,
-          observaciones: orden.observaciones || '',
-          monto_oc: orden.monto_oc,
-          fecha_orden: orden.fecha_orden,
-          fecha_entrega: orden.fecha_entrega || '',
-          prioridad: orden.prioridad || 'media',
-          almacen_id: orden.almacen_id
-        })
-      }
     }
-  }, [isOpen, orden, mode])
+  }, [isOpen])
+
+  // Establecer datos del formulario cuando se cargan los datos y hay una orden
+  useEffect(() => {
+    if (orden && mode !== 'create' && proveedores.length > 0) {
+      console.log('Estableciendo datos del formulario:', {
+        proveedor_id: orden.proveedor_id,
+        almacen_id: orden.almacen_id,
+        presu_prov_id: orden.presu_prov_id,
+        proveedores_disponibles: proveedores.length,
+        almacenes_disponibles: almacenes.length,
+        presupuestos_disponibles: presupuestos.length
+      })
+      
+      setFormData({
+        proveedor_id: orden.proveedor_id,
+        usuario_id: orden.usuario_id,
+        presu_prov_id: orden.presu_prov_id,
+        estado: orden.estado,
+        observaciones: orden.observaciones || '',
+        monto_oc: orden.monto_oc,
+        fecha_orden: orden.fecha_orden,
+        fecha_entrega: orden.fecha_entrega || '',
+        prioridad: orden.prioridad || 'media',
+        almacen_id: orden.almacen_id
+      })
+    }
+  }, [orden, mode, proveedores, almacenes, presupuestos])
 
   const loadInitialData = async () => {
     try {
@@ -266,7 +279,7 @@ export function OrdenCompraModal({ isOpen, onClose, onSave, orden, mode }: Orden
                   <div className="space-y-2">
                     <Label htmlFor="proveedor_id">Proveedor</Label>
                     <Select
-                      value={formData.proveedor_id?.toString()}
+                      value={formData.proveedor_id?.toString() || ''}
                       onValueChange={(value) => handleInputChange('proveedor_id', parseInt(value))}
                       disabled={mode === 'view'}
                     >
@@ -289,15 +302,14 @@ export function OrdenCompraModal({ isOpen, onClose, onSave, orden, mode }: Orden
                   <div className="space-y-2">
                     <Label htmlFor="presu_prov_id">Presupuesto</Label>
                     <Select
-                      value={formData.presu_prov_id?.toString() || 'no-presupuesto'}
-                      onValueChange={(value) => handleInputChange('presu_prov_id', value && value !== 'no-presupuesto' ? parseInt(value) : undefined)}
+                      value={formData.presu_prov_id?.toString() || ''}
+                      onValueChange={(value) => handleInputChange('presu_prov_id', value ? parseInt(value) : undefined)}
                       disabled={mode === 'view'}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar presupuesto (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no-presupuesto">Sin presupuesto</SelectItem>
                         {presupuestos.map((presupuesto) => (
                           <SelectItem key={presupuesto.presu_prov_id} value={presupuesto.presu_prov_id.toString()}>
                             {presupuesto.nro_comprobante} - {presupuesto.proveedor_nombre}
@@ -310,15 +322,14 @@ export function OrdenCompraModal({ isOpen, onClose, onSave, orden, mode }: Orden
                   <div className="space-y-2">
                     <Label htmlFor="almacen_id">Almacén</Label>
                     <Select
-                      value={formData.almacen_id?.toString() || 'no-almacen'}
-                      onValueChange={(value) => handleInputChange('almacen_id', value && value !== 'no-almacen' ? parseInt(value) : undefined)}
+                      value={formData.almacen_id?.toString() || ''}
+                      onValueChange={(value) => handleInputChange('almacen_id', value ? parseInt(value) : undefined)}
                       disabled={mode === 'view'}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar almacén (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no-almacen">Sin almacén</SelectItem>
                         {almacenes.map((almacen) => (
                           <SelectItem key={almacen.almacen_id} value={almacen.almacen_id.toString()}>
                             {almacen.nombre}

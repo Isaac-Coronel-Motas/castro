@@ -42,7 +42,7 @@ export default function OrdenesDeCompraPage() {
       sortable: true,
       render: (orden: OrdenCompra) => (
         <div className="font-medium text-foreground">
-          {orden.nro_comprobante}
+          {orden.nro_comprobante && orden.nro_comprobante !== '{}' ? orden.nro_comprobante : `OC-${orden.orden_compra_id}`}
         </div>
       )
     },

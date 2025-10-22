@@ -52,7 +52,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
   
   const { createNotaRemision, loading: creatingNotaRemision, error: createError } = useCreateNotaRemision();
   const { toast } = useToast();
-  const authenticatedFetch = useAuthenticatedFetch();
+  const { authenticatedFetch } = useAuthenticatedFetch();
 
   const [formData, setFormData] = useState<NotaRemisionCreate>({
     fecha_remision: new Date().toISOString().split('T')[0],
@@ -60,6 +60,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
     origen_almacen_id: 0,
     tipo_remision: 'venta',
     estado: 'activo',
+    nro_timbrado: '',
     detalles: []
   });
 
@@ -73,9 +74,9 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
 
   // Filtrar productos por búsqueda
   const filteredProductos = productos.filter(producto =>
-    producto.nombre.toLowerCase().includes(searchProducto.toLowerCase()) ||
-    producto.codigo.toLowerCase().includes(searchProducto.toLowerCase()) ||
-    producto.categoria_nombre?.toLowerCase().includes(searchProducto.toLowerCase())
+    (producto.nombre_producto || '').toLowerCase().includes(searchProducto.toLowerCase()) ||
+    (producto.cod_product || '').toLowerCase().includes(searchProducto.toLowerCase()) ||
+    (producto.categoria_nombre || '').toLowerCase().includes(searchProducto.toLowerCase())
   );
 
   // Cargar usuarios
@@ -243,6 +244,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
       origen_almacen_id: 0,
       tipo_remision: 'venta',
       estado: 'activo',
+      nro_timbrado: '',
       detalles: []
     });
     setErrors({});
@@ -317,18 +319,21 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
         Nueva Nota de Remisión
       </Button>
       
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Nueva Nota de Remisión</DialogTitle>
+      <DialogContent className="max-w-6xl w-full h-[95vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="text-2xl font-bold">
+            Nueva Nota de Remisión
+          </DialogTitle>
           <DialogDescription>
             Crea una nueva nota de remisión para productos
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Columna izquierda - Información básica */}
-            <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto space-y-8 px-1">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            {/* Columna 1 - Información básica */}
+            <div className="space-y-6">
               {/* Tipo de Remisión */}
               <div className="space-y-2">
                 <Label htmlFor="tipo_remision">Tipo de Remisión *</Label>
@@ -373,6 +378,18 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
                 {errors.fecha_remision && (
                   <p className="text-sm text-red-500">{errors.fecha_remision}</p>
                 )}
+              </div>
+
+              {/* Número de Timbrado */}
+              <div className="space-y-2">
+                <Label htmlFor="nro_timbrado">Número de Timbrado</Label>
+                <Input
+                  id="nro_timbrado"
+                  type="text"
+                  value={formData.nro_timbrado || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, nro_timbrado: e.target.value }))}
+                  placeholder="Ej: 1234567"
+                />
               </div>
 
               {/* Usuario */}
@@ -546,8 +563,8 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
               </div>
             </div>
 
-            {/* Columna derecha - Productos */}
-            <div className="space-y-4">
+            {/* Columnas 2-4 - Productos */}
+            <div className="lg:col-span-3 space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium">Productos</h3>
                 <div className="text-sm text-muted-foreground">
@@ -570,23 +587,26 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
               </div>
 
               {/* Lista de productos disponibles */}
-              <div className="max-h-60 overflow-y-auto border rounded-lg p-2 space-y-2">
+              <div className="h-80 overflow-y-auto border rounded-lg p-4 space-y-3">
                 {loadingProductos ? (
                   <div className="text-center py-4">Cargando productos...</div>
                 ) : (
                   filteredProductos.map(producto => (
-                    <div key={producto.producto_id} className="flex items-center justify-between p-2 border rounded hover:bg-muted">
+                    <div key={producto.producto_id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted transition-colors">
                       <div className="flex-1">
-                        <div className="font-medium">{producto.nombre}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {producto.codigo} - Stock: {producto.stock_actual}
+                        <div className="font-medium text-sm">{producto.nombre_producto}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {producto.cod_product} - Stock: {producto.stock || 0}
                         </div>
+                        {producto.categoria_nombre && (
+                          <div className="text-xs text-blue-600">{producto.categoria_nombre}</div>
+                        )}
                       </div>
                       <Button
                         type="button"
                         size="sm"
                         onClick={() => addProducto(producto)}
-                        className="gap-1"
+                        className="gap-1 h-8"
                       >
                         <Plus className="h-3 w-3" />
                         Agregar
@@ -598,27 +618,31 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
 
               {/* Productos seleccionados */}
               {formData.detalles && formData.detalles.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Productos Seleccionados</Label>
-                  <div className="space-y-2">
+                <div className="space-y-4">
+                  <Label className="text-base font-medium">Productos Seleccionados</Label>
+                  <div className="space-y-3">
                     {formData.detalles.map(detalle => {
                       const producto = getProductoById(detalle.producto_id);
                       if (!producto) return null;
 
                       return (
-                        <div key={detalle.producto_id} className="flex items-center justify-between p-2 border rounded bg-muted">
+                        <div key={detalle.producto_id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
                           <div className="flex-1">
-                            <div className="font-medium">{producto.nombre}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {producto.codigo} - Stock: {producto.stock_actual}
+                            <div className="font-medium text-sm">{producto.nombre_producto}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {producto.cod_product} - Stock: {producto.stock || 0}
                             </div>
+                            {producto.categoria_nombre && (
+                              <div className="text-xs text-blue-600">{producto.categoria_nombre}</div>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
                               onClick={() => updateCantidad(detalle.producto_id, detalle.cantidad - 1)}
+                              className="h-8 w-8 p-0"
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
@@ -627,13 +651,14 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
                               min="1"
                               value={detalle.cantidad}
                               onChange={(e) => updateCantidad(detalle.producto_id, parseInt(e.target.value) || 1)}
-                              className="w-16 text-center"
+                              className="w-20 text-center h-8"
                             />
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
                               onClick={() => updateCantidad(detalle.producto_id, detalle.cantidad + 1)}
+                              className="h-8 w-8 p-0"
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
@@ -642,6 +667,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
                               size="sm"
                               variant="destructive"
                               onClick={() => removeProducto(detalle.producto_id)}
+                              className="h-8 w-8 p-0"
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
@@ -655,34 +681,39 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
             </div>
           </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={loading || creatingNotaRemision}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading || creatingNotaRemision}
-              className="gap-2"
-            >
-              {loading || creatingNotaRemision ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Creando...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4" />
-                  Crear Nota de Remisión
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+          </form>
+        </div>
+
+        {/* Botones de Acción - Fijos en la parte inferior */}
+        <DialogFooter className="flex-shrink-0 flex justify-end gap-4 pt-4 border-t bg-white px-6 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={loading || creatingNotaRemision}
+            className="h-11 px-6"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            disabled={loading || creatingNotaRemision}
+            className="gap-2 h-11 px-8"
+            onClick={handleSubmit}
+          >
+            {loading || creatingNotaRemision ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Creando...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" />
+                Crear Nota de Remisión
+              </>
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
