@@ -189,6 +189,37 @@ export async function POST(request: NextRequest) {
 
     const newPresupuestoId = presupuestoResult.rows[0].presu_prov_id;
 
+    // Crear detalles si se proporcionan
+    if (body.detalles && Array.isArray(body.detalles) && body.detalles.length > 0) {
+      console.log('🔍 Creando detalles del presupuesto:', body.detalles);
+      
+      for (const detalle of body.detalles) {
+        const createDetalleQuery = `
+          INSERT INTO detalle_presupuesto (
+            presu_prov_id, producto_id, cantidad, precio_unitario
+          ) VALUES ($1, $2, $3, $4)
+        `;
+        
+        await pool.query(createDetalleQuery, [
+          newPresupuestoId,
+          detalle.producto_id,
+          detalle.cantidad,
+          detalle.precio_unitario
+        ]);
+        
+        console.log('✅ Detalle creado:', {
+          presu_prov_id: newPresupuestoId,
+          producto_id: detalle.producto_id,
+          cantidad: detalle.cantidad,
+          precio_unitario: detalle.precio_unitario
+        });
+      }
+      
+      console.log('✅ Todos los detalles del presupuesto creados exitosamente');
+    } else {
+      console.log('⚠️ No se proporcionaron detalles para el presupuesto');
+    }
+
     // Actualizar número de comprobante
     const nroComprobante = await generateComprobanteNumber('PP');
     await pool.query(

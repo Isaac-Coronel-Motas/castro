@@ -292,7 +292,11 @@ export default function NotasCreditoDebitoPage() {
     )},
     { key: 'proveedor_nombre', label: 'Proveedor/Cliente', sortable: true, render: (item: any) => item.proveedor_nombre || item.cliente_nombre },
     { key: 'motivo', label: 'Motivo', sortable: true },
-    { key: 'monto_nc', label: 'Monto', sortable: true, render: (item: any) => `₡${(item.monto_nc || 0).toLocaleString()}` },
+    { key: 'monto', label: 'Monto', sortable: true, render: (item: any) => {
+        const monto = item.monto || 0;
+        return `₡${monto.toLocaleString()}`;
+      }
+    },
     { key: 'estado', label: 'Estado', sortable: true, render: (item: any) => (
       <Badge className={getNotaEstadoColor(item.estado)}>
         {getNotaEstadoLabel(item.estado)}

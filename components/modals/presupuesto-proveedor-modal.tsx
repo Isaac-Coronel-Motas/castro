@@ -32,14 +32,15 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
     console.log('🔍 PresupuestoProveedorModal: Token preview:', token.substring(0, 20) + '...')
   }
   
-  const [formData, setFormData] = useState<CreatePresupuestoProveedorRequest>({
+  const [formData, setFormData] = useState<any>({
     usuario_id: user?.usuario_id || 0,
     estado: 'nuevo',
     observaciones: '',
     monto_presu_prov: 0,
     fecha_presupuesto: new Date().toISOString().split('T')[0],
     pedido_prov_id: undefined,
-    proveedor_id: undefined
+    proveedor_id: undefined,
+    detalles: []
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
@@ -145,7 +146,7 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
   }
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
+    setFormData((prev: any) => ({
       ...prev,
       [field]: value
     }))
@@ -191,6 +192,7 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
     
     console.log('🔍 handleSubmit: Iniciando envío del formulario...')
     console.log('🔍 handleSubmit: Datos del formulario:', formData)
+    console.log('🔍 handleSubmit: Detalles del formulario:', detalles)
     
     if (!validateForm()) {
       console.log('❌ handleSubmit: Validación falló')
@@ -201,14 +203,30 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
 
     setLoading(true)
     try {
-      const dataToSave = mode === 'create' 
-        ? formData 
-        : { ...formData, presu_prov_id: presupuesto?.presu_prov_id }
+      let dataToSave: any;
+      
+      if (mode === 'create') {
+        // En modo create, incluir los detalles en el body
+        dataToSave = {
+          ...formData,
+          detalles: detalles.map(d => ({
+            producto_id: d.producto_id,
+            cantidad: d.cantidad,
+            precio_unitario: d.precio_unitario
+          }))
+        };
+      } else {
+        // En modo update
+        dataToSave = { 
+          ...formData, 
+          presu_prov_id: presupuesto?.presu_prov_id 
+        };
+      }
       
       console.log('🔍 handleSubmit: Datos preparados para guardar:', dataToSave)
       console.log('🔍 handleSubmit: Llamando a onSave...')
       
-      await onSave(dataToSave)
+      await onSave(dataToSave as any)
       console.log('✅ handleSubmit: onSave completado exitosamente')
       onClose()
     } catch (error) {
@@ -239,7 +257,7 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
         return total + (detalle.cantidad * detalle.precio_unitario)
       }, 0)
       
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         monto_presu_prov: montoCalculado
       }))

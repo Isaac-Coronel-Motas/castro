@@ -73,6 +73,7 @@ export function NotaCreditoDebitoModal({
     motivo: '',
     estado: 'activo',
     referencia_id: undefined,
+    nro_factura: '',
     monto_nc: 0,
     monto_gravada_5: 0,
     monto_gravada_10: 0,
@@ -89,6 +90,7 @@ export function NotaCreditoDebitoModal({
   const [almacenes, setAlmacenes] = useState<any[]>([])
   const [productos, setProductos] = useState<any[]>([])
   const [timbrados, setTimbrados] = useState<any[]>([])
+  const [facturas, setFacturas] = useState<any[]>([])
 
   const isEdit = !!nota
   const isCompra = tipoOperacion === 'compra'
@@ -108,13 +110,14 @@ export function NotaCreditoDebitoModal({
     try {
       console.log('🔍 Cargando datos iniciales...')
       
-      const [proveedoresRes, clientesRes, sucursalesRes, almacenesRes, productosRes, timbradosRes] = await Promise.all([
+      const [proveedoresRes, clientesRes, sucursalesRes, almacenesRes, productosRes, timbradosRes, facturasRes] = await Promise.all([
         authenticatedFetch('/api/referencias/proveedores'),
         authenticatedFetch('/api/referencias/clientes'),
         authenticatedFetch('/api/sucursales'),
         authenticatedFetch('/api/referencias/almacenes'),
         authenticatedFetch('/api/referencias/productos'),
-        authenticatedFetch('/api/referencias/timbrados?activo=true')
+        authenticatedFetch('/api/referencias/timbrados?activo=true'),
+        authenticatedFetch('/api/compras/facturas')
       ])
 
       console.log('📡 Respuestas recibidas:', {
@@ -123,7 +126,8 @@ export function NotaCreditoDebitoModal({
         sucursales: sucursalesRes.status,
         almacenes: almacenesRes.status,
         productos: productosRes.status,
-        timbrados: timbradosRes.status
+        timbrados: timbradosRes.status,
+        facturas: facturasRes.status
       })
 
       const proveedoresData = await proveedoresRes.json()
@@ -132,6 +136,7 @@ export function NotaCreditoDebitoModal({
       const almacenesData = await almacenesRes.json()
       const productosData = await productosRes.json()
       const timbradosData = await timbradosRes.json()
+      const facturasData = await facturasRes.json()
 
       console.log('📊 Datos parseados:', {
         proveedores: proveedoresData.success ? proveedoresData.data?.length : 'error',
@@ -139,7 +144,8 @@ export function NotaCreditoDebitoModal({
         sucursales: sucursalesData.success ? sucursalesData.data?.length : 'error',
         almacenes: almacenesData.success ? almacenesData.data?.length : 'error',
         productos: productosData.success ? productosData.data?.length : 'error',
-        timbrados: timbradosData.success ? timbradosData.data?.length : 'error'
+        timbrados: timbradosData.success ? timbradosData.data?.length : 'error',
+        facturas: facturasData.success ? facturasData.data?.length : 'error'
       })
 
       if (proveedoresData.success) setProveedores(proveedoresData.data)
@@ -147,7 +153,15 @@ export function NotaCreditoDebitoModal({
       if (sucursalesData.success) setSucursales(sucursalesData.data)
       if (almacenesData.success) setAlmacenes(almacenesData.data)
       if (productosData.success) setProductos(productosData.data)
-      if (timbradosData.success) setTimbrados(timbradosData.data)
+      if (timbradosData.success) {
+        setTimbrados(timbradosData.data)
+        console.log('✅ Timbrados cargados:', timbradosData.data.length)
+      }
+      if (facturasData.success) {
+        setFacturas(facturasData.data)
+        console.log('✅ Facturas cargadas:', facturasData.data.length)
+        console.log('📄 Datos de facturas:', facturasData.data)
+      }
 
       console.log('✅ Datos cargados exitosamente')
     } catch (error) {
@@ -326,22 +340,28 @@ export function NotaCreditoDebitoModal({
       const monto = subtotal + iva
       
       // Transformar datos para el formato esperado por la API
-      const dataToSave = {
+      const dataToSave: any = {
         ...formData,
-        monto: monto,
         monto_gravada_10: subtotal,
         monto_iva: iva,
-        detalles: formData.items?.map(item => ({
+        items: formData.items?.map(item => ({
           producto_id: item.producto_id,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario
         })) || []
       }
       
-      // Remover items ya que el API espera detalles
-      delete dataToSave.items
+      // Agregar el monto según el tipo de nota
+      if (tipoNota === 'credito') {
+        dataToSave.monto_nc = monto
+      } else {
+        dataToSave.monto_nd = monto
+      }
       
       console.log('🔍 Datos que se enviarán al API:', dataToSave)
+      console.log('🔍 Tipo de nota:', tipoNota)
+      console.log('🔍 Monto calculado:', monto)
+      
       await onSave(dataToSave)
       console.log('✅ handleSubmit: Guardado exitoso')
         onClose()
@@ -418,6 +438,35 @@ export function NotaCreditoDebitoModal({
                   </Select>
                   {errors.referencia_id && (
                     <p className="text-sm text-red-500">{errors.referencia_id}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="nro_factura">Número de Factura (Opcional)</Label>
+                  <Select
+                    value={formData.nro_factura || 'no-factura'}
+                    onValueChange={(value) => handleInputChange('nro_factura', value === 'no-factura' ? '' : value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar factura" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no-factura">Sin factura</SelectItem>
+                      {facturas.length === 0 ? (
+                        <SelectItem value="no-facturas-disponibles" disabled>
+                          No hay facturas disponibles
+                        </SelectItem>
+                      ) : (
+                        facturas.filter(f => !formData.proveedor_id || f.proveedor_id === formData.proveedor_id).map((factura) => (
+                          <SelectItem key={factura.compra_id} value={factura.nro_factura}>
+                            {factura.nro_factura} - {factura.proveedor_nombre} - ₡{parseFloat(factura.monto_compra).toLocaleString()}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {errors.nro_factura && (
+                    <p className="text-sm text-red-500">{errors.nro_factura}</p>
                   )}
                 </div>
 

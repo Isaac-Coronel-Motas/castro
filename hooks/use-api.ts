@@ -59,7 +59,7 @@ export function useApi<T = any>(
     sortBy: 'created_at',
     sortOrder: 'desc'
   });
-  const [paginationParams, setPaginationParams] = useState({ page: 1, limit: 10 });
+  const [paginationParams, setPaginationParams] = useState({ page: 1, limit: 100 });
   const [searchTerm, setSearchTerm] = useState('');
 
   const buildUrl = () => {

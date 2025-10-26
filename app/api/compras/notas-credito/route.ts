@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
         nc.motivo,
         nc.estado,
         nc.referencia_id,
-        nc.monto_nc,
+        nc.monto_nc as monto,
         nc.monto_gravada_5,
         nc.monto_gravada_10,
         nc.monto_exenta,

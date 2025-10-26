@@ -364,6 +364,7 @@ export interface NotaCreditoDebito {
   motivo?: string;
   estado: EstadoNotaCredito;
   referencia_id: number;
+  nro_factura?: string;
   monto_nc?: number;
   monto_gravada_5?: number;
   monto_gravada_10?: number;
