@@ -44,11 +44,13 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
   const [sucursales, setSucursales] = useState<SucursalRemision[]>([]);
   const [productos, setProductos] = useState<ProductoRemision[]>([]);
   const [timbrados, setTimbrados] = useState<any[]>([]);
+  const [facturasVentas, setFacturasVentas] = useState<any[]>([]);
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
   const [loadingAlmacenes, setLoadingAlmacenes] = useState(false);
   const [loadingSucursales, setLoadingSucursales] = useState(false);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [loadingTimbrados, setLoadingTimbrados] = useState(false);
+  const [loadingFacturasVentas, setLoadingFacturasVentas] = useState(false);
   const [searchUsuario, setSearchUsuario] = useState('');
   const [searchProducto, setSearchProducto] = useState('');
   
@@ -64,6 +66,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
     estado: 'activo',
     nro_timbrado: '',
     referencia_id: undefined,
+    nro_factura_venta: '',
     detalles: []
   });
 
@@ -162,6 +165,23 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
     }
   };
 
+  // Cargar facturas de ventas
+  const loadFacturasVentas = async () => {
+    setLoadingFacturasVentas(true);
+    try {
+      const response = await authenticatedFetch('/api/ventas/facturas?limit=100');
+      if (response.ok) {
+        const data = await response.json();
+        setFacturasVentas(data.data || []);
+        console.log('✅ Facturas de ventas cargadas:', data.data?.length || 0);
+      }
+    } catch (error) {
+      console.error('Error loading facturas de ventas:', error);
+    } finally {
+      setLoadingFacturasVentas(false);
+    }
+  };
+
   // Cargar datos cuando se abre el modal
   useEffect(() => {
     if (open) {
@@ -170,6 +190,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
       loadSucursales();
       loadProductos();
       loadTimbrados();
+      loadFacturasVentas();
     }
   }, [open]);
 
@@ -440,6 +461,40 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
                 {errors.referencia_id && (
                   <p className="text-sm text-red-500">{errors.referencia_id}</p>
                 )}
+              </div>
+
+              {/* Factura de Venta */}
+              <div className="space-y-2">
+                <Label htmlFor="nro_factura_venta">Número de Factura de Venta (Opcional)</Label>
+                <Select
+                  value={formData.nro_factura_venta || 'sin-factura'}
+                  onValueChange={(value) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      nro_factura_venta: value === 'sin-factura' ? '' : value
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar factura de venta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sin-factura">Sin factura</SelectItem>
+                    {loadingFacturasVentas ? (
+                      <SelectItem value="loading-facturas" disabled>Cargando...</SelectItem>
+                    ) : facturasVentas.length === 0 ? (
+                      <SelectItem value="no-facturas" disabled>No hay facturas disponibles</SelectItem>
+                    ) : (
+                      facturasVentas
+                        .filter(factura => factura.nro_factura && factura.nro_factura.toString())
+                        .map((factura) => (
+                          <SelectItem key={factura.venta_id} value={factura.nro_factura.toString()}>
+                            {factura.nro_factura} - {factura.cliente_nombre || 'Sin cliente'} - ₡{parseFloat(factura.monto_venta || 0).toLocaleString()}
+                          </SelectItem>
+                        ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Usuario */}

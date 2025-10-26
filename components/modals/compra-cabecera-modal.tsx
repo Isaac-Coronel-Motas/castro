@@ -42,6 +42,8 @@ export function CompraCabeceraModal({ isOpen, onClose, onSave, compra, mode }: C
   const [almacenes, setAlmacenes] = useState<any[]>([])
   const [tiposDocumento, setTiposDocumento] = useState<any[]>([])
   const [ordenesCompra, setOrdenesCompra] = useState<any[]>([])
+  const [timbrados, setTimbrados] = useState<any[]>([])
+  const [facturasCompras, setFacturasCompras] = useState<any[]>([])
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -103,6 +105,22 @@ export function CompraCabeceraModal({ isOpen, onClose, onSave, compra, mode }: C
       const ordenesData = await ordenesRes.json()
       if (ordenesData.success) {
         setOrdenesCompra(ordenesData.data)
+      }
+
+      // Cargar timbrados
+      const timbradosRes = await authenticatedFetch('/api/referencias/timbrados?activo=true')
+      const timbradosData = await timbradosRes.json()
+      if (timbradosData.success) {
+        setTimbrados(timbradosData.data)
+        console.log('✅ Timbrados cargados:', timbradosData.data.length)
+      }
+
+      // Cargar facturas de compras (para referencia)
+      const facturasRes = await authenticatedFetch('/api/compras/facturas?limit=100')
+      const facturasData = await facturasRes.json()
+      if (facturasData.success) {
+        setFacturasCompras(facturasData.data)
+        console.log('✅ Facturas de compras cargadas:', facturasData.data.length)
       }
     } catch (error) {
       console.error('Error cargando datos iniciales:', error)
@@ -459,27 +477,78 @@ export function CompraCabeceraModal({ isOpen, onClose, onSave, compra, mode }: C
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="nro_factura">Número de Factura</Label>
-                    <Input
-                      id="nro_factura"
-                      type="text"
-                      value={formData.nro_factura || ''}
-                      onChange={(e) => handleInputChange('nro_factura', e.target.value)}
+                    <Label htmlFor="timbrado">Timbrado <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={formData.timbrado_id?.toString() || ''}
+                      onValueChange={(value) => {
+                        const timbradoSeleccionado = timbrados.find(t => t.timbrado_id.toString() === value);
+                        setFormData(prev => ({
+                          ...prev,
+                          timbrado: timbradoSeleccionado?.numero || '',
+                          timbrado_id: timbradoSeleccionado?.timbrado_id
+                        }));
+                      }}
                       disabled={mode === 'view'}
-                      placeholder="Número de factura..."
-                    />
+                    >
+                      <SelectTrigger className={errors.timbrado ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Seleccionar timbrado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timbrados.length === 0 ? (
+                          <SelectItem value="no-timbrados-disponibles" disabled>
+                            No hay timbrados disponibles
+                          </SelectItem>
+                        ) : (
+                          timbrados.map((timbrado) => (
+                            <SelectItem key={timbrado.timbrado_id} value={timbrado.timbrado_id.toString()}>
+                              {timbrado.numero} - {timbrado.punto_expedicion}-{timbrado.establecimiento}
+                              {timbrado.sucursal_nombre ? ` (${timbrado.sucursal_nombre})` : ''}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {errors.timbrado && (
+                      <p className="text-sm text-red-500">{errors.timbrado}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="timbrado">Timbrado</Label>
-                    <Input
-                      id="timbrado"
-                      type="text"
-                      value={formData.timbrado || ''}
-                      onChange={(e) => handleInputChange('timbrado', e.target.value)}
+                    <Label htmlFor="nro_factura">Número de Factura (Opcional)</Label>
+                    <Select
+                      value={formData.nro_factura || 'sin-factura'}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          nro_factura: value === 'sin-factura' ? '' : value
+                        }));
+                      }}
                       disabled={mode === 'view'}
-                      placeholder="Número de timbrado..."
-                    />
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar factura" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sin-factura">Sin factura</SelectItem>
+                        {facturasCompras.length === 0 ? (
+                          <SelectItem value="no-facturas-disponibles" disabled>
+                            No hay facturas disponibles
+                          </SelectItem>
+                        ) : (
+                          facturasCompras
+                            .filter(f => !formData.proveedor_id || f.proveedor_id === formData.proveedor_id)
+                            .filter(f => f.nro_factura && f.nro_factura.toString())
+                            .map((factura) => (
+                              <SelectItem key={factura.compra_id} value={factura.nro_factura.toString()}>
+                                {factura.nro_factura} - {factura.proveedor_nombre || 'Sin proveedor'} - ₡{parseFloat(factura.monto_compra || 0).toLocaleString()}
+                              </SelectItem>
+                            ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {errors.nro_factura && (
+                      <p className="text-sm text-red-500">{errors.nro_factura}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>

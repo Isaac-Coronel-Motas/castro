@@ -42,6 +42,7 @@ export interface NotaRemisionCreate {
   tipo_remision: 'compra' | 'venta' | 'transferencia';
   referencia_id?: number;
   nro_timbrado?: string;
+  nro_factura_venta?: string;
   estado?: 'activo' | 'anulado';
   observaciones?: string;
   detalles?: DetalleRemisionCreate[];
