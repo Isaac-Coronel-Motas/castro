@@ -43,10 +43,12 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
   const [almacenes, setAlmacenes] = useState<AlmacenRemision[]>([]);
   const [sucursales, setSucursales] = useState<SucursalRemision[]>([]);
   const [productos, setProductos] = useState<ProductoRemision[]>([]);
+  const [timbrados, setTimbrados] = useState<any[]>([]);
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
   const [loadingAlmacenes, setLoadingAlmacenes] = useState(false);
   const [loadingSucursales, setLoadingSucursales] = useState(false);
   const [loadingProductos, setLoadingProductos] = useState(false);
+  const [loadingTimbrados, setLoadingTimbrados] = useState(false);
   const [searchUsuario, setSearchUsuario] = useState('');
   const [searchProducto, setSearchProducto] = useState('');
   
@@ -61,6 +63,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
     tipo_remision: 'venta',
     estado: 'activo',
     nro_timbrado: '',
+    referencia_id: undefined,
     detalles: []
   });
 
@@ -143,6 +146,22 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
     }
   };
 
+  // Cargar timbrados
+  const loadTimbrados = async () => {
+    setLoadingTimbrados(true);
+    try {
+      const response = await authenticatedFetch('/api/referencias/timbrados?activo=true');
+      if (response.ok) {
+        const data = await response.json();
+        setTimbrados(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading timbrados:', error);
+    } finally {
+      setLoadingTimbrados(false);
+    }
+  };
+
   // Cargar datos cuando se abre el modal
   useEffect(() => {
     if (open) {
@@ -150,6 +169,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
       loadAlmacenes();
       loadSucursales();
       loadProductos();
+      loadTimbrados();
     }
   }, [open]);
 
@@ -181,6 +201,10 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
 
     if (!formData.fecha_remision) {
       newErrors.fecha_remision = 'La fecha de remisión es requerida';
+    }
+
+    if (!formData.referencia_id) {
+      newErrors.referencia_id = 'El timbrado es requerido';
     }
 
     setErrors(newErrors);
@@ -245,6 +269,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
       tipo_remision: 'venta',
       estado: 'activo',
       nro_timbrado: '',
+      referencia_id: undefined,
       detalles: []
     });
     setErrors({});
@@ -380,16 +405,41 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
                 )}
               </div>
 
-              {/* Número de Timbrado */}
+              {/* Timbrado */}
               <div className="space-y-2">
-                <Label htmlFor="nro_timbrado">Número de Timbrado</Label>
-                <Input
-                  id="nro_timbrado"
-                  type="text"
-                  value={formData.nro_timbrado || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nro_timbrado: e.target.value }))}
-                  placeholder="Ej: 1234567"
-                />
+                <Label htmlFor="referencia_id">Timbrado <span className="text-red-500">*</span></Label>
+                <Select 
+                  value={formData.referencia_id?.toString() || ""} 
+                  onValueChange={(value) => {
+                    const timbradoId = value ? parseInt(value) : undefined;
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      referencia_id: timbradoId,
+                      nro_timbrado: value ? timbrados.find(t => t.timbrado_id.toString() === value)?.numero || '' : ''
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar timbrado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingTimbrados ? (
+                      <SelectItem value="loading-timbrados" disabled>Cargando...</SelectItem>
+                    ) : timbrados.length === 0 ? (
+                      <SelectItem value="no-timbrados" disabled>No hay timbrados disponibles</SelectItem>
+                    ) : (
+                      timbrados.map(timbrado => (
+                        <SelectItem key={timbrado.timbrado_id} value={timbrado.timbrado_id.toString()}>
+                          {timbrado.numero} - {timbrado.punto_expedicion}-{timbrado.establecimiento}
+                          {timbrado.sucursal_nombre ? ` (${timbrado.sucursal_nombre})` : ''}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {errors.referencia_id && (
+                  <p className="text-sm text-red-500">{errors.referencia_id}</p>
+                )}
               </div>
 
               {/* Usuario */}

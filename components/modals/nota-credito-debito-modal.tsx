@@ -88,6 +88,7 @@ export function NotaCreditoDebitoModal({
   const [sucursales, setSucursales] = useState<any[]>([])
   const [almacenes, setAlmacenes] = useState<any[]>([])
   const [productos, setProductos] = useState<any[]>([])
+  const [timbrados, setTimbrados] = useState<any[]>([])
 
   const isEdit = !!nota
   const isCompra = tipoOperacion === 'compra'
@@ -107,12 +108,13 @@ export function NotaCreditoDebitoModal({
     try {
       console.log('🔍 Cargando datos iniciales...')
       
-      const [proveedoresRes, clientesRes, sucursalesRes, almacenesRes, productosRes] = await Promise.all([
+      const [proveedoresRes, clientesRes, sucursalesRes, almacenesRes, productosRes, timbradosRes] = await Promise.all([
         authenticatedFetch('/api/referencias/proveedores'),
         authenticatedFetch('/api/referencias/clientes'),
         authenticatedFetch('/api/sucursales'),
         authenticatedFetch('/api/referencias/almacenes'),
-        authenticatedFetch('/api/referencias/productos')
+        authenticatedFetch('/api/referencias/productos'),
+        authenticatedFetch('/api/referencias/timbrados?activo=true')
       ])
 
       console.log('📡 Respuestas recibidas:', {
@@ -120,7 +122,8 @@ export function NotaCreditoDebitoModal({
         clientes: clientesRes.status,
         sucursales: sucursalesRes.status,
         almacenes: almacenesRes.status,
-        productos: productosRes.status
+        productos: productosRes.status,
+        timbrados: timbradosRes.status
       })
 
       const proveedoresData = await proveedoresRes.json()
@@ -128,13 +131,15 @@ export function NotaCreditoDebitoModal({
       const sucursalesData = await sucursalesRes.json()
       const almacenesData = await almacenesRes.json()
       const productosData = await productosRes.json()
+      const timbradosData = await timbradosRes.json()
 
       console.log('📊 Datos parseados:', {
         proveedores: proveedoresData.success ? proveedoresData.data?.length : 'error',
         clientes: clientesData.success ? clientesData.data?.length : 'error',
         sucursales: sucursalesData.success ? sucursalesData.data?.length : 'error',
         almacenes: almacenesData.success ? almacenesData.data?.length : 'error',
-        productos: productosData.success ? productosData.data?.length : 'error'
+        productos: productosData.success ? productosData.data?.length : 'error',
+        timbrados: timbradosData.success ? timbradosData.data?.length : 'error'
       })
 
       if (proveedoresData.success) setProveedores(proveedoresData.data)
@@ -142,6 +147,7 @@ export function NotaCreditoDebitoModal({
       if (sucursalesData.success) setSucursales(sucursalesData.data)
       if (almacenesData.success) setAlmacenes(almacenesData.data)
       if (productosData.success) setProductos(productosData.data)
+      if (timbradosData.success) setTimbrados(timbradosData.data)
 
       console.log('✅ Datos cargados exitosamente')
     } catch (error) {
@@ -259,7 +265,9 @@ export function NotaCreditoDebitoModal({
       newErrors.almacen_id = 'El almacén es requerido'
     }
 
-    // referencia_id es opcional
+    if (!formData.referencia_id || formData.referencia_id <= 0) {
+      newErrors.referencia_id = 'El timbrado es requerido'
+    }
 
     if (isCompra && (!formData.proveedor_id || formData.proveedor_id <= 0)) {
       newErrors.proveedor_id = 'El proveedor es requerido'
@@ -385,15 +393,29 @@ export function NotaCreditoDebitoModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="referencia_id">Referencia ID (Opcional)</Label>
-                  <Input
-                    id="referencia_id"
-                    type="number"
-                    value={formData.referencia_id || ''}
-                    onChange={(e) => handleInputChange('referencia_id', e.target.value ? parseInt(e.target.value) : undefined)}
-                    className={errors.referencia_id ? 'border-red-500' : ''}
-                    placeholder="ID de la factura referenciada (opcional)"
-                  />
+                  <Label htmlFor="referencia_id">Timbrado <span className="text-red-500">*</span></Label>
+                  <Select
+                    value={formData.referencia_id?.toString() || ''}
+                    onValueChange={(value) => handleInputChange('referencia_id', parseInt(value))}
+                  >
+                    <SelectTrigger className={errors.referencia_id ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Seleccionar timbrado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timbrados.length === 0 ? (
+                        <SelectItem value="no-timbrados-available" disabled>
+                          No hay timbrados disponibles
+                        </SelectItem>
+                      ) : (
+                        timbrados.map((timbrado) => (
+                          <SelectItem key={timbrado.timbrado_id} value={timbrado.timbrado_id.toString()}>
+                            {timbrado.numero} - {timbrado.punto_expedicion}-{timbrado.establecimiento}
+                            {timbrado.sucursal_nombre ? ` (${timbrado.sucursal_nombre})` : ''}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                   {errors.referencia_id && (
                     <p className="text-sm text-red-500">{errors.referencia_id}</p>
                   )}
