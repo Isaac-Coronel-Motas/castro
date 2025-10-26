@@ -40,7 +40,7 @@ export default function RetiroEquiposPage() {
       sortable: true,
       render: (salida: SalidaEquipo) => (
         <div className="font-medium text-foreground">
-          {salida.nro_salida || `#${salida.salida_equipo_id}`}
+          {salida.nro_recepcion || salida.nro_solicitud || `Salida #${salida.salida_id || salida.salida_equipo_id}`}
         </div>
       )
     },
