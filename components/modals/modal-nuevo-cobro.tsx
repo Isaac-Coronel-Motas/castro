@@ -82,15 +82,15 @@ export function ModalNuevoCobro({ onCobroCreated }: ModalNuevoCobroProps) {
 
   // Filtrar ventas por búsqueda
   const filteredVentas = ventas.filter(venta =>
-    venta.nro_factura.toLowerCase().includes(searchVenta.toLowerCase()) ||
-    venta.cliente_nombre.toLowerCase().includes(searchVenta.toLowerCase()) ||
-    venta.cliente_telefono.includes(searchVenta)
+    (venta.nro_factura?.toString().toLowerCase() || '').includes(searchVenta.toLowerCase()) ||
+    (venta.cliente_nombre?.toLowerCase() || '').includes(searchVenta.toLowerCase()) ||
+    (venta.cliente_telefono?.toString() || '').includes(searchVenta)
   );
 
   // Filtrar usuarios por búsqueda
   const filteredUsuarios = usuarios.filter(usuario =>
-    usuario.nombre.toLowerCase().includes(searchUsuario.toLowerCase()) ||
-    usuario.username.toLowerCase().includes(searchUsuario.toLowerCase())
+    (usuario.nombre?.toLowerCase() || '').includes(searchUsuario.toLowerCase()) ||
+    (usuario.username?.toLowerCase() || '').includes(searchUsuario.toLowerCase())
   );
 
   // Cargar ventas

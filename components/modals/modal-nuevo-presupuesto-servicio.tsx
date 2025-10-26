@@ -78,15 +78,15 @@ export function ModalNuevoPresupuestoServicio({ onPresupuestoCreated }: ModalNue
 
   // Filtrar usuarios por búsqueda
   const filteredUsuarios = usuarios.filter(usuario =>
-    usuario.nombre.toLowerCase().includes(searchUsuario.toLowerCase()) ||
-    usuario.username.toLowerCase().includes(searchUsuario.toLowerCase())
+    (usuario.nombre?.toLowerCase() || '').includes(searchUsuario.toLowerCase()) ||
+    (usuario.username?.toLowerCase() || '').includes(searchUsuario.toLowerCase())
   );
 
   // Filtrar diagnósticos por búsqueda
   const filteredDiagnosticos = diagnosticos.filter(diagnostico =>
-    diagnostico.descripcion.toLowerCase().includes(searchDiagnostico.toLowerCase()) ||
-    diagnostico.cliente_nombre.toLowerCase().includes(searchDiagnostico.toLowerCase()) ||
-    diagnostico.cliente_telefono?.includes(searchDiagnostico)
+    (diagnostico.descripcion?.toLowerCase() || '').includes(searchDiagnostico.toLowerCase()) ||
+    (diagnostico.cliente_nombre?.toLowerCase() || '').includes(searchDiagnostico.toLowerCase()) ||
+    (diagnostico.cliente_telefono?.toString() || '').includes(searchDiagnostico)
   );
 
   // Cargar usuarios

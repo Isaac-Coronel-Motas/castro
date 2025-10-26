@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     // Obtener parámetros de consulta
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = parseInt(searchParams.get('limit') || '100');
     const search = searchParams.get('search') || '';
     const sort_by = searchParams.get('sort_by') || 'fecha_registro';
     const sort_order = searchParams.get('sort_order') || 'desc';
@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el cliente existe
-    const clienteQuery = 'SELECT cliente_id FROM clientes WHERE cliente_id = $1 AND estado = true';
+    const clienteQuery = 'SELECT cliente_id FROM clientes WHERE cliente_id = $1 AND estado = \'activo\'';
     const clienteResult = await pool.query(clienteQuery, [body.cliente_id]);
     
     if (clienteResult.rows.length === 0) {
@@ -323,7 +323,7 @@ export async function POST(request: NextRequest) {
       nroNota,
       body.motivo || null,
       body.estado || 'activo',
-      body.referencia_id || null,
+      body.referencia_id || 0,
       body.monto || 0,
       body.monto_gravada_5 || 0,
       body.monto_gravada_10 || 0,
@@ -351,39 +351,40 @@ export async function POST(request: NextRequest) {
     }
 
     // Obtener la nota creada con información completa
+    const campoId = tablaCabecera.replace('_cabecera', '_id');
     const getNotaQuery = `
       SELECT 
-        ${tablaCabecera.replace('_cabecera', '_id')} as id,
+        n.${campoId} as id,
         '${body.tipo_nota}' as tipo_nota,
-        tipo_operacion,
-        cliente_id,
-        sucursal_id,
-        almacen_id,
-        usuario_id,
-        fecha_registro,
-        nro_nota,
-        motivo,
-        estado,
-        referencia_id,
-        ${campoMonto} as monto,
-        monto_gravada_5,
-        monto_gravada_10,
-        monto_exenta,
-        monto_iva,
+        n.tipo_operacion,
+        n.cliente_id,
+        n.sucursal_id,
+        n.almacen_id,
+        n.usuario_id,
+        n.fecha_registro,
+        n.nro_nota,
+        n.motivo,
+        n.estado,
+        n.referencia_id,
+        n.${campoMonto} as monto,
+        n.monto_gravada_5,
+        n.monto_gravada_10,
+        n.monto_exenta,
+        n.monto_iva,
         c.nombre as cliente_nombre,
         u.nombre as usuario_nombre,
         s.nombre as sucursal_nombre,
         a.nombre as almacen_nombre,
         CASE 
-          WHEN estado = 'activo' THEN 'Activo'
-          WHEN estado = 'anulado' THEN 'Anulado'
+          WHEN n.estado = 'activo' THEN 'Activo'
+          WHEN n.estado = 'anulado' THEN 'Anulado'
         END as estado_display
-      FROM ${tablaCabecera}
-      LEFT JOIN clientes c ON cliente_id = c.cliente_id
-      LEFT JOIN usuarios u ON usuario_id = u.usuario_id
-      LEFT JOIN sucursales s ON sucursal_id = s.sucursal_id
-      LEFT JOIN almacenes a ON almacen_id = a.almacen_id
-      WHERE ${tablaCabecera.replace('_cabecera', '_id')} = $1
+      FROM ${tablaCabecera} n
+      LEFT JOIN clientes c ON n.cliente_id = c.cliente_id
+      LEFT JOIN usuarios u ON n.usuario_id = u.usuario_id
+      LEFT JOIN sucursales s ON n.sucursal_id = s.sucursal_id
+      LEFT JOIN almacenes a ON n.almacen_id = a.almacen_id
+      WHERE n.${campoId} = $1
     `;
 
     const notaData = await pool.query(getNotaQuery, [newNotaId]);

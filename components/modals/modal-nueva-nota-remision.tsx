@@ -319,8 +319,8 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
         Nueva Nota de Remisión
       </Button>
       
-      <DialogContent className="max-w-6xl w-full h-[95vh] flex flex-col overflow-hidden">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-7xl w-[95vw] h-[95vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0 pb-4">
           <DialogTitle className="text-2xl font-bold">
             Nueva Nota de Remisión
           </DialogTitle>
@@ -329,11 +329,11 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-8 px-1">
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Columna 1 - Información básica */}
+        <div className="flex-1 overflow-y-auto space-y-6 px-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-6">
+            {/* Columna 1 - Información básica */}
+            <div className="space-y-4">
               {/* Tipo de Remisión */}
               <div className="space-y-2">
                 <Label htmlFor="tipo_remision">Tipo de Remisión *</Label>
@@ -563,8 +563,8 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
               </div>
             </div>
 
-            {/* Columnas 2-4 - Productos */}
-            <div className="lg:col-span-3 space-y-6">
+            {/* Sección de Productos */}
+            <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium">Productos</h3>
                 <div className="text-sm text-muted-foreground">
@@ -679,8 +679,7 @@ export function ModalNuevaNotaRemision({ onNotaRemisionCreated }: ModalNuevaNota
                 </div>
               )}
             </div>
-          </div>
-
+            </div>
           </form>
         </div>
 

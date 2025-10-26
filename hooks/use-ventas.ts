@@ -59,7 +59,7 @@ export function useVentas(options: UseVentasOptions = {}): UseVentasReturn {
       
       // Parámetros de paginación
       searchParams.append('page', currentOptions.page?.toString() || '1');
-      searchParams.append('limit', currentOptions.limit?.toString() || '10');
+      searchParams.append('limit', currentOptions.limit?.toString() || '100');
       
       // Parámetros de búsqueda y ordenamiento
       if (currentOptions.search) {

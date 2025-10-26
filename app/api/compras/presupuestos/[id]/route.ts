@@ -42,7 +42,7 @@ export async function GET(
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Query para obtener presupuesto
+    // Query para obtener presupuesto con proveedor
     const presupuestoQuery = `
       SELECT 
         pp.presu_prov_id,
@@ -270,7 +270,8 @@ export async function PUT(
         pp.nro_comprobante,
         pp.pedido_prov_id,
         u.nombre as usuario_nombre,
-        pr.nombre_proveedor as proveedor_nombre
+        pr.nombre_proveedor as proveedor_nombre,
+        pr.proveedor_id
       FROM presupuesto_proveedor pp
       LEFT JOIN usuarios u ON pp.usuario_id = u.usuario_id
       LEFT JOIN pedido_proveedor pv ON pp.pedido_prov_id = pv.pedido_prov_id

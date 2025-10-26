@@ -503,6 +503,7 @@ export function ModalNuevaVenta({ onVentaCreated }: { onVentaCreated?: () => voi
                             <div className="text-sm font-medium">₡{Number(producto.precio_venta || 0).toLocaleString()}</div>
                           </div>
                           <Button
+                            type="button"
                             size="sm"
                             variant="outline"
                             onClick={() => addProducto(producto)}
@@ -532,6 +533,7 @@ export function ModalNuevaVenta({ onVentaCreated }: { onVentaCreated?: () => voi
                           <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1">
                               <Button
+                                type="button"
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateProducto(index, 'cantidad', Math.max(1, producto.cantidad - 1))}
@@ -546,6 +548,7 @@ export function ModalNuevaVenta({ onVentaCreated }: { onVentaCreated?: () => voi
                                 min="1"
                               />
                               <Button
+                                type="button"
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateProducto(index, 'cantidad', producto.cantidad + 1)}
@@ -572,6 +575,7 @@ export function ModalNuevaVenta({ onVentaCreated }: { onVentaCreated?: () => voi
                               ₡{producto.subtotal.toLocaleString()}
                             </div>
                             <Button
+                              type="button"
                               size="sm"
                               variant="destructive"
                               onClick={() => removeProducto(index)}

@@ -105,7 +105,7 @@ export function validatePresupuestoProveedorData(data: CreatePresupuestoProveedo
     errors.valido_hasta = 'La fecha de validez no es válida';
   }
 
-  if (data.estado && !['nuevo', 'enviado', 'recibido', 'aprobado', 'rechazado', 'vencido'].includes(data.estado)) {
+  if (data.estado && !['nuevo', 'pendiente', 'enviado', 'recibido', 'aprobado', 'rechazado', 'vencido'].includes(data.estado)) {
     errors.estado = 'El estado no es válido';
   }
 
@@ -293,9 +293,13 @@ export function mapEstadoForDatabase(estado: string): string {
     'cancelado': 'cancelado',
     
     // Estados de presupuestos (diferentes enums)
+    'pendiente': 'pendiente',
     'aprobado': 'aprobado',
     'rechazado': 'rechazado',
     'nuevo': 'nuevo',
+    'enviado': 'enviado',
+    'recibido': 'recibido',
+    'vencido': 'vencido',
     
     // Estados de órdenes de compra (diferentes enums)
     'aprobada': 'aprobada',
@@ -317,9 +321,13 @@ export function mapEstadoForFrontend(estado: string): string {
     'cancelado': 'cancelado',
     
     // Estados de presupuestos (diferentes enums)
+    'pendiente': 'pendiente',
     'aprobado': 'aprobado',
     'rechazado': 'rechazado',
     'nuevo': 'nuevo',
+    'enviado': 'enviado',
+    'recibido': 'recibido',
+    'vencido': 'vencido',
     
     // Estados de órdenes de compra (diferentes enums)
     'aprobada': 'aprobada',

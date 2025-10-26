@@ -99,9 +99,9 @@ export async function GET(
         vd.producto_id,
         vd.cantidad,
         vd.precio_unitario,
-        p.nombre as producto_nombre,
-        p.descripcion as producto_descripcion,
-        p.codigo as producto_codigo,
+        p.nombre_producto as producto_nombre,
+        p.descripcion_producto as producto_descripcion,
+        p.cod_product as producto_codigo,
         (vd.cantidad * vd.precio_unitario) as subtotal
       FROM ventas_detalle vd
       LEFT JOIN productos p ON vd.producto_id = p.producto_id

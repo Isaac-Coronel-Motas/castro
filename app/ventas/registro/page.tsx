@@ -12,8 +12,11 @@ import { DataTable } from "@/components/data-table"
 import { useVentas, useVentasStats } from "@/hooks/use-ventas"
 import { Venta } from "@/lib/types/ventas"
 import { ModalNuevaVenta } from "@/components/modals/modal-nueva-venta"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { LoadingSpinner } from "@/components/ui/loading"
 import { ErrorDisplay, EmptyState } from "@/components/ui/error-display"
+import { Separator } from "@/components/ui/separator"
+import { useAuth } from "@/contexts/auth-context"
 import {
   Search,
   Plus,
@@ -34,8 +37,13 @@ import {
 } from "lucide-react"
 
 export default function RegistroVentasPage() {
+  const { token } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
   const [paymentFilter, setPaymentFilter] = useState("all")
+  const [viewVentaModalOpen, setViewVentaModalOpen] = useState(false)
+  const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null)
+  const [ventaProductos, setVentaProductos] = useState<any[]>([])
+  const [loadingProductos, setLoadingProductos] = useState(false)
 
   // Usar hooks para obtener datos de la API
   const {
@@ -127,6 +135,34 @@ export default function RegistroVentasPage() {
         return <AlertCircle className="h-4 w-4" />
       default:
         return <Clock className="h-4 w-4" />
+    }
+  }
+
+  const handleViewVenta = (venta: Venta) => {
+    setSelectedVenta(venta)
+    setViewVentaModalOpen(true)
+    loadVentaProductos(venta.venta_id)
+  }
+
+  const loadVentaProductos = async (ventaId: number) => {
+    setLoadingProductos(true)
+    try {
+      const response = await fetch(`/api/ventas/pedidos-clientes/${ventaId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data.productos) {
+          setVentaProductos(data.data.productos)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading productos:', error)
+    } finally {
+      setLoadingProductos(false)
     }
   }
 
@@ -294,6 +330,19 @@ export default function RegistroVentasPage() {
                 </Badge>
               ),
             },
+            {
+              key: 'acciones',
+              header: 'Acciones',
+              render: (venta: Venta) => (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleViewVenta(venta)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              ),
+            },
           ]}
           loading={ventasLoading}
           error={ventasError}
@@ -305,6 +354,146 @@ export default function RegistroVentasPage() {
           searchPlaceholder="Buscar por cliente, factura..."
           emptyMessage="No hay ventas registradas"
         />
+
+        {/* Modal de Detalles de Venta */}
+        <Dialog open={viewVentaModalOpen} onOpenChange={(open) => {
+          setViewVentaModalOpen(open)
+          if (!open) {
+            setVentaProductos([])
+          }
+        }}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Detalles de la Venta</DialogTitle>
+              <DialogDescription>
+                Información completa de la venta
+              </DialogDescription>
+            </DialogHeader>
+            {selectedVenta && (
+              <div className="space-y-6">
+                {/* Información General */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Información General</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">ID de Venta</p>
+                      <p className="font-medium">V-{selectedVenta.venta_id.toString().padStart(4, '0')}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Número de Factura</p>
+                      <p className="font-medium">{selectedVenta.nro_factura || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Cliente</p>
+                      <p className="font-medium">{selectedVenta.cliente_nombre}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Teléfono</p>
+                      <p className="font-medium">{selectedVenta.cliente_telefono || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Fecha</p>
+                      <p className="font-medium">{formatDate(selectedVenta.fecha_venta)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Hora</p>
+                      <p className="font-medium">{formatTime(selectedVenta.fecha_venta)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Estado</p>
+                      <Badge className={`${getStatusColor(selectedVenta.estado)} flex items-center gap-1 w-fit`}>
+                        {getStatusIcon(selectedVenta.estado)}
+                        {selectedVenta.estado.charAt(0).toUpperCase() + selectedVenta.estado.slice(1)}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Método de Pago</p>
+                      <Badge className={`${getPaymentColor(selectedVenta.forma_cobro_nombre || '')} flex items-center gap-1 w-fit`}>
+                        {getPaymentIcon(selectedVenta.forma_cobro_nombre || '')}
+                        {selectedVenta.forma_cobro_nombre || 'N/A'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Productos */}
+                {loadingProductos ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Productos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-4">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                        <p className="text-sm text-gray-600 mt-2">Cargando productos...</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : ventaProductos.length > 0 ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Productos ({ventaProductos.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {ventaProductos.map((producto, index) => (
+                          <div key={index} className="border rounded p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="font-medium">{producto.producto_nombre || 'Producto sin nombre'}</div>
+                                <div className="text-sm text-gray-600">{producto.producto_codigo || 'Sin código'}</div>
+                              </div>
+                              <div className="flex items-center gap-6">
+                                <div className="text-sm">
+                                  <span className="text-gray-600">Cantidad: </span> {producto.cantidad}
+                                </div>
+                                <div className="text-sm">
+                                  <span className="text-gray-600">Precio: </span> ₡{Number(producto.precio_unitario).toLocaleString()}
+                                </div>
+                                <div className="text-sm font-medium">
+                                  <span className="text-gray-600">Subtotal: </span> ₡{Number(producto.subtotal).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                {/* Totales */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Resumen Financiero</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Total de Productos</span>
+                      <span className="font-medium">{selectedVenta.total_productos || 0} items</span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Subtotal</span>
+                      <span className="font-medium">₡{(selectedVenta.monto_gravada_5 || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">IVA 10%</span>
+                      <span className="font-medium">₡{(selectedVenta.monto_iva || 0).toLocaleString()}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Total</span>
+                      <span className="text-primary">₡{(selectedVenta.monto_venta || 0).toLocaleString()}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   )

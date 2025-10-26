@@ -44,9 +44,10 @@ import {
 interface NotaCreditoDebitoModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (data: CreateNotaCreditoDebitoRequest | UpdateNotaCreditoDebitoRequest) => Promise<void>
+  onSave: (data: any) => Promise<void>
   nota?: NotaCreditoDebito | null
   tipoOperacion: 'compra' | 'venta'
+  tipoNota?: 'credito' | 'debito'
 }
 
 export function NotaCreditoDebitoModal({ 
@@ -54,13 +55,15 @@ export function NotaCreditoDebitoModal({
   onClose, 
   onSave, 
   nota, 
-  tipoOperacion 
+  tipoOperacion,
+  tipoNota = 'credito'
 }: NotaCreditoDebitoModalProps) {
   const { user } = useAuth()
   const { authenticatedFetch } = useAuthenticatedFetch()
   
-  const [formData, setFormData] = useState<CreateNotaCreditoDebitoRequest>({
+  const [formData, setFormData] = useState<any>({
     tipo_operacion: tipoOperacion,
+    tipo_nota: tipoNota,
     proveedor_id: undefined,
     cliente_id: undefined,
     sucursal_id: 1,
@@ -69,7 +72,7 @@ export function NotaCreditoDebitoModal({
     fecha_registro: new Date().toISOString().split('T')[0],
     motivo: '',
     estado: 'activo',
-    referencia_id: 0,
+    referencia_id: undefined,
     monto_nc: 0,
     monto_gravada_5: 0,
     monto_gravada_10: 0,
@@ -105,11 +108,11 @@ export function NotaCreditoDebitoModal({
       console.log('🔍 Cargando datos iniciales...')
       
       const [proveedoresRes, clientesRes, sucursalesRes, almacenesRes, productosRes] = await Promise.all([
-        authenticatedFetch.authenticatedFetch('/api/compras/referencias/proveedores'),
-        authenticatedFetch.authenticatedFetch('/api/compras/referencias/clientes'),
-        authenticatedFetch.authenticatedFetch('/api/sucursales'),
-        authenticatedFetch.authenticatedFetch('/api/compras/referencias/almacenes'),
-        authenticatedFetch.authenticatedFetch('/api/compras/referencias/productos')
+        authenticatedFetch('/api/referencias/proveedores'),
+        authenticatedFetch('/api/referencias/clientes'),
+        authenticatedFetch('/api/sucursales'),
+        authenticatedFetch('/api/referencias/almacenes'),
+        authenticatedFetch('/api/referencias/productos')
       ])
 
       console.log('📡 Respuestas recibidas:', {
@@ -176,6 +179,7 @@ export function NotaCreditoDebitoModal({
   const resetForm = () => {
     setFormData({
       tipo_operacion: tipoOperacion,
+      tipo_nota: tipoNota,
       proveedor_id: undefined,
       cliente_id: undefined,
       sucursal_id: 1,
@@ -184,8 +188,10 @@ export function NotaCreditoDebitoModal({
       fecha_registro: new Date().toISOString().split('T')[0],
       motivo: '',
       estado: 'activo',
-      referencia_id: 0,
+      referencia_id: undefined,
+      monto: 0,
       monto_nc: 0,
+      monto_nd: 0,
       monto_gravada_5: 0,
       monto_gravada_10: 0,
       monto_exenta: 0,
@@ -234,7 +240,9 @@ export function NotaCreditoDebitoModal({
 
     setFormData(prev => ({
       ...prev,
+      monto: total,
       monto_nc: total,
+      monto_nd: total,
       monto_gravada_10: subtotal,
       monto_iva: iva
     }))
@@ -251,9 +259,7 @@ export function NotaCreditoDebitoModal({
       newErrors.almacen_id = 'El almacén es requerido'
     }
 
-    if (!formData.referencia_id || formData.referencia_id <= 0) {
-      newErrors.referencia_id = 'La referencia es requerida'
-    }
+    // referencia_id es opcional
 
     if (isCompra && (!formData.proveedor_id || formData.proveedor_id <= 0)) {
       newErrors.proveedor_id = 'El proveedor es requerido'
@@ -304,8 +310,31 @@ export function NotaCreditoDebitoModal({
 
     setLoading(true)
     try {
-      calculateTotals()
-      await onSave(formData)
+      // Calcular monto directamente
+      const subtotal = (formData.items || []).reduce((sum, item) => 
+        sum + (item.cantidad * item.precio_unitario), 0
+      )
+      const iva = subtotal * 0.13 // 13% IVA
+      const monto = subtotal + iva
+      
+      // Transformar datos para el formato esperado por la API
+      const dataToSave = {
+        ...formData,
+        monto: monto,
+        monto_gravada_10: subtotal,
+        monto_iva: iva,
+        detalles: formData.items?.map(item => ({
+          producto_id: item.producto_id,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario
+        })) || []
+      }
+      
+      // Remover items ya que el API espera detalles
+      delete dataToSave.items
+      
+      console.log('🔍 Datos que se enviarán al API:', dataToSave)
+      await onSave(dataToSave)
       console.log('✅ handleSubmit: Guardado exitoso')
         onClose()
     } catch (error) {
@@ -326,7 +355,7 @@ export function NotaCreditoDebitoModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            {isEdit ? 'Editar' : 'Crear'} Nota de {isCompra ? 'Crédito' : 'Débito'}
+            {isEdit ? 'Editar' : 'Crear'} {tipoNota === 'credito' ? 'Nota de Crédito' : 'Nota de Débito'}
             <Badge className={getTipoOperacionColor(tipoOperacion)}>
               {getTipoOperacionLabel(tipoOperacion)}
             </Badge>
@@ -356,14 +385,14 @@ export function NotaCreditoDebitoModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="referencia_id">Referencia ID</Label>
+                  <Label htmlFor="referencia_id">Referencia ID (Opcional)</Label>
                   <Input
                     id="referencia_id"
                     type="number"
-                    value={formData.referencia_id}
-                    onChange={(e) => handleInputChange('referencia_id', parseInt(e.target.value))}
+                    value={formData.referencia_id || ''}
+                    onChange={(e) => handleInputChange('referencia_id', e.target.value ? parseInt(e.target.value) : undefined)}
                     className={errors.referencia_id ? 'border-red-500' : ''}
-                    placeholder="ID de la factura referenciada"
+                    placeholder="ID de la factura referenciada (opcional)"
                   />
                   {errors.referencia_id && (
                     <p className="text-sm text-red-500">{errors.referencia_id}</p>
@@ -438,7 +467,7 @@ export function NotaCreditoDebitoModal({
                             </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label htmlFor="cliente_id">Cliente</Label>
+                    <Label htmlFor="cliente_id">Cliente *</Label>
                     <Select
                       value={formData.cliente_id?.toString() || ''}
                       onValueChange={(value) => handleInputChange('cliente_id', parseInt(value))}

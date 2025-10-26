@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useAuth } from "@/contexts/auth-context"
 import { useAuthenticatedFetch } from "@/hooks/use-authenticated-fetch"
 import { RecepcionEquipo, CreateRecepcionEquipoRequest, UpdateRecepcionEquipoRequest, RecepcionEquipoDetalle } from "@/lib/types/servicios-tecnicos"
@@ -39,6 +40,8 @@ export function RecepcionEquipoModal({ isOpen, onClose, onSave, recepcion, mode 
   const [equipos, setEquipos] = useState<any[]>([])
   const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [usuarios, setUsuarios] = useState<any[]>([])
+  const [tiposEquipo, setTiposEquipo] = useState<any[]>([])
+  const [equipoNuevoIndex, setEquipoNuevoIndex] = useState<number | null>(null)
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -75,6 +78,13 @@ export function RecepcionEquipoModal({ isOpen, onClose, onSave, recepcion, mode 
       const equiposData = await equiposRes.json()
       if (equiposData.success) {
         setEquipos(equiposData.data)
+      }
+
+      // Cargar tipos de equipos
+      const tiposRes = await authenticatedFetch('/api/referencias/tipos-equipo')
+      const tiposData = await tiposRes.json()
+      if (tiposData.success) {
+        setTiposEquipo(tiposData.data)
       }
 
       // Cargar solicitudes pendientes
@@ -127,7 +137,12 @@ export function RecepcionEquipoModal({ isOpen, onClose, onSave, recepcion, mode 
         {
           equipo_id: 0,
           cantidad: 1,
-          observaciones: ''
+          observaciones: '',
+          esNuevo: false,
+          // Campos para equipo nuevo
+          tipo_equipo_id: undefined,
+          numero_serie: '',
+          estado: 'Disponible'
         }
       ]
     }))
@@ -156,9 +171,21 @@ export function RecepcionEquipoModal({ isOpen, onClose, onSave, recepcion, mode 
     }
 
     formData.equipos?.forEach((equipo, index) => {
-      if (!equipo.equipo_id) {
-        newErrors[`equipo_${index}_equipo`] = 'El equipo es requerido'
+      if (equipo.esNuevo) {
+        // Validar campos para equipo nuevo
+        if (!equipo.tipo_equipo_id) {
+          newErrors[`equipo_${index}_tipo`] = 'El tipo de equipo es requerido'
+        }
+        if (!equipo.numero_serie || !equipo.numero_serie.trim()) {
+          newErrors[`equipo_${index}_numero_serie`] = 'El número de serie es requerido'
+        }
+      } else {
+        // Validar campos para equipo existente
+        if (!equipo.equipo_id) {
+          newErrors[`equipo_${index}_equipo`] = 'El equipo es requerido'
+        }
       }
+      
       if (!equipo.cantidad || equipo.cantidad <= 0) {
         newErrors[`equipo_${index}_cantidad`] = 'La cantidad debe ser mayor a 0'
       }
@@ -181,10 +208,51 @@ export function RecepcionEquipoModal({ isOpen, onClose, onSave, recepcion, mode 
     console.log('Validación exitosa, guardando...')
     setLoading(true)
     try {
-      const dataToSave = mode === 'create' 
-        ? formData 
-        : { ...formData, recepcion_id: recepcion?.recepcion_id }
-      
+      // Crear equipos nuevos si los hay
+      const equiposFinales = []
+      for (const equipo of formData.equipos || []) {
+        if (equipo.esNuevo) {
+          // Crear el nuevo equipo
+          const response = await authenticatedFetch('/api/referencias/equipos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipo_equipo_id: equipo.tipo_equipo_id,
+              numero_serie: equipo.numero_serie,
+              estado: equipo.estado
+            })
+          })
+          const data = await response.json()
+          if (data.success) {
+            // Agregar el equipo creado con su ID
+            equiposFinales.push({
+              equipo_id: data.data.equipo_id,
+              cantidad: equipo.cantidad,
+              observaciones: equipo.observaciones
+            })
+          } else {
+            throw new Error(data.message || 'Error creando equipo')
+          }
+        } else {
+          // Usar el equipo existente
+          equiposFinales.push({
+            equipo_id: equipo.equipo_id,
+            cantidad: equipo.cantidad,
+            observaciones: equipo.observaciones
+          })
+        }
+      }
+
+      // Preparar datos para guardar (sin los campos extras de equipos nuevos)
+      const dataToSave = {
+        ...formData,
+        equipos: equiposFinales
+      }
+
+      if (mode === 'edit') {
+        dataToSave.recepcion_id = recepcion?.recepcion_id
+      }
+
       console.log('dataToSave:', dataToSave)
       await onSave(dataToSave)
       onClose()
@@ -380,56 +448,158 @@ export function RecepcionEquipoModal({ isOpen, onClose, onSave, recepcion, mode 
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="space-y-2">
-                            <Label>Equipo</Label>
-                            <Select
-                              value={equipo.equipo_id?.toString()}
-                              onValueChange={(value) => handleEquipoChange(index, 'equipo_id', parseInt(value))}
-                              disabled={mode === 'view'}
-                            >
-                              <SelectTrigger className={errors[`equipo_${index}_equipo`] ? 'border-red-500' : ''}>
-                                <SelectValue placeholder="Seleccionar equipo" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {equipos.map((eq) => (
-                                  <SelectItem key={eq.equipo_id} value={eq.equipo_id.toString()}>
-                                    {eq.numero_serie} - {eq.tipo_equipo_nombre}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {errors[`equipo_${index}_equipo`] && (
-                              <p className="text-sm text-red-500">{errors[`equipo_${index}_equipo`]}</p>
-                            )}
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Cantidad</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={equipo.cantidad || ''}
-                              onChange={(e) => handleEquipoChange(index, 'cantidad', parseInt(e.target.value) || 1)}
-                              disabled={mode === 'view'}
-                              className={errors[`equipo_${index}_cantidad`] ? 'border-red-500' : ''}
-                            />
-                            {errors[`equipo_${index}_cantidad`] && (
-                              <p className="text-sm text-red-500">{errors[`equipo_${index}_cantidad`]}</p>
-                            )}
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Observaciones</Label>
-                            <Input
-                              type="text"
-                              value={equipo.observaciones || ''}
-                              onChange={(e) => handleEquipoChange(index, 'observaciones', e.target.value)}
-                              disabled={mode === 'view'}
-                              placeholder="Observaciones del equipo..."
-                            />
-                          </div>
+                        {/* Checkbox para equipo nuevo */}
+                        <div className="flex items-center space-x-2 mb-3">
+                          <Checkbox
+                            id={`esNuevo_${index}`}
+                            checked={equipo.esNuevo || false}
+                            onCheckedChange={(checked) => handleEquipoChange(index, 'esNuevo', checked)}
+                            disabled={mode === 'view'}
+                          />
+                          <Label htmlFor={`esNuevo_${index}`} className="cursor-pointer">
+                            Equipo nuevo
+                          </Label>
                         </div>
+
+                        {equipo.esNuevo ? (
+                          // Formulario para equipo nuevo
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label>Tipo de Equipo</Label>
+                              <Select
+                                value={equipo.tipo_equipo_id?.toString()}
+                                onValueChange={(value) => handleEquipoChange(index, 'tipo_equipo_id', parseInt(value))}
+                                disabled={mode === 'view'}
+                              >
+                                <SelectTrigger className={errors[`equipo_${index}_tipo`] ? 'border-red-500' : ''}>
+                                  <SelectValue placeholder="Seleccionar tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {tiposEquipo.map((tipo) => (
+                                    <SelectItem key={tipo.tipo_equipo_id} value={tipo.tipo_equipo_id.toString()}>
+                                      {tipo.nombre}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {errors[`equipo_${index}_tipo`] && (
+                                <p className="text-sm text-red-500">{errors[`equipo_${index}_tipo`]}</p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Número de Serie</Label>
+                              <Input
+                                type="text"
+                                value={equipo.numero_serie || ''}
+                                onChange={(e) => handleEquipoChange(index, 'numero_serie', e.target.value)}
+                                disabled={mode === 'view'}
+                                placeholder="ABC-123456"
+                                className={errors[`equipo_${index}_numero_serie`] ? 'border-red-500' : ''}
+                              />
+                              {errors[`equipo_${index}_numero_serie`] && (
+                                <p className="text-sm text-red-500">{errors[`equipo_${index}_numero_serie`]}</p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Estado</Label>
+                              <Select
+                                value={equipo.estado || 'Disponible'}
+                                onValueChange={(value) => handleEquipoChange(index, 'estado', value)}
+                                disabled={mode === 'view'}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Disponible">Disponible</SelectItem>
+                                  <SelectItem value="En reparación">En reparación</SelectItem>
+                                  <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
+                                  <SelectItem value="Retirado">Retirado</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Cantidad</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={equipo.cantidad || ''}
+                                onChange={(e) => handleEquipoChange(index, 'cantidad', parseInt(e.target.value) || 1)}
+                                disabled={mode === 'view'}
+                                className={errors[`equipo_${index}_cantidad`] ? 'border-red-500' : ''}
+                              />
+                              {errors[`equipo_${index}_cantidad`] && (
+                                <p className="text-sm text-red-500">{errors[`equipo_${index}_cantidad`]}</p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                              <Label>Observaciones</Label>
+                              <Input
+                                type="text"
+                                value={equipo.observaciones || ''}
+                                onChange={(e) => handleEquipoChange(index, 'observaciones', e.target.value)}
+                                disabled={mode === 'view'}
+                                placeholder="Observaciones del equipo..."
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          // Formulario para equipo existente (mantener flujo actual)
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label>Equipo</Label>
+                              <Select
+                                value={equipo.equipo_id?.toString()}
+                                onValueChange={(value) => handleEquipoChange(index, 'equipo_id', parseInt(value))}
+                                disabled={mode === 'view'}
+                              >
+                                <SelectTrigger className={errors[`equipo_${index}_equipo`] ? 'border-red-500' : ''}>
+                                  <SelectValue placeholder="Seleccionar equipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {equipos.map((eq) => (
+                                    <SelectItem key={eq.equipo_id} value={eq.equipo_id.toString()}>
+                                      {eq.numero_serie} - {eq.tipo_equipo_nombre}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {errors[`equipo_${index}_equipo`] && (
+                                <p className="text-sm text-red-500">{errors[`equipo_${index}_equipo`]}</p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Cantidad</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={equipo.cantidad || ''}
+                                onChange={(e) => handleEquipoChange(index, 'cantidad', parseInt(e.target.value) || 1)}
+                                disabled={mode === 'view'}
+                                className={errors[`equipo_${index}_cantidad`] ? 'border-red-500' : ''}
+                              />
+                              {errors[`equipo_${index}_cantidad`] && (
+                                <p className="text-sm text-red-500">{errors[`equipo_${index}_cantidad`]}</p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Observaciones</Label>
+                              <Input
+                                type="text"
+                                value={equipo.observaciones || ''}
+                                onChange={(e) => handleEquipoChange(index, 'observaciones', e.target.value)}
+                                disabled={mode === 'view'}
+                                placeholder="Observaciones del equipo..."
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
 

@@ -25,17 +25,12 @@ export default function PresupuestosPage() {
     error,
     pagination,
     search,
-    sort,
-    page,
-    limit,
-    handleSearch,
-    handleSort,
-    handlePageChange,
-    handleLimitChange,
-    createItem,
-    updateItem,
-    deleteItem,
-    refresh
+    setSorting,
+    setPagination,
+    create: createItem,
+    update: updateItem,
+    delete: deleteItem,
+    refetch
   } = useApi<PresupuestoServicio>('/api/servicios/presupuestos')
 
   const columns = [
@@ -194,9 +189,17 @@ export default function PresupuestosPage() {
   const handleSave = async (data: CreatePresupuestoServicioRequest | UpdatePresupuestoServicioRequest) => {
     try {
       if (modalMode === 'create') {
-        await createItem(data as CreatePresupuestoServicioRequest)
+        const result = await createItem(data as CreatePresupuestoServicioRequest)
+        if (!result.success) {
+          console.error('Error guardando presupuesto:', result.errors)
+          return
+        }
       } else {
-        await updateItem((data as UpdatePresupuestoServicioRequest).presu_serv_id!, data as UpdatePresupuestoServicioRequest)
+        const result = await updateItem((data as UpdatePresupuestoServicioRequest).presu_serv_id!, data as UpdatePresupuestoServicioRequest)
+        if (!result.success) {
+          console.error('Error actualizando presupuesto:', result.errors)
+          return
+        }
       }
       setIsModalOpen(false)
       setSelectedPresupuesto(null)
@@ -325,17 +328,16 @@ export default function PresupuestosPage() {
         <Card>
           <CardContent className="p-0">
             <DataTable
+              title=""
               data={presupuestos || []}
               columns={columns}
               loading={loading}
               error={error}
               pagination={pagination}
-              search={search}
-              sort={sort}
-              onSearch={handleSearch}
-              onSort={handleSort}
-              onPageChange={handlePageChange}
-              onLimitChange={handleLimitChange}
+              onSearch={search}
+              onSort={(column, order) => setSorting(column, order)}
+              onPageChange={(page) => setPagination(page, pagination?.limit || 10)}
+              onLimitChange={(limit) => setPagination(pagination?.page || 1, limit)}
               searchPlaceholder="Buscar presupuestos..."
             />
           </CardContent>

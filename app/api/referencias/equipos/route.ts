@@ -1,76 +1,127 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { pool } from '@/lib/db'
-import { requirePermission } from '@/lib/middleware/auth'
+import { NextRequest, NextResponse } from 'next/server';
+import { pool } from '@/lib/db';
+import { requirePermission, createAuthzErrorResponse } from '@/lib/middleware/auth';
 
+// GET - Listar equipos
 export async function GET(request: NextRequest) {
   try {
     // Verificar permisos
-    const { authorized, error } = requirePermission('referencias.leer')(request)
-    if (!authorized) {
-      return NextResponse.json({
-        success: false,
-        message: error || 'No autorizado',
-        error: 'Unauthorized'
-      }, { status: 401 })
-    }
-
-    const { searchParams } = new URL(request.url)
-    const search = searchParams.get('search') || ''
-    const limit = parseInt(searchParams.get('limit') || '100')
-    const offset = parseInt(searchParams.get('offset') || '0')
-
-    // Construir consulta de búsqueda
-    let whereClause = ''
-    const queryParams: any[] = []
+    const { authorized, error } = requirePermission('servicios.leer')(request);
     
-    if (search) {
-      whereClause = 'WHERE e.numero_serie ILIKE $1 OR tt.nombre ILIKE $1'
-      queryParams.push(`%${search}%`)
+    if (!authorized) {
+      return createAuthzErrorResponse(error || 'No autorizado');
     }
 
-    // Consulta principal
     const query = `
       SELECT 
         e.equipo_id,
         e.numero_serie,
         e.estado,
-        tt.nombre as tipo_equipo,
-        c.nombre as cliente_nombre,
-        c.cliente_id
+        te.tipo_equipo_id,
+        te.nombre as tipo_equipo_nombre,
+        te.descripcion
       FROM equipos e
-      LEFT JOIN tipo_equipo tt ON e.tipo_equipo_id = tt.tipo_equipo_id
-      LEFT JOIN recepcion_equipo_detalle red ON e.equipo_id = red.equipo_id
-      LEFT JOIN recepcion_equipo re ON red.recepcion_id = re.recepcion_id
-      LEFT JOIN solicitud_servicio ss ON re.solicitud_id = ss.solicitud_id
-      LEFT JOIN clientes c ON ss.cliente_id = c.cliente_id
-      ${whereClause}
-      ORDER BY e.numero_serie ASC
-      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
-    `
+      INNER JOIN tipo_equipo te ON e.tipo_equipo_id = te.tipo_equipo_id
+      ORDER BY e.equipo_id DESC
+    `;
 
-    const allParams = [...queryParams, limit, offset]
-    const result = await pool.query(query, allParams)
-    const equipos = result.rows.map(equipo => ({
-      equipo_id: Number(equipo.equipo_id),
-      numero_serie: String(equipo.numero_serie || ''),
-      estado: String(equipo.estado || ''),
-      tipo_equipo: String(equipo.tipo_equipo || ''),
-      cliente_nombre: String(equipo.cliente_nombre || ''),
-      cliente_id: equipo.cliente_id ? Number(equipo.cliente_id) : null
-    }))
-
+    const result = await pool.query(query);
+    
     return NextResponse.json({
       success: true,
-      message: 'Equipos obtenidos exitosamente',
-      data: equipos
-    })
+      data: result.rows
+    });
 
   } catch (error) {
-    console.error('Error al obtener equipos:', error)
+    console.error('Error obteniendo equipos:', error);
     return NextResponse.json({
       success: false,
-      message: 'Error interno del servidor',
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }, { status: 500 })
+      message: 'Error interno del servidor'
+    }, { status: 500 });
+  }
+}
+
+// POST - Crear nuevo equipo
+export async function POST(request: NextRequest) {
+  try {
+    // Verificar permisos
+    const { authorized, error } = requirePermission('servicios.crear')(request);
+    
+    if (!authorized) {
+      return createAuthzErrorResponse(error || 'No autorizado');
+    }
+
+    const body = await request.json();
+    const { tipo_equipo_id, numero_serie, estado } = body;
+
+    // Validaciones
+    if (!tipo_equipo_id) {
+      return NextResponse.json({
+        success: false,
+        message: 'El tipo de equipo es requerido'
+      }, { status: 400 });
+    }
+
+    if (!numero_serie || !numero_serie.trim()) {
+      return NextResponse.json({
+        success: false,
+        message: 'El número de serie es requerido'
+      }, { status: 400 });
+    }
+
+    // Verificar si ya existe un equipo con ese número de serie
+    const existingQuery = `SELECT equipo_id FROM equipos WHERE numero_serie = $1`;
+    const existing = await pool.query(existingQuery, [numero_serie.trim()]);
+    
+    if (existing.rows.length > 0) {
+      return NextResponse.json({
+        success: false,
+        message: 'Ya existe un equipo con ese número de serie'
+      }, { status: 400 });
+    }
+
+    // Insertar nuevo equipo
+    const insertQuery = `
+      INSERT INTO equipos (tipo_equipo_id, numero_serie, estado)
+      VALUES ($1, $2, $3)
+      RETURNING equipo_id
+    `;
+
+    const result = await pool.query(insertQuery, [
+      tipo_equipo_id,
+      numero_serie.trim(),
+      estado || 'Disponible'
+    ]);
+
+    const newEquipoId = result.rows[0].equipo_id;
+
+    // Obtener el equipo creado con todos sus datos
+    const getQuery = `
+      SELECT 
+        e.equipo_id,
+        e.numero_serie,
+        e.estado,
+        te.tipo_equipo_id,
+        te.nombre as tipo_equipo_nombre,
+        te.descripcion
+      FROM equipos e
+      INNER JOIN tipo_equipo te ON e.tipo_equipo_id = te.tipo_equipo_id
+      WHERE e.equipo_id = $1
+    `;
+
+    const equipoResult = await pool.query(getQuery, [newEquipoId]);
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Equipo creado exitosamente',
+      data: equipoResult.rows[0]
+    }, { status: 201 });
+
+  } catch (error) {
+    console.error('Error creando equipo:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Error interno del servidor'
+    }, { status: 500 });
   }
 }

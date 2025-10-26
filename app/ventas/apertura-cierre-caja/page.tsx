@@ -35,7 +35,7 @@ interface Caja {
 }
 
 export default function AperturaCierreCajaPage() {
-  const { authenticatedFetch } = useAuthenticatedFetch();
+  const { authenticatedFetch, token } = useAuthenticatedFetch();
   const {
     data: aperturas,
     loading,
@@ -47,6 +47,7 @@ export default function AperturaCierreCajaPage() {
     create,
     update,
     delete: deleteApertura,
+    refetch,
   } = useApi<AperturaCierreCaja>('/api/ventas/apertura-cierre-caja');
 
   const [searchTerm, setSearchTerm] = useState("")
@@ -60,9 +61,17 @@ export default function AperturaCierreCajaPage() {
   console.log('🔍 AperturaCierreCajaPage: aperturas:', aperturas);
   console.log('🔍 AperturaCierreCajaPage: loading:', loading);
   console.log('🔍 AperturaCierreCajaPage: error:', error);
+  console.log('🔍 AperturaCierreCajaPage: token disponible:', !!token);
 
   // Cargar cajas disponibles
   useEffect(() => {
+    if (!token) {
+      console.log('⚠️ Token no disponible, esperando...');
+      return;
+    }
+
+    let cancelled = false;
+
     const loadCajas = async () => {
       try {
         console.log('🔍 Cargando cajas desde /api/ventas/cajas...');
@@ -74,7 +83,10 @@ export default function AperturaCierreCajaPage() {
         if (response.ok) {
           const data = await response.json()
           console.log('🔍 Datos de cajas recibidos:', data);
-          setCajas(data.data || [])
+          
+          if (!cancelled) {
+            setCajas(data.data || [])
+          }
         } else {
           console.error('❌ Error al cargar cajas:', response.status, response.statusText);
         }
@@ -82,8 +94,13 @@ export default function AperturaCierreCajaPage() {
         console.error('❌ Error al cargar cajas:', error)
       }
     }
+    
     loadCajas()
-  }, []) // Removido authenticatedFetch de las dependencias
+    
+    return () => {
+      cancelled = true;
+    }
+  }, [token]) // Removido authenticatedFetch de las dependencias
 
   const handleSearch = (term: string) => {
     setSearchTerm(term)
@@ -129,10 +146,24 @@ export default function AperturaCierreCajaPage() {
 
   const handleSaveApertura = async (aperturaData: any): Promise<boolean> => {
     try {
-      return await create(aperturaData)
+      console.log('🔍 Guardando apertura de caja:', aperturaData);
+      const result = await create(aperturaData);
+      console.log('🔍 Resultado de create:', result);
+      
+      if (result.success) {
+        console.log('✅ Apertura guardada exitosamente');
+        // Recargar los datos
+        await refetch();
+        return true;
+      } else {
+        console.error('❌ Error al guardar apertura:', result.errors);
+        alert(`Error al guardar apertura: ${result.errors || 'Error desconocido'}`);
+        return false;
+      }
     } catch (error) {
-      console.error('Error al guardar apertura:', error)
-      return false
+      console.error('❌ Error al guardar apertura:', error);
+      alert(`Error al guardar apertura: ${error instanceof Error ? error.message : 'Error de conexión'}`);
+      return false;
     }
   }
 

@@ -48,6 +48,31 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
   const [detalles, setDetalles] = useState<any[]>([])
   const [showAgregarProducto, setShowAgregarProducto] = useState(false)
 
+  const loadPresupuestoCompleto = async (presuProvId: number) => {
+    try {
+      console.log('🔍 Cargando presupuesto completo desde API:', presuProvId)
+      const response = await authenticatedFetch(`/api/compras/presupuestos/${presuProvId}`)
+      const data = await response.json()
+      
+      if (data.success && data.data) {
+        console.log('✅ Datos del presupuesto cargados:', data.data)
+        setFormData({
+          usuario_id: data.data.usuario_id,
+          estado: data.data.estado,
+          observaciones: data.data.observaciones || '',
+          monto_presu_prov: data.data.monto_presu_prov,
+          fecha_presupuesto: data.data.fecha_presupuesto,
+          pedido_prov_id: data.data.pedido_prov_id,
+          proveedor_id: data.data.proveedor_id
+        })
+        // Cargar detalles
+        loadDetalles(presuProvId)
+      }
+    } catch (error) {
+      console.error('❌ Error cargando presupuesto completo:', error)
+    }
+  }
+
   // Cargar datos iniciales
   useEffect(() => {
     if (isOpen) {
@@ -55,16 +80,8 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
       loadProductos()
       if (presupuesto && mode !== 'create') {
         console.log('🔍 Cargando datos del presupuesto:', presupuesto)
-        setFormData({
-          usuario_id: presupuesto.usuario_id,
-          estado: presupuesto.estado,
-          observaciones: presupuesto.observaciones || '',
-          monto_presu_prov: presupuesto.monto_presu_prov,
-          fecha_presupuesto: presupuesto.fecha_presupuesto,
-          pedido_prov_id: presupuesto.pedido_prov_id,
-          proveedor_id: presupuesto.proveedor_id // Ahora se puede obtener del presupuesto
-        })
-        loadDetalles(presupuesto.presu_prov_id)
+        // Cargar datos completos desde la API
+        loadPresupuestoCompleto(presupuesto.presu_prov_id)
       } else if (mode === 'create') {
         // Resetear formulario para modo creación
         setFormData({
@@ -514,6 +531,7 @@ export function PresupuestoProveedorModal({ isOpen, onClose, onSave, presupuesto
                 {/* Botón para agregar producto */}
                 {mode !== 'view' && (
                   <Button
+                    type="button"
                     variant="outline"
                     onClick={() => setShowAgregarProducto(true)}
                     className="w-full"

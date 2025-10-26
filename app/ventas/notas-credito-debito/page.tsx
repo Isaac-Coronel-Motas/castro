@@ -44,6 +44,7 @@ export default function NotasCreditoDebitoPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [selectedNota, setSelectedNota] = useState<any>(null)
+  const [tipoNotaSeleccionado, setTipoNotaSeleccionado] = useState<'credito' | 'debito'>('credito')
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -135,7 +136,8 @@ export default function NotasCreditoDebitoPage() {
   }
 
   // Handlers del modal
-  const handleCreateNota = () => {
+  const handleCreateNota = (tipo: 'credito' | 'debito') => {
+    setTipoNotaSeleccionado(tipo)
     setModalMode('create')
     setSelectedNota(null)
     setIsModalOpen(true)
@@ -245,13 +247,22 @@ export default function NotasCreditoDebitoPage() {
             <h1 className="text-3xl font-bold text-foreground">Notas de Crédito/Débito</h1>
             <p className="text-muted-foreground">Gestión de ajustes contables y correcciones de ventas</p>
           </div>
-          <Button 
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            onClick={handleCreateNota}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Nota
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={() => handleCreateNota('credito')}
+            >
+              <TrendingDown className="h-4 w-4 mr-2" />
+              Nota de Crédito
+            </Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => handleCreateNota('debito')}
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Nota de Débito
+            </Button>
+          </div>
         </div>
 
         {/* Métricas */}
@@ -437,13 +448,22 @@ export default function NotasCreditoDebitoPage() {
                     : 'Aún no se han creado notas de crédito o débito.'
                   }
                 </p>
-                <Button 
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  onClick={handleCreateNota}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Crear Primera Nota
-                </Button>
+                <div className="flex gap-2 justify-center">
+                  <Button 
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    onClick={() => handleCreateNota('credito')}
+                  >
+                    <TrendingDown className="h-4 w-4 mr-2" />
+                    Nota de Crédito
+                  </Button>
+                  <Button 
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => handleCreateNota('debito')}
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Nota de Débito
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -456,7 +476,8 @@ export default function NotasCreditoDebitoPage() {
         onClose={handleCloseModal}
         onSave={handleSaveNota}
         nota={selectedNota}
-        mode={modalMode}
+        tipoOperacion="venta"
+        tipoNota={modalMode === 'create' ? tipoNotaSeleccionado : selectedNota?.tipo_nota || 'credito'}
       />
     </AppLayout>
   )

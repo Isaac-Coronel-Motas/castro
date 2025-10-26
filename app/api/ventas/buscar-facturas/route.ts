@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     // Obtener parámetros de consulta
     const { searchParams } = new URL(request.url);
     const numeroFactura = searchParams.get('numero') || '';
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = parseInt(searchParams.get('limit') || '100');
 
     if (!numeroFactura.trim()) {
       return NextResponse.json({

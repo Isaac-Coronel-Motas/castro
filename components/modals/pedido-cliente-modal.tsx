@@ -50,6 +50,38 @@ export function PedidoClienteModal({
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // Cargar datos completos del pedido
+  const loadPedidoCompleto = async (ventaId: number) => {
+    if (!token) return
+
+    try {
+      console.log('🔍 Cargando pedido completo desde API:', ventaId)
+      const response = await authenticatedFetch(`/api/ventas/pedidos-clientes/${ventaId}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+          if (data.success && data.data) {
+          console.log('✅ Datos del pedido cargados:', data.data)
+          setFormData({
+            cliente_id: data.data.cliente_id,
+            fecha_venta: data.data.fecha_venta,
+            estado: data.data.estado,
+            tipo_documento: data.data.tipo_documento,
+            observaciones: data.data.observaciones || '',
+            productos: data.data.productos?.map((p: any) => ({
+              producto_id: p.producto_id,
+              cantidad: Number(p.cantidad),
+              precio_unitario: Number(p.precio_unitario)
+            })) || []
+          })
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error cargando pedido completo:', error)
+    }
+  }
+
   // Cargar datos iniciales
   useEffect(() => {
     if (isOpen) {
@@ -57,18 +89,9 @@ export function PedidoClienteModal({
       loadProductos()
       
       if (pedido && mode !== 'create') {
-        setFormData({
-          cliente_id: pedido.cliente_id,
-          fecha_venta: pedido.fecha_venta,
-          estado: pedido.estado,
-          tipo_documento: pedido.tipo_documento,
-          observaciones: '',
-          productos: pedido.productos?.map(p => ({
-            producto_id: p.producto_id,
-            cantidad: p.cantidad,
-            precio_unitario: p.precio_unitario
-          })) || []
-        })
+        console.log('🔍 Cargando datos del pedido:', pedido)
+        // Cargar datos completos desde la API
+        loadPedidoCompleto(pedido.venta_id)
       } else {
         setFormData({
           cliente_id: 0,
@@ -80,7 +103,7 @@ export function PedidoClienteModal({
         })
       }
     }
-  }, [isOpen, pedido, mode])
+  }, [isOpen, pedido, mode, token])
 
   // Filtrar productos
   useEffect(() => {
@@ -149,10 +172,13 @@ export function PedidoClienteModal({
     }
 
     formData.productos.forEach((producto, index) => {
-      if (producto.cantidad <= 0) {
+      const cantidad = Number(producto.cantidad) || 0
+      const precio = Number(producto.precio_unitario) || 0
+      
+      if (cantidad <= 0) {
         newErrors[`producto_${index}_cantidad`] = 'La cantidad debe ser mayor a 0'
       }
-      if (producto.precio_unitario <= 0) {
+      if (precio <= 0) {
         newErrors[`producto_${index}_precio`] = 'El precio debe ser mayor a 0'
       }
     })
@@ -220,7 +246,9 @@ export function PedidoClienteModal({
 
   const getTotal = () => {
     return formData.productos.reduce((total, producto) => {
-      return total + (producto.cantidad * producto.precio_unitario)
+      const cantidad = Number(producto.cantidad) || 0
+      const precio = Number(producto.precio_unitario) || 0
+      return total + (cantidad * precio)
     }, 0)
   }
 
@@ -389,31 +417,13 @@ export function PedidoClienteModal({
                         <div>
                           <Label className="text-sm font-medium text-gray-700">Cantidad</Label>
                           {!isReadOnly ? (
-                            <div className="flex items-center gap-2 mt-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateProductoCantidad(index, Math.max(1, producto.cantidad - 1))}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <Input
-                                type="number"
-                                value={producto.cantidad}
-                                onChange={(e) => updateProductoCantidad(index, parseInt(e.target.value) || 1)}
-                                className="w-20 text-center"
-                                min="1"
-                              />
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateProductoCantidad(index, producto.cantidad + 1)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            </div>
+                            <Input
+                              type="number"
+                              value={producto.cantidad || ''}
+                              onChange={(e) => updateProductoCantidad(index, parseInt(e.target.value) || 1)}
+                              className="mt-2"
+                              min="1"
+                            />
                           ) : (
                             <p className="text-sm text-gray-600 mt-2">{producto.cantidad}</p>
                           )}
@@ -424,20 +434,20 @@ export function PedidoClienteModal({
                           {!isReadOnly ? (
                             <Input
                               type="number"
-                              value={producto.precio_unitario}
+                              value={producto.precio_unitario || ''}
                               onChange={(e) => updateProductoPrecio(index, parseFloat(e.target.value) || 0)}
                               className="mt-2"
                               min="0"
                             />
                           ) : (
-                            <p className="text-sm text-gray-600 mt-2">${producto.precio_unitario.toFixed(2)}</p>
+                            <p className="text-sm text-gray-600 mt-2">${(Number(producto.precio_unitario) || 0).toFixed(2)}</p>
                           )}
                         </div>
                         
                         <div>
                           <Label className="text-sm font-medium text-gray-700">Subtotal</Label>
                           <p className="text-sm font-semibold text-gray-900 mt-2">
-                            ${(producto.cantidad * producto.precio_unitario).toFixed(2)}
+                            ${((Number(producto.cantidad) || 0) * (Number(producto.precio_unitario) || 0)).toFixed(2)}
                           </p>
                         </div>
                       </div>

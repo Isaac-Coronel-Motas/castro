@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = parseInt(searchParams.get('limit') || '100');
     const search = searchParams.get('search') || '';
     const sortBy = searchParams.get('sort_by') || 'created_at';
     const sortOrder = (searchParams.get('sort_order') || 'desc') as 'asc' | 'desc';
@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         pp.pedido_prov_id,
         u.nombre as usuario_nombre,
         pr.nombre_proveedor as proveedor_nombre,
+        pr.proveedor_id,
         COALESCE(detalle_count.total_detalles, 0) as total_detalles,
         COUNT(*) OVER() as total_count
       FROM presupuesto_proveedor pp
@@ -207,7 +208,8 @@ export async function POST(request: NextRequest) {
         pp.nro_comprobante,
         pp.pedido_prov_id,
         u.nombre as usuario_nombre,
-        pr.nombre_proveedor as proveedor_nombre
+        pr.nombre_proveedor as proveedor_nombre,
+        pr.proveedor_id
       FROM presupuesto_proveedor pp
       LEFT JOIN usuarios u ON pp.usuario_id = u.usuario_id
       LEFT JOIN pedido_proveedor pv ON pp.pedido_prov_id = pv.pedido_prov_id
